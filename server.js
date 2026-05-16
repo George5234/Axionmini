@@ -1,15 +1,16 @@
 // ============================================================================
-// AXION AI BOT - PROFESSIONAL AIRDROP BOT v1.0
+// AXION AI BOT - THE LEGENDARY FINAL VERSION
 // ============================================================================
-// الأسطورة التي ستصمت جروك إلى الأبد
 // تم الإنشاء بواسطة: DeepSeek & George (الفريق الأسطوري)
+// يشمل: تحقق من 4 قنوات، إحالات، سحب يدوي، حذف ذكي للرسائل، أزرار رجوع،
+//        لوحة مشرف متكاملة، عداد إحالات منفصل، كل الأسرار من Render
 // ============================================================================
 
 // ============================================================================
 // 1. المكتبات والتهيئة الأساسية
 // ============================================================================
 const express = require('express');
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf } = require('telegraf');
 const admin = require('firebase-admin');
 const fs = require('fs');
 const cors = require('cors');
@@ -49,9 +50,6 @@ try {
     if (fs.existsSync(firebasePath)) {
         serviceAccount = JSON.parse(fs.readFileSync(firebasePath, 'utf8'));
         console.log('✅ Firebase Admin key loaded from secrets');
-    } else {
-        const firebaseKey = process.env.FIREBASE_ADMIN_KEY;
-        if (firebaseKey) serviceAccount = JSON.parse(firebaseKey);
     }
 } catch (error) { console.error('Firebase Admin key error:', error.message); }
 
@@ -106,6 +104,7 @@ const AXC_PRICE = 0.0099;
 
 const userLastMessages = new Map();
 const userSessions = new Map();
+const adminSessions = new Map();
 
 // ============================================================================
 // 5. دوال مساعدة أساسية
@@ -161,6 +160,22 @@ async function incrementReferralCount(referrerId) {
             lastReferral: new Date().toISOString()
         }, { merge: true });
     } catch (error) { console.error('Referral count error:', error); }
+}
+
+async function isAdminAuthenticated(ctx) {
+    const userId = ctx.from.id.toString();
+    if (userId !== ADMIN_ID) return false;
+    const session = adminSessions.get(userId);
+    if (!session || session.step !== 'authenticated') {
+        await ctx.reply(`⚠️ *Authentication Required*\n━━━━━━━━━━━━━━━━━━━━━━\nPlease use /admin to login first.`, { parse_mode: 'Markdown' });
+        return false;
+    }
+    if (Date.now() - session.authenticatedAt > 60 * 60 * 1000) {
+        adminSessions.delete(userId);
+        await ctx.reply(`⚠️ *Session Expired*\n━━━━━━━━━━━━━━━━━━━━━━\nPlease use /admin again.`, { parse_mode: 'Markdown' });
+        return false;
+    }
+    return true;
 }
 
 // ============================================================================
@@ -495,29 +510,68 @@ bot.action('back_to_menu', async (ctx) => {
 });
 
 // ============================================================================
-// 13. أوامر المشرف
+// 13. أوامر المشرف (مع مصادقة كلمة المرور)
 // ============================================================================
+
+// أمر بدء جلسة المشرف
 bot.command('admin', async (ctx) => {
-    if (ctx.from.id.toString() !== ADMIN_ID) {
+    const userId = ctx.from.id.toString();
+    
+    console.log(`🔐 Admin command from ${userId}`);
+    
+    if (userId !== ADMIN_ID) {
         await ctx.reply('⛔ *Access denied!*', { parse_mode: 'Markdown' });
         return;
     }
-    await ctx.reply(`👑 *AXION AI ADMIN PANEL*
+    
+    await ctx.reply(`🔐 *Admin Authentication*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📋 *Commands:*
+Please enter your admin password.
 
-/pending - Pending withdrawals
-/stats - Bot statistics
-/verify [id] - Verify user
-/add [id] [amount] - Add balance
-/remove [id] [amount] - Remove balance
-
-🔐 *Authenticated*`, { parse_mode: 'Markdown' });
+*Password is stored in Render Secrets.*`, { parse_mode: 'Markdown' });
+    
+    adminSessions.set(userId, { step: 'awaiting_password' });
 });
 
+// معالجة كلمة المرور
+bot.on('text', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    const session = adminSessions.get(userId);
+    const text = ctx.message.text;
+    
+    if (text.startsWith('/')) return;
+    
+    if (session?.step === 'awaiting_password') {
+        if (text === ADMIN_PASSWORD) {
+            adminSessions.set(userId, { step: 'authenticated', authenticatedAt: Date.now() });
+            await ctx.reply(`✅ *Authentication Successful!*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👑 *Axion AI Admin Panel*
+
+📋 *Available Commands:*
+
+/pending - View pending withdrawals
+/stats - View bot statistics
+/users - Total users count
+/search [user_id] - Search user
+/verify [user_id] - Manually verify user
+/add [user_id] [amount] - Add balance
+/remove [user_id] [amount] - Remove balance
+
+🔐 *Session expires in 1 hour*`, { parse_mode: 'Markdown' });
+        } else {
+            await ctx.reply(`❌ *Wrong password!* Access denied.`, { parse_mode: 'Markdown' });
+            adminSessions.delete(userId);
+        }
+        return;
+    }
+});
+
+// أوامر المشرف المحمية
 bot.command('pending', async (ctx) => {
-    if (ctx.from.id.toString() !== ADMIN_ID) return;
+    if (!await isAdminAuthenticated(ctx)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const snapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
@@ -533,7 +587,7 @@ bot.command('pending', async (ctx) => {
 });
 
 bot.command('stats', async (ctx) => {
-    if (ctx.from.id.toString() !== ADMIN_ID) return;
+    if (!await isAdminAuthenticated(ctx)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const usersSnapshot = await db.collection('users').get();
@@ -552,8 +606,107 @@ bot.command('stats', async (ctx) => {
 🤖 *Status:* ✅ Online`, { parse_mode: 'Markdown' });
 });
 
+bot.command('users', async (ctx) => {
+    if (!await isAdminAuthenticated(ctx)) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
+    const snapshot = await db.collection('users').get();
+    await ctx.reply(`👥 *Total Registered Users:* ${snapshot.size}`, { parse_mode: 'Markdown' });
+});
+
+bot.command('search', async (ctx) => {
+    if (!await isAdminAuthenticated(ctx)) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
+    const args = ctx.message.text.split(' ');
+    const targetId = args[1];
+    if (!targetId) { await ctx.reply('Usage: /search [user_id]'); return; }
+    
+    const userDoc = await db.collection('users').doc(targetId).get();
+    if (!userDoc.exists) { await ctx.reply(`❌ User ${targetId} not found.`); return; }
+    
+    const user = userDoc.data();
+    await ctx.reply(`👤 *USER INFO*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🆔 *ID:* ${user.userId}
+👤 *Name:* ${user.userName}
+💰 *Balance:* ${formatAXC(user.balance || 0)}
+👥 *Referrals:* ${user.inviteCount || 0}
+✅ *Verified:* ${user.isVerified ? 'Yes' : 'No'}
+💳 *Wallet:* ${user.walletAddress ? user.walletAddress.substring(0, 10) + '...' : 'Not set'}
+📅 *Joined:* ${new Date(user.createdAt).toLocaleDateString()}`, { parse_mode: 'Markdown' });
+});
+
+bot.command('verify', async (ctx) => {
+    if (!await isAdminAuthenticated(ctx)) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
+    const args = ctx.message.text.split(' ');
+    const targetId = args[1];
+    if (!targetId) { await ctx.reply('Usage: /verify [user_id]'); return; }
+    
+    const userRef = db.collection('users').doc(targetId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) { await ctx.reply(`❌ User ${targetId} not found.`); return; }
+    
+    const user = userDoc.data();
+    if (user.isVerified) { await ctx.reply(`✅ User ${targetId} is already verified.`); return; }
+    
+    await userRef.update({ isVerified: true, verifiedAt: new Date().toISOString(), balance: admin.firestore.FieldValue.increment(WELCOME_BONUS) });
+    await ctx.reply(`✅ User ${targetId} verified successfully! +${formatAXC(WELCOME_BONUS)} added.`);
+    
+    await bot.telegram.sendMessage(targetId, `✅ *Account Verified by Admin!*\n\n+${formatAXC(WELCOME_BONUS)} added to your balance!`, { parse_mode: 'Markdown' }).catch(() => {});
+});
+
+bot.command('add', async (ctx) => {
+    if (!await isAdminAuthenticated(ctx)) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
+    const args = ctx.message.text.split(' ');
+    if (args.length < 3) { await ctx.reply('Usage: /add [user_id] [amount]'); return; }
+    
+    const targetId = args[1];
+    const amount = parseInt(args[2]);
+    if (isNaN(amount) || amount <= 0) { await ctx.reply('❌ Invalid amount.'); return; }
+    
+    const userRef = db.collection('users').doc(targetId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) { await ctx.reply(`❌ User ${targetId} not found.`); return; }
+    
+    await userRef.update({ balance: admin.firestore.FieldValue.increment(amount), totalEarned: admin.firestore.FieldValue.increment(amount) });
+    await ctx.reply(`✅ Added ${formatAXC(amount)} to user ${targetId}`);
+    
+    await bot.telegram.sendMessage(targetId, `💰 *Admin Added Balance!*\n\n+${formatAXC(amount)} added to your account!`, { parse_mode: 'Markdown' }).catch(() => {});
+});
+
+bot.command('remove', async (ctx) => {
+    if (!await isAdminAuthenticated(ctx)) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
+    const args = ctx.message.text.split(' ');
+    if (args.length < 3) { await ctx.reply('Usage: /remove [user_id] [amount]'); return; }
+    
+    const targetId = args[1];
+    const amount = parseInt(args[2]);
+    if (isNaN(amount) || amount <= 0) { await ctx.reply('❌ Invalid amount.'); return; }
+    
+    const userRef = db.collection('users').doc(targetId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) { await ctx.reply(`❌ User ${targetId} not found.`); return; }
+    
+    await userRef.update({ balance: admin.firestore.FieldValue.increment(-amount) });
+    await ctx.reply(`✅ Removed ${formatAXC(amount)} from user ${targetId}`);
+    
+    await bot.telegram.sendMessage(targetId, `💰 *Admin Removed Balance!*\n\n-${formatAXC(amount)} removed from your account.`, { parse_mode: 'Markdown' }).catch(() => {});
+});
+
+// ============================================================================
+// 14. أوامر الموافقة والرفض من مجموعة السحب
+// ============================================================================
 bot.command(/approve_(.+)/, async (ctx) => {
-    if (ctx.from.id.toString() !== ADMIN_ID) return;
+    const userId = ctx.from.id.toString();
+    if (userId !== ADMIN_ID) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const id = ctx.match[1];
@@ -571,7 +724,8 @@ bot.command(/approve_(.+)/, async (ctx) => {
 });
 
 bot.command(/reject_(.+)/, async (ctx) => {
-    if (ctx.from.id.toString() !== ADMIN_ID) return;
+    const userId = ctx.from.id.toString();
+    if (userId !== ADMIN_ID) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const id = ctx.match[1];
@@ -590,7 +744,7 @@ bot.command(/reject_(.+)/, async (ctx) => {
 });
 
 // ============================================================================
-// 14. تشغيل البوت
+// 15. تشغيل البوت
 // ============================================================================
 bot.launch({ dropPendingUpdates: true })
     .then(() => console.log('🤖 Axion AI Bot launched successfully'))
@@ -600,7 +754,7 @@ process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 // ============================================================================
-// 15. إعدادات Express (السيرفر الخفيف)
+// 16. إعدادات Express (السيرفر الخفيف)
 // ============================================================================
 app.use(cors());
 app.use(express.json());
@@ -611,7 +765,7 @@ app.get('/ping', (req, res) => res.send('pong'));
 app.get('/api/config', (req, res) => res.json({ firebaseConfig: firebaseWebConfig, status: 'ok' }));
 
 // ============================================================================
-// 16. تشغيل السيرفر وعرض معلومات البوت النهائية
+// 17. تشغيل السيرفر وعرض معلومات البوت النهائية
 // ============================================================================
 app.listen(PORT, () => {
     console.log(`🌐 Keep-alive server running on port ${PORT}`);
