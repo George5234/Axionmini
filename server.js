@@ -1,9 +1,10 @@
 // ============================================================================
-// AXION AI BOT - THE LEGENDARY FINAL VERSION
+// AXION AI BOT - LEGENDARY FINAL VERSION v2.0
 // ============================================================================
-// تم الإنشاء بواسطة: DeepSeek & George (الفريق الأسطوري)
-// يشمل: تحقق من 4 قنوات، إحالات، سحب يدوي، حذف ذكي للرسائل، أزرار رجوع،
-//        لوحة مشرف متكاملة، عداد إحالات منفصل، كل الأسرار من Render
+// تم الإنشاء بواسطة: DeepSeek & George
+// الوظائف: تحقق إجباري من 4 قنوات، إحالات، سحب يدوي، حذف ذكي، أزرار رجوع،
+// لوحة مشرف كاملة (أوامر فقط للمشرف)، لا أوامر للمستخدمين العاديين،
+// زر مشاركة مباشر مع رسالة تحفيزية، جميع الأسرار من Render
 // ============================================================================
 
 // ============================================================================
@@ -23,7 +24,6 @@ const PORT = process.env.PORT || 3000;
 // 2. قراءة الأسرار من Render Secrets ومتغيرات البيئة
 // ============================================================================
 let ADMIN_ID = null;
-let ADMIN_PASSWORD = null;
 let BOT_TOKEN = null;
 let WITHDRAWAL_GROUP_ID = null;
 let serviceAccount = null;
@@ -36,11 +36,9 @@ try {
     if (fs.existsSync(adminPath)) {
         const adminConfig = JSON.parse(fs.readFileSync(adminPath, 'utf8'));
         ADMIN_ID = adminConfig.admin_id;
-        ADMIN_PASSWORD = adminConfig.admin_password;
         console.log('✅ Admin config loaded from secrets');
     } else {
         ADMIN_ID = process.env.ADMIN_ID;
-        ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
         if (ADMIN_ID) console.log('✅ Admin ID loaded from environment');
     }
 } catch (error) { console.error('Admin config error:', error.message); }
@@ -104,7 +102,6 @@ const AXC_PRICE = 0.0099;
 
 const userLastMessages = new Map();
 const userSessions = new Map();
-const adminSessions = new Map();
 
 // ============================================================================
 // 5. دوال مساعدة أساسية
@@ -112,6 +109,10 @@ const adminSessions = new Map();
 function formatAXC(amount) {
     const usd = (amount * AXC_PRICE).toFixed(2);
     return `${amount.toLocaleString()} AXC (~$${usd})`;
+}
+
+function isAdmin(userId) {
+    return userId === ADMIN_ID;
 }
 
 async function deleteLastMessage(ctx) {
@@ -160,22 +161,6 @@ async function incrementReferralCount(referrerId) {
             lastReferral: new Date().toISOString()
         }, { merge: true });
     } catch (error) { console.error('Referral count error:', error); }
-}
-
-async function isAdminAuthenticated(ctx) {
-    const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) return false;
-    const session = adminSessions.get(userId);
-    if (!session || session.step !== 'authenticated') {
-        await ctx.reply(`⚠️ *Authentication Required*\n━━━━━━━━━━━━━━━━━━━━━━\nPlease use /admin to login first.`, { parse_mode: 'Markdown' });
-        return false;
-    }
-    if (Date.now() - session.authenticatedAt > 60 * 60 * 1000) {
-        adminSessions.delete(userId);
-        await ctx.reply(`⚠️ *Session Expired*\n━━━━━━━━━━━━━━━━━━━━━━\nPlease use /admin again.`, { parse_mode: 'Markdown' });
-        return false;
-    }
-    return true;
 }
 
 // ============================================================================
@@ -242,6 +227,17 @@ function getBackKeyboard() {
     };
 }
 
+// زر مشاركة مباشر مع رسالة تحفيزية
+function getShareKeyboard(link) {
+    const shareText = encodeURIComponent(`🚀 Join me on Axion AI! 🚀\n\nAxion is an AI-powered trading platform that gives real-time crypto signals.\n\n💰 Get 100 AXC bonus (~$1) after verification!\n👥 Earn 100 AXC (~$1) per referral!\n💎 Minimum withdrawal: 1000 AXC (~$10)\n\nJoin now: ${link}`);
+    return {
+        inline_keyboard: [
+            [{ text: '📤 SHARE LINK', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${shareText}` }],
+            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
+        ]
+    };
+}
+
 // ============================================================================
 // 8. رسالة الترحيب
 // ============================================================================
@@ -251,19 +247,31 @@ async function sendWelcomeMessage(ctx) {
 
 *The Future of AI-Powered Trading*
 
-Axion is an advanced AI-driven ecosystem that analyzes market trends and delivers real-time trading signals.
+Axion is an advanced AI-driven ecosystem that analyzes market trends and delivers real-time trading signals to maximize your crypto profits.
+
+*Why Axion?*
+🤖 *AI Analysis* - 24/7 market monitoring
+📊 *Real-time Signals* - Trade with confidence
+🚀 *Early Access* - Be among the first 10,000 users
+💰 *Passive Income* - Grow your AXC tokens daily
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🎁 *Get ${formatAXC(WELCOME_BONUS)}* after verification
 👥 *Get ${formatAXC(REFERRAL_BONUS)}* per referral
 💎 *Minimum Withdrawal:* ${formatAXC(MIN_WITHDRAW)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📢 *Please join our channels to continue:*`;
     await sendAndTrack(ctx, message, getChannelsKeyboard());
 }
 
 // ============================================================================
-// 9. أوامر البوت العامة
+// 9. أوامر البوت العامة (المستخدمين)
 // ============================================================================
+
+// الأمر الوحيد المتاح للجميع
 bot.start(async (ctx) => {
     const userId = ctx.from.id.toString();
     const userName = ctx.from.first_name || 'Axion User';
@@ -284,6 +292,7 @@ bot.start(async (ctx) => {
     await sendWelcomeMessage(ctx);
 });
 
+// أزرار المستخدمين (لا أوامر نصية)
 bot.hears('💰 BALANCE', async (ctx) => {
     const user = await getOrCreateUser(ctx.from.id.toString(), '', '');
     if (!user) return;
@@ -310,14 +319,8 @@ bot.hears('🔗 REFERRAL', async (ctx) => {
 
 👥 *Referrals:* ${user.inviteCount || 0}
 🎁 *Earned:* ${formatAXC((user.inviteCount || 0) * REFERRAL_BONUS)}`;
-
-    const referralKeyboard = {
-        inline_keyboard: [
-            [{ text: '📤 SHARE LINK', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=Join%20Axion%20AI%20and%20earn%20crypto!` }],
-            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
-        ]
-    };
-    await sendAndTrack(ctx, message, referralKeyboard);
+    
+    await sendAndTrack(ctx, message, getShareKeyboard(link));
 });
 
 bot.hears('💸 WITHDRAW', async (ctx) => {
@@ -366,11 +369,13 @@ Send your *BEP20 wallet address*.
 });
 
 // ============================================================================
-// 10. معالجة النصوص (عنوان المحفظة)
+// 10. معالجة النصوص (عنوان المحفظة فقط)
 // ============================================================================
 bot.on('text', async (ctx) => {
     const userId = ctx.from.id.toString();
     const text = ctx.message.text;
+    
+    // تجاهل الأزرار والأوامر
     if (text.startsWith('/') || ['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW'].includes(text)) return;
     
     const session = userSessions.get(userId);
@@ -510,68 +515,12 @@ bot.action('back_to_menu', async (ctx) => {
 });
 
 // ============================================================================
-// 13. أوامر المشرف (مع مصادقة كلمة المرور)
+// 13. أوامر المشرف (فقط للمعرف المخزن، لا يستجيب لها المستخدمون العاديون)
 // ============================================================================
 
-// أمر بدء جلسة المشرف
-bot.command('admin', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    
-    console.log(`🔐 Admin command from ${userId}`);
-    
-    if (userId !== ADMIN_ID) {
-        await ctx.reply('⛔ *Access denied!*', { parse_mode: 'Markdown' });
-        return;
-    }
-    
-    await ctx.reply(`🔐 *Admin Authentication*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Please enter your admin password.
-
-*Password is stored in Render Secrets.*`, { parse_mode: 'Markdown' });
-    
-    adminSessions.set(userId, { step: 'awaiting_password' });
-});
-
-// معالجة كلمة المرور
-bot.on('text', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const session = adminSessions.get(userId);
-    const text = ctx.message.text;
-    
-    if (text.startsWith('/')) return;
-    
-    if (session?.step === 'awaiting_password') {
-        if (text === ADMIN_PASSWORD) {
-            adminSessions.set(userId, { step: 'authenticated', authenticatedAt: Date.now() });
-            await ctx.reply(`✅ *Authentication Successful!*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-👑 *Axion AI Admin Panel*
-
-📋 *Available Commands:*
-
-/pending - View pending withdrawals
-/stats - View bot statistics
-/users - Total users count
-/search [user_id] - Search user
-/verify [user_id] - Manually verify user
-/add [user_id] [amount] - Add balance
-/remove [user_id] [amount] - Remove balance
-
-🔐 *Session expires in 1 hour*`, { parse_mode: 'Markdown' });
-        } else {
-            await ctx.reply(`❌ *Wrong password!* Access denied.`, { parse_mode: 'Markdown' });
-            adminSessions.delete(userId);
-        }
-        return;
-    }
-});
-
-// أوامر المشرف المحمية
 bot.command('pending', async (ctx) => {
-    if (!await isAdminAuthenticated(ctx)) return;
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const snapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
@@ -587,7 +536,8 @@ bot.command('pending', async (ctx) => {
 });
 
 bot.command('stats', async (ctx) => {
-    if (!await isAdminAuthenticated(ctx)) return;
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const usersSnapshot = await db.collection('users').get();
@@ -607,7 +557,8 @@ bot.command('stats', async (ctx) => {
 });
 
 bot.command('users', async (ctx) => {
-    if (!await isAdminAuthenticated(ctx)) return;
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const snapshot = await db.collection('users').get();
@@ -615,7 +566,8 @@ bot.command('users', async (ctx) => {
 });
 
 bot.command('search', async (ctx) => {
-    if (!await isAdminAuthenticated(ctx)) return;
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const args = ctx.message.text.split(' ');
@@ -639,7 +591,8 @@ bot.command('search', async (ctx) => {
 });
 
 bot.command('verify', async (ctx) => {
-    if (!await isAdminAuthenticated(ctx)) return;
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const args = ctx.message.text.split(' ');
@@ -660,7 +613,8 @@ bot.command('verify', async (ctx) => {
 });
 
 bot.command('add', async (ctx) => {
-    if (!await isAdminAuthenticated(ctx)) return;
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const args = ctx.message.text.split(' ');
@@ -681,7 +635,8 @@ bot.command('add', async (ctx) => {
 });
 
 bot.command('remove', async (ctx) => {
-    if (!await isAdminAuthenticated(ctx)) return;
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const args = ctx.message.text.split(' ');
@@ -706,7 +661,7 @@ bot.command('remove', async (ctx) => {
 // ============================================================================
 bot.command(/approve_(.+)/, async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) return;
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const id = ctx.match[1];
@@ -725,7 +680,7 @@ bot.command(/approve_(.+)/, async (ctx) => {
 
 bot.command(/reject_(.+)/, async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) return;
+    if (!isAdmin(userId)) return;
     if (!db) { await ctx.reply('❌ Database not connected.'); return; }
     
     const id = ctx.match[1];
@@ -774,7 +729,7 @@ app.listen(PORT, () => {
 bot.telegram.getMe().then((botInfo) => {
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`📢 Bot: @${botInfo.username}`);
-    console.log(`✅ Axion AI Bot - Professional Edition Loaded`);
+    console.log(`✅ Axion AI Bot - Legendary Final Edition`);
     console.log(`👑 Admin ID: ${ADMIN_ID}`);
     console.log(`💎 Withdraw: ${MIN_WITHDRAW} AXC ($${MIN_WITHDRAW * AXC_PRICE})`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -782,5 +737,5 @@ bot.telegram.getMe().then((botInfo) => {
 }).catch(err => console.error('Failed to get bot info:', err.message));
 
 // ============================================================================
-// نهاية الملف الأسطوري
+// نهاية الملف الأسطوري النهائي
 // ============================================================================
