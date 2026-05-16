@@ -2,7 +2,7 @@
 // 1. المكتبات والتهيئة الأساسية
 // ============================================================================
 const express = require('express');
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf } = require('telegraf');
 const admin = require('firebase-admin');
 const fs = require('fs');
 const cors = require('cors');
@@ -12,7 +12,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================================================
-// 2. قراءة الأسرار من Render Secrets
+// 2. قراءة الأسرار من Render Secrets ومتغيرات البيئة
 // ============================================================================
 let ADMIN_ID = null;
 let ADMIN_PASSWORD = null;
@@ -21,6 +21,8 @@ let WITHDRAWAL_GROUP_ID = null;
 let serviceAccount = null;
 let firebaseWebConfig = {};
 
+console.log('🔍 Loading secrets...');
+
 try {
     const adminPath = '/etc/secrets/admin-config.json';
     if (fs.existsSync(adminPath)) {
@@ -28,6 +30,11 @@ try {
         ADMIN_ID = adminConfig.admin_id;
         ADMIN_PASSWORD = adminConfig.admin_password;
         console.log('✅ Admin config loaded from secrets');
+    } else {
+        console.log('⚠️ Admin config not found, checking environment...');
+        ADMIN_ID = process.env.ADMIN_ID;
+        ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+        if (ADMIN_ID) console.log('✅ Admin ID loaded from environment');
     }
 } catch (error) { console.error('Admin config error:', error.message); }
 
@@ -35,7 +42,11 @@ try {
     const firebasePath = '/etc/secrets/firebase-admin-key.json';
     if (fs.existsSync(firebasePath)) {
         serviceAccount = JSON.parse(fs.readFileSync(firebasePath, 'utf8'));
-        console.log('✅ Firebase Admin key loaded');
+        console.log('✅ Firebase Admin key loaded from secrets');
+    } else {
+        console.log('⚠️ Firebase Admin key not found, checking environment...');
+        const firebaseKey = process.env.FIREBASE_ADMIN_KEY;
+        if (firebaseKey) serviceAccount = JSON.parse(firebaseKey);
     }
 } catch (error) { console.error('Firebase Admin key error:', error.message); }
 
@@ -54,6 +65,13 @@ if (!BOT_TOKEN) {
     console.error('❌ BOT_TOKEN is required!');
     process.exit(1);
 }
+console.log(`✅ BOT_TOKEN loaded (length: ${BOT_TOKEN.length})`);
+
+if (WITHDRAWAL_GROUP_ID) {
+    console.log(`✅ WITHDRAWAL_GROUP_ID loaded: ${WITHDRAWAL_GROUP_ID}`);
+} else {
+    console.log('⚠️ WITHDRAWAL_GROUP_ID not set - withdrawals will be logged only');
+}
 
 // ============================================================================
 // 3. تهيئة Firebase Admin SDK
@@ -67,6 +85,8 @@ if (serviceAccount) {
         db = admin.firestore();
         console.log('🔥 Firebase Admin SDK initialized');
     } catch (error) { console.error('Firebase init error:', error.message); }
+} else {
+    console.log('⚠️ Firebase not configured - running in limited mode');
 }
 
 // ============================================================================
@@ -157,7 +177,15 @@ async function incrementReferralCount(referrerId) {
 // 6. نظام المستخدمين والتسجيل في Firebase
 // ============================================================================
 async function getOrCreateUser(userId, userName, username, referredBy = null) {
-    if (!db) return null;
+    if (!db) {
+        return {
+            userId, userName: userName || 'Axion User', username: username || '',
+            balance: 0, totalEarned: 0, inviteCount: 0,
+            referredBy, referrals: [], walletAddress: null,
+            isVerified: false, verifiedAt: null,
+            createdAt: new Date().toISOString(), lastActive: new Date().toISOString()
+        };
+    }
     try {
         const userRef = db.collection('users').doc(userId);
         const userDoc = await userRef.get();
@@ -271,7 +299,8 @@ bot.hears('🔗 REFERRAL', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getOrCreateUser(userId, '', '');
     if (!user) return;
-    const link = `https://t.me/${ctx.botInfo.username}?start=${userId}`;
+    const botInfo = await bot.telegram.getMe();
+    const link = `https://t.me/${botInfo.username}?start=${userId}`;
     const message = `🔗 *YOUR REFERRAL LINK*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -279,7 +308,7 @@ bot.hears('🔗 REFERRAL', async (ctx) => {
 
 👥 *Referrals:* ${user.inviteCount || 0}
 🎁 *Earned:* ${formatAXC((user.inviteCount || 0) * REFERRAL_BONUS)}`;
-    const shareKeyboard = { inline_keyboard: [[{ text: '📤 SHARE LINK', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=Join%20Axion%20AI!` }]] };
+    const shareKeyboard = { inline_keyboard: [[{ text: '📤 SHARE LINK', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=Join%20Axion%20AI%20and%20earn%20crypto!` }]] };
     await sendAndTrack(ctx, message, shareKeyboard);
 });
 
@@ -289,19 +318,34 @@ bot.hears('💸 WITHDRAW', async (ctx) => {
     if (!user) return;
     
     if (!user.walletAddress) {
-        await sendAndTrack(ctx, `💸 *WITHDRAWAL SETUP*\n━━━━━━━━━━━━━━━━━━━━━━\n⚠️ *No wallet address found*\n\nSend your *BEP20 wallet address*.\n\n📝 *Type or paste your address below:*`);
+        await sendAndTrack(ctx, `💸 *WITHDRAWAL SETUP*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ *No wallet address found*
+
+Send your *BEP20 wallet address*.
+
+📝 *Type or paste your address below:*`);
         userSessions.set(userId, { waitingForWallet: true });
         return;
     }
     
     if ((user.balance || 0) < MIN_WITHDRAW) {
         const needed = MIN_WITHDRAW - (user.balance || 0);
-        await sendAndTrack(ctx, `❌ *Insufficient Balance*\n📊 Your: ${formatAXC(user.balance || 0)}\n💰 Min: ${formatAXC(MIN_WITHDRAW)}\n🔄 Need: ${formatAXC(needed)}`, getMainKeyboard());
+        await sendAndTrack(ctx, `❌ *Insufficient Balance*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Your: ${formatAXC(user.balance || 0)}
+💰 Min: ${formatAXC(MIN_WITHDRAW)}
+🔄 Need: ${formatAXC(needed)}`, getMainKeyboard());
         return;
     }
     
     const requestId = `WD_${userId}_${Date.now()}`;
-    await sendAndTrack(ctx, `✅ *Ready to withdraw!*\n💰 Amount: ${formatAXC(user.balance || 0)}\n💳 Wallet: \`${user.walletAddress}\`\n\n👉 Click CONFIRM:`, getWithdrawConfirmKeyboard(requestId));
+    await sendAndTrack(ctx, `✅ *Ready to withdraw!*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 Amount: ${formatAXC(user.balance || 0)}
+💳 Wallet: \`${user.walletAddress}\`
+
+👉 *Click CONFIRM to submit:*`, getWithdrawConfirmKeyboard(requestId));
 });
 
 // ============================================================================
@@ -316,7 +360,11 @@ bot.on('text', async (ctx) => {
     if (session?.waitingForWallet && text.startsWith('0x') && text.length === 42) {
         await updateUser(userId, { walletAddress: text });
         userSessions.delete(userId);
-        await sendAndTrack(ctx, `✅ *Wallet saved!*\n💳 \`${text}\`\n\nNow click WITHDRAW.`, getMainKeyboard());
+        await sendAndTrack(ctx, `✅ *Wallet saved!*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💳 \`${text}\`
+
+Now click *WITHDRAW* to continue.`, getMainKeyboard());
     } else if (session?.waitingForWallet) {
         await sendAndTrack(ctx, `❌ *Invalid address!* Send a valid BEP20 address (0x...).`);
     }
@@ -340,7 +388,11 @@ bot.action('verify_membership', async (ctx) => {
     if (missing.length > 0) {
         let list = '';
         for (const ch of missing) list += `• ${ch.name} (@${ch.username.substring(1)})\n`;
-        await sendAndTrack(ctx, `⚠️ *VERIFICATION INCOMPLETE*\nMissing:\n${list}\nJoin and click VERIFY.`, getChannelsKeyboard());
+        await sendAndTrack(ctx, `⚠️ *VERIFICATION INCOMPLETE*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Missing channels:
+${list}
+Join and click VERIFY.`, getChannelsKeyboard());
         return;
     }
     
@@ -358,11 +410,21 @@ bot.action('verify_membership', async (ctx) => {
                 await incrementReferralCount(user.referredBy);
                 await bot.telegram.sendMessage(user.referredBy, `🎉 *New Referral!* +${formatAXC(REFERRAL_BONUS)}`, { parse_mode: 'Markdown' }).catch(() => {});
             }
-        } catch (e) {}
+        } catch (e) { console.error('Referral bonus error:', e); }
     }
     
     await updateUser(userId, { isVerified: true, verifiedAt: new Date().toISOString(), balance: newBalance, totalEarned: newBalance });
-    await sendAndTrack(ctx, `✅ *VERIFIED!*\n🎉 +${formatAXC(WELCOME_BONUS)}\n💰 Balance: ${formatAXC(newBalance)}`, getMainKeyboard());
+    await sendAndTrack(ctx, `✅ *VERIFICATION SUCCESSFUL* ✅
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎉 *Welcome to the Axion AI family!*
+
+💰 *+${formatAXC(WELCOME_BONUS)}* added to your balance
+
+📊 *Your Balance:* ${formatAXC(newBalance)}
+👥 *Referrals:* 0
+💎 *Min Withdrawal:* ${formatAXC(MIN_WITHDRAW)}
+
+👇 *Use the buttons below to navigate:*`, getMainKeyboard());
 });
 
 // ============================================================================
@@ -372,67 +434,166 @@ bot.action(/confirm_withdraw_(.+)/, async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getOrCreateUser(userId, '', '');
     await ctx.answerCbQuery();
-    if (!user?.walletAddress || (user.balance || 0) < MIN_WITHDRAW) {
-        await sendAndTrack(ctx, `❌ Cannot withdraw. Check balance or wallet.`, getMainKeyboard());
+    if (!user?.walletAddress) {
+        await sendAndTrack(ctx, `❌ *No wallet address!* Set wallet first.`, getMainKeyboard());
+        return;
+    }
+    
+    if ((user.balance || 0) < MIN_WITHDRAW) {
+        await sendAndTrack(ctx, `❌ *Insufficient balance!* Need ${formatAXC(MIN_WITHDRAW)}`, getMainKeyboard());
         return;
     }
     
     const amount = user.balance;
     await updateUser(userId, { balance: 0 });
     const withdrawalRef = db.collection('withdrawals').doc();
-    await withdrawalRef.set({ id: withdrawalRef.id, userId, userName: user.userName, amount, walletAddress: user.walletAddress, status: 'pending', createdAt: new Date().toISOString() });
+    await withdrawalRef.set({
+        id: withdrawalRef.id, userId, userName: user.userName,
+        amount, walletAddress: user.walletAddress,
+        status: 'pending', createdAt: new Date().toISOString()
+    });
     
     if (WITHDRAWAL_GROUP_ID) {
-        await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, `💸 *NEW WITHDRAWAL*\n👤 ${user.userName} (${userId})\n💰 ${formatAXC(amount)}\n💳 \`${user.walletAddress}\`\n🆔 ${withdrawalRef.id}\n\n/approve_${withdrawalRef.id}\n/reject_${withdrawalRef.id} [reason]`, { parse_mode: 'Markdown' }).catch(() => {});
+        try {
+            await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, 
+                `💸 *NEW WITHDRAWAL REQUEST*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *User:* ${user.userName} (${userId})
+💰 *Amount:* ${formatAXC(amount)}
+💳 *Wallet:* \`${user.walletAddress}\`
+🆔 *ID:* ${withdrawalRef.id}
+📅 *Date:* ${new Date().toLocaleString()}
+
+/approve_${withdrawalRef.id}
+/reject_${withdrawalRef.id} [reason]`,
+                { parse_mode: 'Markdown' }
+            ).catch(() => {});
+        } catch(e) { console.error('Failed to send to group:', e.message); }
     }
-    await sendAndTrack(ctx, `✅ *Withdrawal Requested!*\n💰 ${formatAXC(amount)}\n🆔 ${withdrawalRef.id}\n⏳ 24-48 hours.`, getMainKeyboard());
+    
+    await sendAndTrack(ctx, `✅ *WITHDRAWAL REQUEST SUBMITTED!*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 *Amount:* ${formatAXC(amount)}
+🆔 *Request ID:* ${withdrawalRef.id}
+⏳ *Processing Time:* 24-48 hours
+
+*You will be notified once processed.*`, getMainKeyboard());
 });
 
 bot.action('cancel_withdraw', async (ctx) => {
     await ctx.answerCbQuery();
-    await sendAndTrack(ctx, `❌ Withdrawal cancelled.`, getMainKeyboard());
+    await sendAndTrack(ctx, `❌ *Withdrawal cancelled.*\n\nYour balance remains unchanged.`, getMainKeyboard());
 });
 
 // ============================================================================
 // 13. أوامر المشرف
 // ============================================================================
 bot.command('admin', async (ctx) => {
+    if (ctx.from.id.toString() !== ADMIN_ID) {
+        await ctx.reply('⛔ *Access denied!*', { parse_mode: 'Markdown' });
+        return;
+    }
+    await ctx.reply(`👑 *AXION AI ADMIN PANEL*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 *Available Commands:*
+
+/pending - View pending withdrawals
+/stats - View bot statistics
+/users - Total users count
+/verify [user_id] - Manually verify user
+/add [user_id] [amount] - Add balance
+/remove [user_id] [amount] - Remove balance
+/search [user_id] - Search user
+
+🔐 *Authenticated*`, { parse_mode: 'Markdown' });
+});
+
+bot.command('pending', async (ctx) => {
     if (ctx.from.id.toString() !== ADMIN_ID) return;
-    await ctx.reply(`👑 *Admin Panel*\n/pending - View withdrawals\n/stats - Statistics\n/add [id] [amount]\n/verify [id]`, { parse_mode: 'Markdown' });
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
+    const snapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
+    if (snapshot.empty) { await ctx.reply('✅ *No pending withdrawals*', { parse_mode: 'Markdown' }); return; }
+    
+    let message = `💸 *PENDING WITHDRAWALS* (${snapshot.size})\n━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (const doc of snapshot.docs) {
+        const wd = doc.data();
+        message += `🆔 *ID:* ${wd.id}\n👤 *User:* ${wd.userName}\n💰 *Amount:* ${formatAXC(wd.amount)}\n📅 *Date:* ${new Date(wd.createdAt).toLocaleString()}\n━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    }
+    message += `\n📝 *To process:*\n/approve_[ID]\n/reject_[ID] [reason]`;
+    await ctx.reply(message, { parse_mode: 'Markdown' });
+});
+
+bot.command('stats', async (ctx) => {
+    if (ctx.from.id.toString() !== ADMIN_ID) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
+    const usersSnapshot = await db.collection('users').get();
+    const verifiedUsers = usersSnapshot.docs.filter(doc => doc.data().isVerified === true).length;
+    const pendingSnapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
+    
+    await ctx.reply(`📊 *AXION AI STATISTICS*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👥 *Total Users:* ${usersSnapshot.size}
+✅ *Verified Users:* ${verifiedUsers}
+💸 *Pending Withdrawals:* ${pendingSnapshot.size}
+💰 *Token Price:* $${AXC_PRICE}
+💎 *Min Withdrawal:* ${MIN_WITHDRAW} AXC
+
+🤖 *Status:* ✅ Online`, { parse_mode: 'Markdown' });
 });
 
 bot.command(/approve_(.+)/, async (ctx) => {
     if (ctx.from.id.toString() !== ADMIN_ID) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
     const id = ctx.match[1];
     const withdrawal = await db.collection('withdrawals').doc(id).get();
-    if (!withdrawal.exists || withdrawal.data().status !== 'pending') return ctx.reply('Not found.');
+    if (!withdrawal.exists || withdrawal.data().status !== 'pending') {
+        await ctx.reply(`❌ Withdrawal ${id} not found or already processed.`);
+        return;
+    }
+    
     await withdrawal.ref.update({ status: 'approved', approvedAt: new Date().toISOString() });
     await ctx.reply(`✅ Withdrawal ${id} approved.`);
-    await bot.telegram.sendMessage(withdrawal.data().userId, `✅ *Withdrawal Approved!*\n💰 ${formatAXC(withdrawal.data().amount)}`, { parse_mode: 'Markdown' }).catch(() => {});
+    
+    const data = withdrawal.data();
+    await bot.telegram.sendMessage(data.userId, `✅ *WITHDRAWAL APPROVED!*\n💰 ${formatAXC(data.amount)}\nYour funds will arrive within 24 hours.`, { parse_mode: 'Markdown' }).catch(() => {});
 });
 
 bot.command(/reject_(.+)/, async (ctx) => {
     if (ctx.from.id.toString() !== ADMIN_ID) return;
+    if (!db) { await ctx.reply('❌ Database not connected.'); return; }
+    
     const id = ctx.match[1];
-    const reason = ctx.message.text.split(' ').slice(2).join(' ') || 'No reason';
+    const reason = ctx.message.text.split(' ').slice(2).join(' ') || 'No reason provided';
     const withdrawal = await db.collection('withdrawals').doc(id).get();
-    if (!withdrawal.exists || withdrawal.data().status !== 'pending') return ctx.reply('Not found.');
+    if (!withdrawal.exists || withdrawal.data().status !== 'pending') {
+        await ctx.reply(`❌ Withdrawal ${id} not found or already processed.`);
+        return;
+    }
+    
     const data = withdrawal.data();
     await db.collection('users').doc(data.userId).update({ balance: admin.firestore.FieldValue.increment(data.amount) });
     await withdrawal.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: new Date().toISOString() });
-    await ctx.reply(`❌ Withdrawal ${id} rejected.`);
-    await bot.telegram.sendMessage(data.userId, `❌ *Withdrawal Rejected*\nReason: ${reason}\nAmount returned.`, { parse_mode: 'Markdown' }).catch(() => {});
+    await ctx.reply(`❌ Withdrawal ${id} rejected. Reason: ${reason}`);
+    await bot.telegram.sendMessage(data.userId, `❌ *WITHDRAWAL REJECTED*\nReason: ${reason}\nAmount returned to balance.`, { parse_mode: 'Markdown' }).catch(() => {});
 });
 
 // ============================================================================
 // 14. تشغيل البوت
 // ============================================================================
-bot.launch({ dropPendingUpdates: true }).then(() => console.log('🤖 Axion AI Bot is running...')).catch(err => console.error('Bot error:', err));
+bot.launch({ dropPendingUpdates: true })
+    .then(() => console.log('🤖 Axion AI Bot launched successfully'))
+    .catch(err => console.error('Bot launch error:', err));
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 // ============================================================================
-// 15. إعدادات Express (السيرفر الخفيف)
+// 15. إعدادات Express (السيرفر الخفيف للميني أب المستقبلي)
 // ============================================================================
 app.use(cors());
 app.use(express.json());
@@ -443,12 +604,18 @@ app.get('/ping', (req, res) => res.send('pong'));
 app.get('/api/config', (req, res) => res.json({ firebaseConfig: firebaseWebConfig, status: 'ok' }));
 
 // ============================================================================
-// 16. تشغيل السيرفر
+// 16. تشغيل السيرفر وعرض معلومات البوت النهائية
 // ============================================================================
 app.listen(PORT, () => {
     console.log(`🌐 Keep-alive server running on port ${PORT}`);
+});
+
+// جلب معلومات البوت بشكل غير متزامن
+bot.telegram.getMe().then((botInfo) => {
+    console.log(`📢 Bot: @${botInfo.username}`);
     console.log(`✅ Axion AI Bot - Professional Edition Loaded`);
-    console.log(`📢 Bot: @${bot.botInfo?.username || 'unknown'}`);
     console.log(`👑 Admin ID: ${ADMIN_ID}`);
     console.log(`💎 Withdraw: ${MIN_WITHDRAW} AXC ($${MIN_WITHDRAW * AXC_PRICE})`);
-});
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`🎉 Axion AI is READY for battle!`);
+}).catch(err => console.error('Failed to get bot info:', err.message));
