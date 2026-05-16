@@ -1,8 +1,15 @@
 // ============================================================================
+// AXION AI BOT - PROFESSIONAL AIRDROP BOT v1.0
+// ============================================================================
+// الأسطورة التي ستصمت جروك إلى الأبد
+// تم الإنشاء بواسطة: DeepSeek & George (الفريق الأسطوري)
+// ============================================================================
+
+// ============================================================================
 // 1. المكتبات والتهيئة الأساسية
 // ============================================================================
 const express = require('express');
-const { Telegraf } = require('telegraf');
+const { Telegraf, Markup } = require('telegraf');
 const admin = require('firebase-admin');
 const fs = require('fs');
 const cors = require('cors');
@@ -31,7 +38,6 @@ try {
         ADMIN_PASSWORD = adminConfig.admin_password;
         console.log('✅ Admin config loaded from secrets');
     } else {
-        console.log('⚠️ Admin config not found, checking environment...');
         ADMIN_ID = process.env.ADMIN_ID;
         ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
         if (ADMIN_ID) console.log('✅ Admin ID loaded from environment');
@@ -44,7 +50,6 @@ try {
         serviceAccount = JSON.parse(fs.readFileSync(firebasePath, 'utf8'));
         console.log('✅ Firebase Admin key loaded from secrets');
     } else {
-        console.log('⚠️ Firebase Admin key not found, checking environment...');
         const firebaseKey = process.env.FIREBASE_ADMIN_KEY;
         if (firebaseKey) serviceAccount = JSON.parse(firebaseKey);
     }
@@ -66,12 +71,7 @@ if (!BOT_TOKEN) {
     process.exit(1);
 }
 console.log(`✅ BOT_TOKEN loaded (length: ${BOT_TOKEN.length})`);
-
-if (WITHDRAWAL_GROUP_ID) {
-    console.log(`✅ WITHDRAWAL_GROUP_ID loaded: ${WITHDRAWAL_GROUP_ID}`);
-} else {
-    console.log('⚠️ WITHDRAWAL_GROUP_ID not set - withdrawals will be logged only');
-}
+console.log(`✅ WITHDRAWAL_GROUP_ID: ${WITHDRAWAL_GROUP_ID || 'Not set'}`);
 
 // ============================================================================
 // 3. تهيئة Firebase Admin SDK
@@ -85,8 +85,6 @@ if (serviceAccount) {
         db = admin.firestore();
         console.log('🔥 Firebase Admin SDK initialized');
     } catch (error) { console.error('Firebase init error:', error.message); }
-} else {
-    console.log('⚠️ Firebase not configured - running in limited mode');
 }
 
 // ============================================================================
@@ -135,22 +133,14 @@ async function sendAndTrack(ctx, message, keyboard = null, parseMode = 'Markdown
     return sentMsg;
 }
 
-async function checkAllChannels(userId) {
-    for (const channel of REQUIRED_CHANNELS) {
-        try {
-            const member = await bot.telegram.getChatMember(channel.username, userId);
-            if (!['member', 'administrator', 'creator'].includes(member.status)) return false;
-        } catch { return false; }
-    }
-    return true;
-}
-
 async function getMissingChannels(userId) {
     const missing = [];
     for (const channel of REQUIRED_CHANNELS) {
         try {
             const member = await bot.telegram.getChatMember(channel.username, userId);
-            if (!['member', 'administrator', 'creator'].includes(member.status)) missing.push(channel);
+            if (!['member', 'administrator', 'creator'].includes(member.status)) {
+                missing.push(channel);
+            }
         } catch { missing.push(channel); }
     }
     return missing;
@@ -231,12 +221,9 @@ function getMainKeyboard() {
     };
 }
 
-function getWithdrawConfirmKeyboard(requestId) {
+function getBackKeyboard() {
     return {
-        inline_keyboard: [
-            [{ text: '✅ CONFIRM WITHDRAWAL', callback_data: `confirm_withdraw_${requestId}` }],
-            [{ text: '❌ CANCEL', callback_data: 'cancel_withdraw' }]
-        ]
+        inline_keyboard: [[{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]]
     };
 }
 
@@ -308,8 +295,14 @@ bot.hears('🔗 REFERRAL', async (ctx) => {
 
 👥 *Referrals:* ${user.inviteCount || 0}
 🎁 *Earned:* ${formatAXC((user.inviteCount || 0) * REFERRAL_BONUS)}`;
-    const shareKeyboard = { inline_keyboard: [[{ text: '📤 SHARE LINK', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=Join%20Axion%20AI%20and%20earn%20crypto!` }]] };
-    await sendAndTrack(ctx, message, shareKeyboard);
+
+    const referralKeyboard = {
+        inline_keyboard: [
+            [{ text: '📤 SHARE LINK', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=Join%20Axion%20AI%20and%20earn%20crypto!` }],
+            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
+        ]
+    };
+    await sendAndTrack(ctx, message, referralKeyboard);
 });
 
 bot.hears('💸 WITHDRAW', async (ctx) => {
@@ -318,34 +311,43 @@ bot.hears('💸 WITHDRAW', async (ctx) => {
     if (!user) return;
     
     if (!user.walletAddress) {
-        await sendAndTrack(ctx, `💸 *WITHDRAWAL SETUP*
+        const message = `💸 *WITHDRAWAL SETUP*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ *No wallet address found*
 
 Send your *BEP20 wallet address*.
 
-📝 *Type or paste your address below:*`);
+📝 *Type or paste your address below:*`;
+        await sendAndTrack(ctx, message, getBackKeyboard());
         userSessions.set(userId, { waitingForWallet: true });
         return;
     }
     
     if ((user.balance || 0) < MIN_WITHDRAW) {
         const needed = MIN_WITHDRAW - (user.balance || 0);
-        await sendAndTrack(ctx, `❌ *Insufficient Balance*
+        const message = `❌ *Insufficient Balance*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 Your: ${formatAXC(user.balance || 0)}
 💰 Min: ${formatAXC(MIN_WITHDRAW)}
-🔄 Need: ${formatAXC(needed)}`, getMainKeyboard());
+🔄 Need: ${formatAXC(needed)}`;
+        await sendAndTrack(ctx, message, getMainKeyboard());
         return;
     }
     
-    const requestId = `WD_${userId}_${Date.now()}`;
-    await sendAndTrack(ctx, `✅ *Ready to withdraw!*
+    const message = `✅ *Ready to withdraw!*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💰 Amount: ${formatAXC(user.balance || 0)}
 💳 Wallet: \`${user.walletAddress}\`
 
-👉 *Click CONFIRM to submit:*`, getWithdrawConfirmKeyboard(requestId));
+👉 *Click CONFIRM to submit:*`;
+    
+    const confirmKeyboard = {
+        inline_keyboard: [
+            [{ text: '✅ CONFIRM WITHDRAWAL', callback_data: `confirm_withdraw` }],
+            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
+        ]
+    };
+    await sendAndTrack(ctx, message, confirmKeyboard);
 });
 
 // ============================================================================
@@ -360,11 +362,12 @@ bot.on('text', async (ctx) => {
     if (session?.waitingForWallet && text.startsWith('0x') && text.length === 42) {
         await updateUser(userId, { walletAddress: text });
         userSessions.delete(userId);
-        await sendAndTrack(ctx, `✅ *Wallet saved!*
+        const message = `✅ *Wallet saved!*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 \`${text}\`
 
-Now click *WITHDRAW* to continue.`, getMainKeyboard());
+Now click *WITHDRAW* to continue.`;
+        await sendAndTrack(ctx, message, getMainKeyboard());
     } else if (session?.waitingForWallet) {
         await sendAndTrack(ctx, `❌ *Invalid address!* Send a valid BEP20 address (0x...).`);
     }
@@ -388,11 +391,12 @@ bot.action('verify_membership', async (ctx) => {
     if (missing.length > 0) {
         let list = '';
         for (const ch of missing) list += `• ${ch.name} (@${ch.username.substring(1)})\n`;
-        await sendAndTrack(ctx, `⚠️ *VERIFICATION INCOMPLETE*
+        const message = `⚠️ *VERIFICATION INCOMPLETE*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Missing channels:
 ${list}
-Join and click VERIFY.`, getChannelsKeyboard());
+Join and click VERIFY.`;
+        await sendAndTrack(ctx, message, getChannelsKeyboard());
         return;
     }
     
@@ -414,7 +418,7 @@ Join and click VERIFY.`, getChannelsKeyboard());
     }
     
     await updateUser(userId, { isVerified: true, verifiedAt: new Date().toISOString(), balance: newBalance, totalEarned: newBalance });
-    await sendAndTrack(ctx, `✅ *VERIFICATION SUCCESSFUL* ✅
+    const message = `✅ *VERIFICATION SUCCESSFUL* ✅
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎉 *Welcome to the Axion AI family!*
 
@@ -424,16 +428,18 @@ Join and click VERIFY.`, getChannelsKeyboard());
 👥 *Referrals:* 0
 💎 *Min Withdrawal:* ${formatAXC(MIN_WITHDRAW)}
 
-👇 *Use the buttons below to navigate:*`, getMainKeyboard());
+👇 *Use the buttons below to navigate:*`;
+    await sendAndTrack(ctx, message, getMainKeyboard());
 });
 
 // ============================================================================
 // 12. نظام السحب ومعالجة الطلبات
 // ============================================================================
-bot.action(/confirm_withdraw_(.+)/, async (ctx) => {
+bot.action('confirm_withdraw', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getOrCreateUser(userId, '', '');
     await ctx.answerCbQuery();
+    
     if (!user?.walletAddress) {
         await sendAndTrack(ctx, `❌ *No wallet address!* Set wallet first.`, getMainKeyboard());
         return;
@@ -471,18 +477,21 @@ bot.action(/confirm_withdraw_(.+)/, async (ctx) => {
         } catch(e) { console.error('Failed to send to group:', e.message); }
     }
     
-    await sendAndTrack(ctx, `✅ *WITHDRAWAL REQUEST SUBMITTED!*
+    const message = `✅ *WITHDRAWAL REQUEST SUBMITTED!*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💰 *Amount:* ${formatAXC(amount)}
 🆔 *Request ID:* ${withdrawalRef.id}
 ⏳ *Processing Time:* 24-48 hours
 
-*You will be notified once processed.*`, getMainKeyboard());
+*You will be notified once processed.*`;
+    await sendAndTrack(ctx, message, getMainKeyboard());
 });
 
-bot.action('cancel_withdraw', async (ctx) => {
+bot.action('back_to_menu', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    const user = await getOrCreateUser(userId, '', '');
     await ctx.answerCbQuery();
-    await sendAndTrack(ctx, `❌ *Withdrawal cancelled.*\n\nYour balance remains unchanged.`, getMainKeyboard());
+    await sendAndTrack(ctx, `🎯 *Main Menu*\n\n💰 Balance: ${formatAXC(user?.balance || 0)}`, getMainKeyboard());
 });
 
 // ============================================================================
@@ -496,15 +505,13 @@ bot.command('admin', async (ctx) => {
     await ctx.reply(`👑 *AXION AI ADMIN PANEL*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📋 *Available Commands:*
+📋 *Commands:*
 
-/pending - View pending withdrawals
-/stats - View bot statistics
-/users - Total users count
-/verify [user_id] - Manually verify user
-/add [user_id] [amount] - Add balance
-/remove [user_id] [amount] - Remove balance
-/search [user_id] - Search user
+/pending - Pending withdrawals
+/stats - Bot statistics
+/verify [id] - Verify user
+/add [id] [amount] - Add balance
+/remove [id] [amount] - Remove balance
 
 🔐 *Authenticated*`, { parse_mode: 'Markdown' });
 });
@@ -593,7 +600,7 @@ process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 // ============================================================================
-// 15. إعدادات Express (السيرفر الخفيف للميني أب المستقبلي)
+// 15. إعدادات Express (السيرفر الخفيف)
 // ============================================================================
 app.use(cors());
 app.use(express.json());
@@ -610,8 +617,8 @@ app.listen(PORT, () => {
     console.log(`🌐 Keep-alive server running on port ${PORT}`);
 });
 
-// جلب معلومات البوت بشكل غير متزامن
 bot.telegram.getMe().then((botInfo) => {
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`📢 Bot: @${botInfo.username}`);
     console.log(`✅ Axion AI Bot - Professional Edition Loaded`);
     console.log(`👑 Admin ID: ${ADMIN_ID}`);
@@ -619,3 +626,7 @@ bot.telegram.getMe().then((botInfo) => {
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`🎉 Axion AI is READY for battle!`);
 }).catch(err => console.error('Failed to get bot info:', err.message));
+
+// ============================================================================
+// نهاية الملف الأسطوري
+// ============================================================================
