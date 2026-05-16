@@ -1,15 +1,36 @@
 {
   "name": "axion-ai-bot",
   "version": "1.0.0",
-  "description": "Professional Airdrop Bot with AI Features",
-  "main": "bot.js",
+  "description": "Axion AI - Professional Airdrop Bot with AI-Powered Trading Signals. Earn AXC tokens, referral rewards, and withdraw via BEP20 wallet.",
+  "main": "server.js",
   "scripts": {
-    "start": "node bot.js",
-    "server": "node server.js"
+    "start": "node server.js & node bot.js",
+    "server": "node server.js",
+    "bot": "node bot.js",
+    "dev": "nodemon server.js & nodemon bot.js"
+  },
+  "engines": {
+    "node": "20.x"
   },
   "dependencies": {
-    "telegraf": "^4.15.3",
+    "express": "^4.18.2",
     "firebase-admin": "^12.0.0",
-    "express": "^4.18.2"
-  }
+    "telegraf": "^4.15.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^2.7.0",
+    "axios": "^1.6.2"
+  },
+  "keywords": [
+    "telegram-bot",
+    "airdrop",
+    "axion",
+    "crypto",
+    "ai-trading",
+    "referral-system",
+    "withdraw-bep20",
+    "telegram-webapp"
+  ],
+  "author": "Axion AI Team",
+  "license": "MIT"
 }
