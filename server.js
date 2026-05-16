@@ -1,10 +1,20 @@
 // ============================================================================
-// AXION AI BOT - LEGENDARY FINAL VERSION v2.0
+// AXION AI BOT - THE FINAL LEGENDARY VERSION v3.0
 // ============================================================================
-// تم الإنشاء بواسطة: DeepSeek & George
-// الوظائف: تحقق إجباري من 4 قنوات، إحالات، سحب يدوي، حذف ذكي، أزرار رجوع،
-// لوحة مشرف كاملة (أوامر فقط للمشرف)، لا أوامر للمستخدمين العاديين،
-// زر مشاركة مباشر مع رسالة تحفيزية، جميع الأسرار من Render
+// تم الإنشاء بواسطة: DeepSeek & George (الفريق الأسطوري)
+// ============================================================================
+// الميزات:
+// - تحقق إجباري من 4 قنوات
+// - مكافأة ترحيب 100 AXC (بعد التحقق)
+// - مكافأة إحالة 100 AXC (بعد التحقق)
+// - حد سحب 1000 AXC
+// - سحب يدوي عبر مجموعة المشرفين
+// - حذف ذكي للرسائل (كل رسالة جديدة تحل محل القديمة)
+// - أزرار رجوع في كل القوائم الفرعية
+// - زر مشاركة مباشر مع رسالة تحفيزية
+// - زر ADMIN PANEL يظهر فقط للمشرف (المعرف المخزن في Render)
+// - لوحة مشرف كاملة (أوامر نصية)
+// - جميع الأسرار من Render Secrets ومتغيرات البيئة
 // ============================================================================
 
 // ============================================================================
@@ -163,6 +173,25 @@ async function incrementReferralCount(referrerId) {
     } catch (error) { console.error('Referral count error:', error); }
 }
 
+async function getMainKeyboard(userId) {
+    const isAdminUser = isAdmin(userId);
+    
+    const keyboard = [
+        ['💰 BALANCE', '🔗 REFERRAL'],
+        ['💸 WITHDRAW']
+    ];
+    
+    if (isAdminUser) {
+        keyboard.push(['👑 ADMIN PANEL']);
+    }
+    
+    return {
+        keyboard: keyboard,
+        resize_keyboard: true,
+        persistent: true
+    };
+}
+
 // ============================================================================
 // 6. نظام المستخدمين والتسجيل في Firebase
 // ============================================================================
@@ -214,20 +243,12 @@ function getChannelsKeyboard() {
     return { inline_keyboard: keyboard };
 }
 
-function getMainKeyboard() {
-    return {
-        keyboard: [['💰 BALANCE', '🔗 REFERRAL'], ['💸 WITHDRAW']],
-        resize_keyboard: true, persistent: true
-    };
-}
-
 function getBackKeyboard() {
     return {
         inline_keyboard: [[{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]]
     };
 }
 
-// زر مشاركة مباشر مع رسالة تحفيزية
 function getShareKeyboard(link) {
     const shareText = encodeURIComponent(`🚀 Join me on Axion AI! 🚀\n\nAxion is an AI-powered trading platform that gives real-time crypto signals.\n\n💰 Get 100 AXC bonus (~$1) after verification!\n👥 Earn 100 AXC (~$1) per referral!\n💎 Minimum withdrawal: 1000 AXC (~$10)\n\nJoin now: ${link}`);
     return {
@@ -268,10 +289,8 @@ Axion is an advanced AI-driven ecosystem that analyzes market trends and deliver
 }
 
 // ============================================================================
-// 9. أوامر البوت العامة (المستخدمين)
+// 9. أوامر البوت العامة
 // ============================================================================
-
-// الأمر الوحيد المتاح للجميع
 bot.start(async (ctx) => {
     const userId = ctx.from.id.toString();
     const userName = ctx.from.first_name || 'Axion User';
@@ -285,17 +304,20 @@ bot.start(async (ctx) => {
         await updateUser(userId, { referredBy: referrerId });
     }
     
+    const mainKeyboard = await getMainKeyboard(userId);
+    
     if (user.isVerified) {
-        await sendAndTrack(ctx, `✅ *Welcome back, ${userName}!*\n\n💰 *Balance:* ${formatAXC(user.balance || 0)}`, getMainKeyboard());
+        await sendAndTrack(ctx, `✅ *Welcome back, ${userName}!*\n\n💰 *Balance:* ${formatAXC(user.balance || 0)}`, mainKeyboard);
         return;
     }
     await sendWelcomeMessage(ctx);
 });
 
-// أزرار المستخدمين (لا أوامر نصية)
 bot.hears('💰 BALANCE', async (ctx) => {
-    const user = await getOrCreateUser(ctx.from.id.toString(), '', '');
+    const userId = ctx.from.id.toString();
+    const user = await getOrCreateUser(userId, '', '');
     if (!user) return;
+    const mainKeyboard = await getMainKeyboard(userId);
     const message = `📊 *YOUR AXION BALANCE*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -303,7 +325,7 @@ bot.hears('💰 BALANCE', async (ctx) => {
 👥 *Referrals:* ${user.inviteCount || 0}
 🎁 *From Referrals:* ${formatAXC((user.inviteCount || 0) * REFERRAL_BONUS)}
 💎 *Min Withdrawal:* ${formatAXC(MIN_WITHDRAW)}`;
-    await sendAndTrack(ctx, message, getMainKeyboard());
+    await sendAndTrack(ctx, message, mainKeyboard);
 });
 
 bot.hears('🔗 REFERRAL', async (ctx) => {
@@ -343,12 +365,13 @@ Send your *BEP20 wallet address*.
     
     if ((user.balance || 0) < MIN_WITHDRAW) {
         const needed = MIN_WITHDRAW - (user.balance || 0);
+        const mainKeyboard = await getMainKeyboard(userId);
         const message = `❌ *Insufficient Balance*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 Your: ${formatAXC(user.balance || 0)}
 💰 Min: ${formatAXC(MIN_WITHDRAW)}
 🔄 Need: ${formatAXC(needed)}`;
-        await sendAndTrack(ctx, message, getMainKeyboard());
+        await sendAndTrack(ctx, message, mainKeyboard);
         return;
     }
     
@@ -361,11 +384,41 @@ Send your *BEP20 wallet address*.
     
     const confirmKeyboard = {
         inline_keyboard: [
-            [{ text: '✅ CONFIRM WITHDRAWAL', callback_data: `confirm_withdraw` }],
+            [{ text: '✅ CONFIRM WITHDRAWAL', callback_data: 'confirm_withdraw' }],
             [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
         ]
     };
     await sendAndTrack(ctx, message, confirmKeyboard);
+});
+
+// زر لوحة المشرف (يظهر فقط للمشرف)
+bot.hears('👑 ADMIN PANEL', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    
+    if (!isAdmin(userId)) {
+        await ctx.reply('⛔ *Access denied!*', { parse_mode: 'Markdown' });
+        return;
+    }
+    
+    const mainKeyboard = await getMainKeyboard(userId);
+    const adminMessage = `👑 *AXION AI ADMIN PANEL*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 *Available Commands:*
+
+/pending - View pending withdrawals
+/stats - View bot statistics
+/users - Total users count
+/search [user_id] - Search user
+/verify [user_id] - Manually verify user
+/add [user_id] [amount] - Add balance
+/remove [user_id] [amount] - Remove balance
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 *Type any command above*`;
+    
+    await sendAndTrack(ctx, adminMessage, mainKeyboard);
 });
 
 // ============================================================================
@@ -376,18 +429,19 @@ bot.on('text', async (ctx) => {
     const text = ctx.message.text;
     
     // تجاهل الأزرار والأوامر
-    if (text.startsWith('/') || ['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW'].includes(text)) return;
+    if (text.startsWith('/') || ['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW', '👑 ADMIN PANEL'].includes(text)) return;
     
     const session = userSessions.get(userId);
     if (session?.waitingForWallet && text.startsWith('0x') && text.length === 42) {
         await updateUser(userId, { walletAddress: text });
         userSessions.delete(userId);
+        const mainKeyboard = await getMainKeyboard(userId);
         const message = `✅ *Wallet saved!*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 \`${text}\`
 
 Now click *WITHDRAW* to continue.`;
-        await sendAndTrack(ctx, message, getMainKeyboard());
+        await sendAndTrack(ctx, message, mainKeyboard);
     } else if (session?.waitingForWallet) {
         await sendAndTrack(ctx, `❌ *Invalid address!* Send a valid BEP20 address (0x...).`);
     }
@@ -403,7 +457,8 @@ bot.action('verify_membership', async (ctx) => {
     if (!user) return;
     
     if (user.isVerified) {
-        await sendAndTrack(ctx, `✅ *Already verified!*\n💰 ${formatAXC(user.balance || 0)}`, getMainKeyboard());
+        const mainKeyboard = await getMainKeyboard(userId);
+        await sendAndTrack(ctx, `✅ *Already verified!*\n💰 ${formatAXC(user.balance || 0)}`, mainKeyboard);
         return;
     }
     
@@ -438,6 +493,8 @@ Join and click VERIFY.`;
     }
     
     await updateUser(userId, { isVerified: true, verifiedAt: new Date().toISOString(), balance: newBalance, totalEarned: newBalance });
+    
+    const mainKeyboard = await getMainKeyboard(userId);
     const message = `✅ *VERIFICATION SUCCESSFUL* ✅
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎉 *Welcome to the Axion AI family!*
@@ -449,7 +506,7 @@ Join and click VERIFY.`;
 💎 *Min Withdrawal:* ${formatAXC(MIN_WITHDRAW)}
 
 👇 *Use the buttons below to navigate:*`;
-    await sendAndTrack(ctx, message, getMainKeyboard());
+    await sendAndTrack(ctx, message, mainKeyboard);
 });
 
 // ============================================================================
@@ -461,12 +518,14 @@ bot.action('confirm_withdraw', async (ctx) => {
     await ctx.answerCbQuery();
     
     if (!user?.walletAddress) {
-        await sendAndTrack(ctx, `❌ *No wallet address!* Set wallet first.`, getMainKeyboard());
+        const mainKeyboard = await getMainKeyboard(userId);
+        await sendAndTrack(ctx, `❌ *No wallet address!* Set wallet first.`, mainKeyboard);
         return;
     }
     
     if ((user.balance || 0) < MIN_WITHDRAW) {
-        await sendAndTrack(ctx, `❌ *Insufficient balance!* Need ${formatAXC(MIN_WITHDRAW)}`, getMainKeyboard());
+        const mainKeyboard = await getMainKeyboard(userId);
+        await sendAndTrack(ctx, `❌ *Insufficient balance!* Need ${formatAXC(MIN_WITHDRAW)}`, mainKeyboard);
         return;
     }
     
@@ -497,6 +556,7 @@ bot.action('confirm_withdraw', async (ctx) => {
         } catch(e) { console.error('Failed to send to group:', e.message); }
     }
     
+    const mainKeyboard = await getMainKeyboard(userId);
     const message = `✅ *WITHDRAWAL REQUEST SUBMITTED!*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💰 *Amount:* ${formatAXC(amount)}
@@ -504,20 +564,20 @@ bot.action('confirm_withdraw', async (ctx) => {
 ⏳ *Processing Time:* 24-48 hours
 
 *You will be notified once processed.*`;
-    await sendAndTrack(ctx, message, getMainKeyboard());
+    await sendAndTrack(ctx, message, mainKeyboard);
 });
 
 bot.action('back_to_menu', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getOrCreateUser(userId, '', '');
     await ctx.answerCbQuery();
-    await sendAndTrack(ctx, `🎯 *Main Menu*\n\n💰 Balance: ${formatAXC(user?.balance || 0)}`, getMainKeyboard());
+    const mainKeyboard = await getMainKeyboard(userId);
+    await sendAndTrack(ctx, `🎯 *Main Menu*\n\n💰 Balance: ${formatAXC(user?.balance || 0)}`, mainKeyboard);
 });
 
 // ============================================================================
-// 13. أوامر المشرف (فقط للمعرف المخزن، لا يستجيب لها المستخدمون العاديون)
+// 13. أوامر المشرف (فقط للمعرف المخزن)
 // ============================================================================
-
 bot.command('pending', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId)) return;
@@ -729,7 +789,7 @@ app.listen(PORT, () => {
 bot.telegram.getMe().then((botInfo) => {
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`📢 Bot: @${botInfo.username}`);
-    console.log(`✅ Axion AI Bot - Legendary Final Edition`);
+    console.log(`✅ Axion AI Bot - Legendary Final Edition v3.0`);
     console.log(`👑 Admin ID: ${ADMIN_ID}`);
     console.log(`💎 Withdraw: ${MIN_WITHDRAW} AXC ($${MIN_WITHDRAW * AXC_PRICE})`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
