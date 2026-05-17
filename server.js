@@ -1,13 +1,5 @@
 // ============================================================================
-// AXION AI BOT - FINAL PROFESSIONAL EDITION v20.0
-// ============================================================================
-// التحسينات:
-// ✅ أزرار محسنة واحترافية
-// ✅ رسائل منسقة وواضحة
-// ✅ نظام إحالة متكامل مع إشعار فوري
-// ✅ إعادة التحقق من القنوات عند السحب والسواب
-// ✅ تغيير عنوان المحفظة
-// ✅ إزالة الرسائل السيئة ("انقر على زر كذا")
+// AXION AI BOT - PROFESSIONAL EDITION v3.0
 // ============================================================================
 
 const express = require('express');
@@ -20,18 +12,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================================================
-// 1. 🔐 SECRETS LOADING
+// 1. تحميل المتغيرات من Render
 // ============================================================================
 
 let serviceAccount = null;
 let firebaseWebConfig = {};
 let ADMIN_ID = null;
+let ADMIN_PASSWORD = null;      // كلمة سر المشرف من Render
 let BOT_TOKEN = null;
 let WITHDRAWAL_GROUP_ID = null;
 let OWNER_WALLET = null;
 let APP_URL = null;
 let BOT_USERNAME = null;
 
+// تحميل ملفات Firebase
 try {
     const firebasePath = '/etc/secrets/firebase-admin-key.json';
     if (fs.existsSync(firebasePath)) {
@@ -48,22 +42,18 @@ try {
     }
 } catch (error) { console.error('Firebase Web config error:', error.message); }
 
-try {
-    const adminPath = '/etc/secrets/admin-config.json';
-    if (fs.existsSync(adminPath)) {
-        const adminConfig = JSON.parse(fs.readFileSync(adminPath, 'utf8'));
-        ADMIN_ID = adminConfig.admin_id;
-        console.log('✅ Admin config loaded | ID:', ADMIN_ID);
-    }
-} catch (error) { console.error('Admin config error:', error.message); }
-
+// تحميل المتغيرات من Render
 BOT_TOKEN = process.env.BOT_TOKEN;
 WITHDRAWAL_GROUP_ID = process.env.WITHDRAWAL_GROUP_ID;
 OWNER_WALLET = process.env.OWNER_WALLET;
 APP_URL = process.env.APP_URL;
+ADMIN_ID = process.env.ADMIN_ID;              // معرف المشرف من Render
+ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;  // كلمة سر المشرف من Render
+
+console.log('📌 Environment variables loaded');
 
 // ============================================================================
-// 2. ⚙️ APP CONFIGURATION
+// 2. إعدادات التطبيق
 // ============================================================================
 
 const APP_CONFIG = {
@@ -79,11 +69,11 @@ const APP_CONFIG = {
 };
 
 const REFERRAL_MILESTONES = [
-    { count: 5, reward: 1, name: '🥉 Bronze', rewardUnit: 'USDT' },
-    { count: 15, reward: 5, name: '🥈 Silver', rewardUnit: 'USDT' },
-    { count: 30, reward: 10, name: '🥇 Gold', rewardUnit: 'USDT' },
-    { count: 60, reward: 25, name: '👑 Platinum', rewardUnit: 'USDT' },
-    { count: 100, reward: 50, name: '💎 Diamond', rewardUnit: 'USDT' }
+    { count: 5, reward: 1, name: 'Bronze', rewardUnit: 'USDT' },
+    { count: 15, reward: 5, name: 'Silver', rewardUnit: 'USDT' },
+    { count: 30, reward: 10, name: 'Gold', rewardUnit: 'USDT' },
+    { count: 60, reward: 25, name: 'Platinum', rewardUnit: 'USDT' },
+    { count: 100, reward: 50, name: 'Diamond', rewardUnit: 'USDT' }
 ];
 
 const REQUIRED_CHANNELS = [
@@ -96,9 +86,11 @@ const REQUIRED_CHANNELS = [
 const userSessions = new Map();
 const userLastMessages = new Map();
 const withdrawCooldownTracker = new Map();
+const adminSessions = new Map();     // جلسات المشرف المصادق عليها
 let firebaseHealthy = true;
+let totalUsersCount = 0;             // متغير لتخزين عدد المستخدمين
 
-// Session cleanup
+// تنظيف الجلسات
 setInterval(() => {
     const now = Date.now();
     for (const [userId, session] of userSessions.entries()) {
@@ -106,10 +98,15 @@ setInterval(() => {
             userSessions.delete(userId);
         }
     }
+    for (const [userId, session] of adminSessions.entries()) {
+        if (now - session.createdAt > 3600000) {
+            adminSessions.delete(userId);
+        }
+    }
 }, 3600000);
 
 // ============================================================================
-// 3. 🔥 FIREBASE SETUP
+// 3. إعداد Firebase
 // ============================================================================
 
 const admin = require('firebase-admin');
@@ -122,7 +119,14 @@ if (serviceAccount) {
         }
         db = admin.firestore();
         console.log('🔥 Firebase Admin SDK initialized');
-
+        
+        // تحديث عدد المستخدمين عند بدء التشغيل
+        updateTotalUsersCount();
+        
+        // تحديث العداد كل 5 دقائق
+        setInterval(updateTotalUsersCount, 300000);
+        
+        // فحص صحة Firebase
         setInterval(async () => {
             try {
                 await db.collection('system').doc('health').set({ lastCheck: Date.now() }, { merge: true });
@@ -138,22 +142,38 @@ if (serviceAccount) {
 function checkDb() { return db && firebaseHealthy; }
 
 // ============================================================================
-// 4. 🤖 TELEGRAM BOT SETUP
+// 4. دالة تحديث عدد المستخدمين - الحل الصحيح للمشكلة
 // ============================================================================
 
-const bot = new Telegraf(BOT_TOKEN);
-
-bot.telegram.deleteWebhook({ drop_pending_updates: true })
-    .then(() => console.log('✅ Webhook deleted, bot using polling mode'))
-    .catch(err => console.error('Webhook delete error:', err.message));
-
-bot.telegram.getMe().then((botInfo) => {
-    BOT_USERNAME = botInfo.username;
-    console.log(`📢 Bot username: @${BOT_USERNAME}`);
-}).catch(err => console.error('Failed to get bot info:', err.message));
+async function updateTotalUsersCount() {
+    if (!checkDb()) return;
+    try {
+        // استخدام Aggregation query للحصول على العدد الدقيق
+        const snapshot = await db.collection('users').count().get();
+        totalUsersCount = snapshot.data().count;
+        
+        // حفظ العداد في system للمرجعية
+        await db.collection('system').doc('stats').set({
+            totalUsers: totalUsersCount,
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        console.log(`📊 Total users count updated: ${totalUsersCount}`);
+    } catch (error) {
+        console.error('Error counting users:', error.message);
+        // محاولة طريقة بديلة
+        try {
+            const snapshot = await db.collection('users').get();
+            totalUsersCount = snapshot.size;
+            console.log(`📊 Alternative count: ${totalUsersCount}`);
+        } catch (e) {
+            console.error('Alternative count also failed:', e.message);
+        }
+    }
+}
 
 // ============================================================================
-// 5. 🛠️ HELPER FUNCTIONS
+// 5. دوال مساعدة
 // ============================================================================
 
 function formatAXC(amount) {
@@ -169,15 +189,13 @@ function isAdmin(userId) {
     return userId === ADMIN_ID;
 }
 
-function isValidBEP20(address) {
-    return /^0x[a-fA-F0-9]{40}$/i.test(address);
+function isAdminAuthenticated(userId) {
+    const session = adminSessions.get(userId);
+    return session && session.authenticated === true;
 }
 
-function getProgressBar(current, target, length = 10) {
-    const percent = Math.min(100, (current / target) * 100);
-    const filled = Math.floor((percent / 100) * length);
-    const empty = length - filled;
-    return `▰`.repeat(filled) + `▱`.repeat(empty) + ` ${Math.floor(percent)}%`;
+function isValidBEP20(address) {
+    return /^0x[a-fA-F0-9]{40}$/i.test(address);
 }
 
 function escapeHtml(text) {
@@ -185,9 +203,10 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function formatLine() {
-    return '<code>═══════════════════════════════════════</code>';
-}
+// خطوط زخرفية للرسائل الاحترافية
+const DIVIDER = '─━━━━━━━━━━━━━━━━━━━━─';
+const STAR_DIVIDER = '✧══════════════════════════════✧';
+const MINI_DIVIDER = '•──────•✧•──────•';
 
 async function deleteLastMessage(ctx) {
     const lastMsg = userLastMessages.get(ctx.from.id);
@@ -223,21 +242,39 @@ async function addNotification(targetUserId, title, message, type = 'info') {
     } catch (error) {}
 }
 
+// دالة تسجيل مستخدم جديد مع تحديث العداد
 async function updateNewUserCounter(userId, userName) {
     if (!checkDb()) return;
     try {
-        const counterRef = db.collection('system').doc('newUserCounter');
+        // زيادة العداد المحلي
+        totalUsersCount++;
+        
+        // تحديث العداد في قاعدة البيانات
+        const counterRef = db.collection('system').doc('userCounter');
         await counterRef.set({
             count: admin.firestore.FieldValue.increment(1),
             lastUserId: userId,
             lastUserName: userName,
             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        const updated = await counterRef.get();
+        
+        // تحديث إحصائيات النظام
+        await db.collection('system').doc('stats').set({
+            totalUsers: totalUsersCount,
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        console.log(`📈 New user counter incremented. Total: ${totalUsersCount}`);
+        
+        // إرسال إشعار للمشرف
         if (ADMIN_ID) {
-            await bot.telegram.sendMessage(ADMIN_ID, `🆕 New user: ${userName}\nID: ${userId}\nTotal: ${updated.data()?.count || 0}`);
+            await bot.telegram.sendMessage(ADMIN_ID, 
+                `✨ <b>New User Joined!</b>\n\n👤 Name: ${escapeHtml(userName)}\n🆔 ID: ${userId}\n📊 Total Users: ${totalUsersCount}`,
+                { parse_mode: 'HTML' });
         }
-    } catch (error) {}
+    } catch (error) {
+        console.error('Error updating user counter:', error.message);
+    }
 }
 
 function createNewUser(userId, userName, userUsername, refCode) {
@@ -279,44 +316,94 @@ async function getOrCreateUser(userId, userName, username, referredBy = null) {
 
         const newUser = createNewUser(userId, userName, username, referredBy);
         await userRef.set(newUser);
+        
+        // تحديث عداد المستخدمين عند إنشاء مستخدم جديد
+        await updateNewUserCounter(userId, userName);
+        
         console.log(`✅ New user created: ${userId} (${userName})`);
         return newUser;
-    } catch (error) { return null; }
+    } catch (error) { 
+        console.error('Error creating user:', error.message);
+        return null; 
+    }
 }
 
 async function updateUser(userId, data) {
     if (!checkDb()) return;
     try {
         await db.collection('users').doc(userId).update({ ...data, lastActive: new Date().toISOString() });
-        console.log(`✅ User ${userId} updated:`, Object.keys(data));
-    } catch (error) {}
+        console.log(`✅ User ${userId} updated`);
+    } catch (error) {
+        console.error('Update user error:', error.message);
+    }
 }
 
+// ============================================================================
+// 6. نظام الإحالة المحمي
+// ============================================================================
+
 async function processReferralFromBot(referrerId, newUserId, newUserName) {
-    if (!checkDb()) return;
+    if (!checkDb()) return false;
+    
+    // منع الإحالة الذاتية
+    if (referrerId === newUserId) return false;
+    
     try {
         const referrerRef = db.collection('users').doc(referrerId);
         const referrerDoc = await referrerRef.get();
-        if (referrerDoc.exists && !referrerDoc.data().referrals?.includes(newUserId)) {
-            await referrerRef.update({
-                referrals: admin.firestore.FieldValue.arrayUnion(newUserId),
-                inviteCount: admin.firestore.FieldValue.increment(1),
-                balance: admin.firestore.FieldValue.increment(APP_CONFIG.referralBonus),
-                totalEarned: admin.firestore.FieldValue.increment(APP_CONFIG.referralBonus)
-            });
-            
-            await addNotification(referrerId, '🎉 New Referral!', `+${formatAXC(APP_CONFIG.referralBonus)} added to your balance!`, 'referral');
-            
-            // ✅ إشعار فوري للمحيل
-            await bot.telegram.sendMessage(referrerId,
-                `<b>🎉 NEW REFERRAL!</b>\n${formatLine()}\n👤 <b>${escapeHtml(newUserName)}</b> joined using your link!\n💰 <b>+${formatAXC(APP_CONFIG.referralBonus)}</b> added to your balance!\n\n👥 Total referrals: ${(referrerDoc.data().inviteCount || 0) + 1}`,
-                { parse_mode: 'HTML' }
-            ).catch(() => {});
-
-            await checkMilestoneAchievement(referrerId);
-            console.log(`✅ Referral processed: ${referrerId} → ${newUserId}`);
+        
+        if (!referrerDoc.exists) return false;
+        
+        const currentReferrals = referrerDoc.data().referrals || [];
+        
+        // منع الإحالة المكررة
+        if (currentReferrals.includes(newUserId)) {
+            console.log(`⚠️ Duplicate referral prevented: ${referrerId} → ${newUserId}`);
+            return false;
         }
-    } catch (error) { console.error('Referral processing error:', error.message); }
+        
+        // استخدام transaction لمنع التلاعب
+        await db.runTransaction(async (transaction) => {
+            const refDoc = await transaction.get(referrerRef);
+            const refData = refDoc.data();
+            
+            transaction.update(referrerRef, {
+                referrals: [...currentReferrals, newUserId],
+                inviteCount: (refData.inviteCount || 0) + 1,
+                balance: (refData.balance || 0) + APP_CONFIG.referralBonus,
+                totalEarned: (refData.totalEarned || 0) + APP_CONFIG.referralBonus
+            });
+        });
+        
+        // إشعار احترافي للمحيل
+        const newInviteCount = (referrerDoc.data().inviteCount || 0) + 1;
+        const notificationMsg = `
+${STAR_DIVIDER}
+🎉 <b>NEW REFERRAL!</b> 🎉
+${MINI_DIVIDER}
+
+👤 <b>${escapeHtml(newUserName)}</b> joined using your link
+
+💰 <b>+${formatAXC(APP_CONFIG.referralBonus)}</b> added to your balance
+
+📊 <b>Total Referrals:</b> ${newInviteCount}
+
+${MINI_DIVIDER}
+💡 <i>Invite more friends to unlock milestone rewards!</i>
+${STAR_DIVIDER}`;
+        
+        await bot.telegram.sendMessage(referrerId, notificationMsg, { parse_mode: 'HTML' }).catch(() => {});
+        
+        // التحقق من المكافآت
+        await checkMilestoneAchievement(referrerId);
+        
+        console.log(`✅ Referral processed: ${referrerId} → ${newUserId}`);
+        return true;
+        
+    } catch (error) { 
+        console.error('Referral processing error:', error.message);
+        return false;
+    }
 }
 
 async function checkMilestoneAchievement(userId) {
@@ -334,15 +421,30 @@ async function checkMilestoneAchievement(userId) {
                     usdtBalance: admin.firestore.FieldValue.increment(milestone.reward),
                     claimedMilestones: admin.firestore.FieldValue.arrayUnion(milestone.count)
                 });
-                await addNotification(userId, '🏆 Milestone Unlocked!', `You reached ${milestone.count} referrals! +${formatUSD(milestone.reward)} USDT added!`, 'success');
-                await bot.telegram.sendMessage(userId,
-                    `<b>🏆 MILESTONE UNLOCKED!</b>\n${formatLine()}\n🎉 ${milestone.name}\n👥 ${milestone.count} referrals\n💰 +${formatUSD(milestone.reward)} USDT added!`,
-                    { parse_mode: 'HTML' }).catch(() => {});
+                
+                const milestoneMsg = `
+${STAR_DIVIDER}
+🏆 <b>MILESTONE UNLOCKED!</b> 🏆
+${MINI_DIVIDER}
+
+🎉 ${milestone.name}
+👥 ${milestone.count} referrals
+💰 +${formatUSD(milestone.reward)} USDT added!
+
+${MINI_DIVIDER}
+✨ <i>You're on fire! Keep going!</i>
+${STAR_DIVIDER}`;
+                
+                await bot.telegram.sendMessage(userId, milestoneMsg, { parse_mode: 'HTML' }).catch(() => {});
                 console.log(`✅ Milestone unlocked: ${userId} - ${milestone.count} referrals`);
             }
         }
     } catch (error) { console.error('Milestone error:', error.message); }
 }
+
+// ============================================================================
+// 7. التحقق من القنوات
+// ============================================================================
 
 async function verifyChannelMembership(userId, channelUsername) {
     try {
@@ -359,36 +461,36 @@ async function getMissingChannels(userId) {
     return results.filter(r => !r.isMember).map(r => r.channel);
 }
 
-// ✅ إعادة التحقق من القنوات (تستخدم قبل العمليات الحساسة)
 async function requireChannelVerification(ctx, userId) {
     const missing = await getMissingChannels(userId);
     if (missing.length > 0) {
         let list = '';
-        for (const ch of missing) list += `• ${ch.name}\n`;
-        await sendAndTrack(ctx, `<b>⚠️ CHANNEL VERIFICATION REQUIRED</b>
-${formatLine()}
+        for (const ch of missing) list += `📢 ${ch.name}\n`;
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+⚠️ <b>CHANNEL VERIFICATION REQUIRED</b> ⚠️
+${MINI_DIVIDER}
 
-You must be a member of all required channels to perform this action.
+You must join all required channels:
 
-<b>Missing channels:</b>
 ${list}
+${MINI_DIVIDER}
 
-${formatLine()}
-
-<i>Please join the channels above and try again.</i>`, getChannelsKeyboard());
+<i>Please join and click VERIFY</i>
+${STAR_DIVIDER}`, getChannelsKeyboard());
         return false;
     }
     return true;
 }
 
 // ============================================================================
-// 6. 🎨 KEYBOARDS & BUTTONS (محسنة)
+// 8. لوحات المفاتيح الاحترافية
 // ============================================================================
 
 function getMainKeyboard(userId) {
     const keyboard = [
-        ['💰 BALANCE', '🔗 REFERRAL'],
-        ['💸 WITHDRAW', '🔄 SWAP'],
+        ['💰 MY BALANCE', '🔗 REFERRAL SYSTEM'],
+        ['💸 WITHDRAW', '🔄 SWAP STATION'],
         ['⚙️ SETTINGS']
     ];
     if (isAdmin(userId)) keyboard.push(['👑 ADMIN PANEL']);
@@ -411,10 +513,6 @@ function getChannelsKeyboard() {
     }
     keyboard.push([{ text: '✅ VERIFY MEMBERSHIP', callback_data: 'verify_membership' }]);
     return { inline_keyboard: keyboard };
-}
-
-function getBackKeyboard() {
-    return { inline_keyboard: [[{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]] };
 }
 
 function getCancelKeyboard() {
@@ -454,7 +552,17 @@ function getConfirmWithdrawKeyboard() {
     };
 }
 
-function getAdminKeyboard() {
+// لوحة المشرف المحمية بكلمة سر
+function getAdminPasswordKeyboard() {
+    return {
+        inline_keyboard: [
+            [{ text: '🔐 ENTER PASSWORD', callback_data: 'admin_enter_password' }],
+            [{ text: '🔙 BACK', callback_data: 'back_to_menu' }]
+        ]
+    };
+}
+
+function getSecureAdminKeyboard() {
     return {
         inline_keyboard: [
             [{ text: '📊 STATISTICS', callback_data: 'admin_stats' }],
@@ -462,100 +570,103 @@ function getAdminKeyboard() {
             [{ text: '👥 TOTAL USERS', callback_data: 'admin_users' }],
             [{ text: '🔍 SEARCH USER', callback_data: 'admin_search' }],
             [{ text: '💰 ADD BALANCE', callback_data: 'admin_add' }],
-            [{ text: '➖ REMOVE BALANCE', callback_data: 'admin_remove' }],
-            [{ text: '✅ VERIFY USER', callback_data: 'admin_verify' }],
-            [{ text: '📢 BROADCAST', callback_data: 'admin_broadcast' }]
+            [{ text: '📢 BROADCAST', callback_data: 'admin_broadcast' }],
+            [{ text: '🚪 LOGOUT', callback_data: 'admin_logout' }]
         ]
     };
 }
 
 // ============================================================================
-// 7. 📨 WELCOME MESSAGE & COMMANDS
+// 9. أوامر البوت
 // ============================================================================
 
-async function sendWelcomeMessage(ctx) {
-    await sendAndTrack(ctx, `<b>✨ WELCOME TO AXION AI</b> ✨
-${formatLine()}
+const bot = new Telegraf(BOT_TOKEN);
 
-🎁 <b>Get ${formatAXC(APP_CONFIG.welcomeBonus)}</b> after verification
-👥 <b>Get ${formatAXC(APP_CONFIG.referralBonus)}</b> per referral
-💎 <b>Minimum Withdrawal:</b> ${formatAXC(APP_CONFIG.minWithdraw)}
+bot.telegram.deleteWebhook({ drop_pending_updates: true })
+    .then(() => console.log('✅ Bot started in polling mode'))
+    .catch(err => console.error('Webhook error:', err.message));
 
-${formatLine()}
+bot.telegram.getMe().then((botInfo) => {
+    BOT_USERNAME = botInfo.username;
+    console.log(`📢 Bot: @${BOT_USERNAME}`);
+});
 
-📢 <b>Please join our channels to continue:</b>`, getChannelsKeyboard());
-}
-
+// رسالة الترحيب الاحترافية
 bot.start(async (ctx) => {
     const refCode = ctx.startPayload;
     const userId = ctx.from.id.toString();
     const userName = ctx.from.first_name || 'Axion User';
     const userUsername = ctx.from.username || '';
+    
     console.log(`🚀 /start from ${userId}, ref: ${refCode || 'none'}`);
 
     if (!checkDb()) {
-        await ctx.reply('⚠️ Database is temporarily unavailable. Please try again later.');
+        await ctx.reply('⚠️ System is temporarily unavailable. Please try again later.');
         return;
     }
 
     let user = await getOrCreateUser(userId, userName, userUsername, refCode);
     if (!user) return;
 
-    // ✅ Process referral ONLY when user is created and not already referred
+    // معالجة الإحالة
     if (refCode && refCode !== userId && !user.referredBy) {
         await updateUser(userId, { referredBy: refCode });
         await processReferralFromBot(refCode, userId, userName);
-        console.log(`✅ Referral recorded: ${refCode} → ${userId}`);
     }
 
+    const welcomeMsg = `
+${STAR_DIVIDER}
+✨ <b>WELCOME TO AXION AI</b> ✨
+${MINI_DIVIDER}
+
+🎁 <b>Get ${formatAXC(APP_CONFIG.welcomeBonus)}</b> after verification
+👥 <b>Get ${formatAXC(APP_CONFIG.referralBonus)}</b> per referral
+💎 <b>Minimum Withdrawal:</b> ${formatAXC(APP_CONFIG.minWithdraw)}
+
+${MINI_DIVIDER}
+
+📢 <b>Please join our channels to continue</b>
+${STAR_DIVIDER}`;
+
     if (user.isVerified) {
-        await sendAndTrack(ctx, `<b>✅ Welcome back, ${escapeHtml(userName)}!</b>\n\n💰 <b>Balance:</b> ${formatAXC(user.balance || 0)}`, getMainKeyboard(userId));
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+✅ <b>Welcome back, ${escapeHtml(userName)}!</b>
+${MINI_DIVIDER}
+💰 <b>Balance:</b> ${formatAXC(user.balance || 0)}
+${STAR_DIVIDER}`, getMainKeyboard(userId));
         return;
     }
 
-    await sendWelcomeMessage(ctx);
+    await sendAndTrack(ctx, welcomeMsg, getChannelsKeyboard());
 });
 
-// ============================================================================
-// 8. 💰 BALANCE COMMAND
-// ============================================================================
-
-bot.hears('💰 BALANCE', async (ctx) => {
+// رصيد
+bot.hears('💰 MY BALANCE', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
 
     const user = await getOrCreateUser(userId, '', '');
     if (!user) return;
 
-    const username = ctx.from.username || 'No username';
-    const progressBar = getProgressBar(user.balance || 0, APP_CONFIG.minWithdraw);
-    const percent = Math.min(100, Math.floor(((user.balance || 0) / APP_CONFIG.minWithdraw) * 100));
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+📊 <b>YOUR BALANCE</b>
+${MINI_DIVIDER}
 
-    await sendAndTrack(ctx, `<b>📊 YOUR AXION BALANCE</b>
-${formatLine()}
+💰 <b>AXC:</b> ${formatAXC(user.balance || 0)}
+💵 <b>USDT:</b> ${formatUSD(user.usdtBalance || 0)}
 
-👤 <b>User:</b> @${escapeHtml(username)} | <b>ID:</b> ${userId}
+👥 <b>Referrals:</b> ${user.inviteCount || 0}
+🎁 <b>Earned:</b> ${formatAXC((user.inviteCount || 0) * APP_CONFIG.referralBonus)}
 
-💰 <b>AXC Balance:</b> ${formatAXC(user.balance || 0)}
-💵 <b>USDT Balance:</b> ${formatUSD(user.usdtBalance || 0)}
-
-👥 <b>Referrals:</b> ${user.inviteCount || 0} | 🎁 <b>Earned:</b> ${formatAXC((user.inviteCount || 0) * APP_CONFIG.referralBonus)}
-
-${formatLine()}
-
-<b>📈 Progress to withdrawal:</b>
-${progressBar} (${user.balance || 0}/${APP_CONFIG.minWithdraw} AXC)
-
-${formatLine()}
-
-<i>👇 Use the buttons below to manage your funds:</i>`, getMainKeyboard(userId));
+${MINI_DIVIDER}
+📈 <b>Next withdrawal:</b> ${formatAXC(APP_CONFIG.minWithdraw - (user.balance || 0))} needed
+${STAR_DIVIDER}`, getMainKeyboard(userId));
 });
 
-// ============================================================================
-// 9. 🔗 REFERRAL COMMAND
-// ============================================================================
-
-bot.hears('🔗 REFERRAL', async (ctx) => {
+// نظام الإحالة
+bot.hears('🔗 REFERRAL SYSTEM', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
 
@@ -568,35 +679,31 @@ bot.hears('🔗 REFERRAL', async (ctx) => {
     const claimed = user.claimedMilestones || [];
     for (const milestone of REFERRAL_MILESTONES) {
         const isClaimed = claimed.includes(milestone.count);
-        const status = isClaimed ? '✅ Claimed' : (user.inviteCount >= milestone.count ? '🎯 Ready' : `🔒 ${milestone.count - user.inviteCount} left`);
-        milestonesText += `• ${milestone.name} (${milestone.count}) → ${formatUSD(milestone.reward)} - ${status}\n`;
+        const status = isClaimed ? '✅' : (user.inviteCount >= milestone.count ? '🎯' : `🔒 ${milestone.count - user.inviteCount} left`);
+        milestonesText += `• ${milestone.name} (${milestone.count}) → +${milestone.reward} USDT ${status}\n`;
     }
 
-    await sendAndTrack(ctx, `<b>🔗 YOUR REFERRAL LINK</b>
-${formatLine()}
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+🔗 <b>YOUR REFERRAL LINK</b>
+${MINI_DIVIDER}
 
 <code>${link}</code>
 
-${formatLine()}
+${MINI_DIVIDER}
 
-<b>📊 Referral Stats:</b>
 👥 <b>Total Referrals:</b> ${user.inviteCount || 0}
-🎁 <b>Earned:</b> ${formatAXC((user.inviteCount || 0) * APP_CONFIG.referralBonus)}
+🎁 <b>Earned from referrals:</b> ${formatAXC((user.inviteCount || 0) * APP_CONFIG.referralBonus)}
 
-${formatLine()}
-
-<b>🏆 MILESTONES (USDT Rewards):</b>
+${MINI_DIVIDER}
+🏆 <b>Milestones:</b>
 ${milestonesText}
-
-${formatLine()}
+${STAR_DIVIDER}
 
 <i>Share your link and earn rewards!</i>`, getShareKeyboard(link));
 });
 
-// ============================================================================
-// 10. 💸 WITHDRAW COMMAND (مع إعادة التحقق)
-// ============================================================================
-
+// سحب
 bot.hears('💸 WITHDRAW', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
@@ -604,114 +711,72 @@ bot.hears('💸 WITHDRAW', async (ctx) => {
     const user = await getOrCreateUser(userId, '', '');
     if (!user) return;
 
-    // ✅ إعادة التحقق من القنوات
     if (!await requireChannelVerification(ctx, userId)) return;
 
     if (user.withdrawBlocked) {
-        await sendAndTrack(ctx, `<b>🚫 ACCOUNT BLOCKED</b>
-${formatLine()}
-Your account has been blocked from withdrawals.
-Contact support for more information.`, getMainKeyboard(userId));
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+🚫 <b>ACCOUNT BLOCKED</b>
+${MINI_DIVIDER}
+Contact support for assistance.
+${STAR_DIVIDER}`, getMainKeyboard(userId));
         return;
     }
 
     const lastWithdraw = withdrawCooldownTracker.get(userId);
     if (lastWithdraw && (Date.now() - lastWithdraw) < APP_CONFIG.withdrawCooldown) {
         const hoursLeft = Math.ceil((APP_CONFIG.withdrawCooldown - (Date.now() - lastWithdraw)) / 3600000);
-        await sendAndTrack(ctx, `<b>⏳ COOLDOWN ACTIVE</b>
-${formatLine()}
-You can request withdrawal once every 24 hours.
-Please wait ${hoursLeft} hour(s).`, getMainKeyboard(userId));
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+⏳ <b>COOLDOWN ACTIVE</b>
+${MINI_DIVIDER}
+Please wait ${hoursLeft} hour(s) before next withdrawal.
+${STAR_DIVIDER}`, getMainKeyboard(userId));
         return;
     }
 
     if (!user.isVerified) {
-        await sendAndTrack(ctx, `<b>🔒 VERIFICATION REQUIRED</b>
-${formatLine()}
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+🔒 <b>VERIFICATION REQUIRED</b>
+${MINI_DIVIDER}
 Please complete channel verification first.
-
-Click the VERIFY button below.`, getChannelsKeyboard());
+${STAR_DIVIDER}`, getChannelsKeyboard());
         return;
     }
 
     if (!user.walletAddress) {
-        await sendAndTrack(ctx, `<b>💳 SETUP WITHDRAWAL WALLET</b>
-${formatLine()}
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+💳 <b>SETUP WITHDRAWAL WALLET</b>
+${MINI_DIVIDER}
 
-Please send your BEP20 wallet address to continue.
+Please send your BEP20 wallet address.
 
-<i>Example: <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code></i>
+<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>
 
-${formatLine()}
-
-📝 <b>Send your address now:</b>`, getCancelKeyboard());
+${MINI_DIVIDER}
+📝 <b>Send your address now</b>
+${STAR_DIVIDER}`, getCancelKeyboard());
         userSessions.set(userId, { waitingForWallet: true, createdAt: Date.now() });
         return;
     }
 
-    const balance = user.balance || 0;
-    const usdtBalance = user.usdtBalance || 0;
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+💸 <b>WITHDRAWAL</b>
+${MINI_DIVIDER}
 
-    await sendAndTrack(ctx, `<b>💸 WITHDRAWAL</b>
-${formatLine()}
-
-💰 <b>AXC Balance:</b> ${formatAXC(balance)}
-💵 <b>USDT Balance:</b> ${formatUSD(usdtBalance)}
+💰 <b>AXC:</b> ${formatAXC(user.balance || 0)}
+💵 <b>USDT:</b> ${formatUSD(user.usdtBalance || 0)}
 💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>
 
-${formatLine()}
-
-<b>👇 Choose currency:</b>`, getWithdrawCurrencyKeyboard());
+${MINI_DIVIDER}
+👇 <b>Choose currency</b>
+${STAR_DIVIDER}`, getWithdrawCurrencyKeyboard());
 });
 
-// ============================================================================
-// 11. 🔄 SWAP COMMAND (مع إعادة التحقق)
-// ============================================================================
-
-bot.hears('🔄 SWAP', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    console.log(`🔄 SWAP command from ${userId}`);
-
-    if (!checkDb()) {
-        await ctx.reply('⚠️ Database is temporarily unavailable.');
-        return;
-    }
-
-    const user = await getOrCreateUser(userId, '', '');
-    if (!user) return;
-
-    // ✅ إعادة التحقق من القنوات
-    if (!await requireChannelVerification(ctx, userId)) return;
-
-    const swapUrl = `${APP_URL}/swap.html?userId=${userId}`;
-
-    await sendAndTrack(ctx, `<b>⚡ AXION SWAP STATION</b>
-${formatLine()}
-
-💰 <b>AXC Balance:</b> ${formatAXC(user.balance || 0)}
-💵 <b>USDT Balance:</b> ${formatUSD(user.usdtBalance || 0)}
-
-${formatLine()}
-
-${user.tonPaid ? 
-    `<b>✅ Swap feature is activated!</b>` :
-    `<b>🔒 One-time activation required: 0.05 TON</b>`
-}
-
-${formatLine()}
-
-<i>👇 Click below to open the Swap Station:</i>`, {
-        inline_keyboard: [
-            [{ text: '🔄 OPEN SWAP STATION', web_app: { url: swapUrl } }],
-            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
-        ]
-    });
-});
-
-// ============================================================================
-// 12. ⚙️ SETTINGS COMMAND
-// ============================================================================
-
+// الإعدادات
 bot.hears('⚙️ SETTINGS', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
@@ -719,44 +784,42 @@ bot.hears('⚙️ SETTINGS', async (ctx) => {
     const user = await getOrCreateUser(userId, '', '');
     if (!user) return;
 
-    await sendAndTrack(ctx, `<b>⚙️ SETTINGS</b>
-${formatLine()}
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+⚙️ <b>SETTINGS</b>
+${MINI_DIVIDER}
 
-💳 <b>Wallet Address:</b> 
-${user.walletAddress ? `<code>${user.walletAddress}</code>` : 'Not set'}
+💳 <b>Wallet:</b> ${user.walletAddress ? `<code>${user.walletAddress.substring(0, 10)}...</code>` : 'Not set'}
+🔐 <b>Verified:</b> ${user.isVerified ? '✅ Yes' : '❌ No'}
+🔄 <b>Swap:</b> ${user.tonPaid ? '✅ Activated' : '❌ Not activated'}
 
-🔐 <b>Verification Status:</b> ${user.isVerified ? '✅ Verified' : '❌ Not verified'}
-
-🔄 <b>Swap Status:</b> ${user.tonPaid ? '✅ Activated' : '❌ Not activated'}
-
-${formatLine()}
-
-<i>👇 Select an option:</i>`, getSettingsKeyboard());
+${MINI_DIVIDER}
+👇 Select an option
+${STAR_DIVIDER}`, getSettingsKeyboard());
 });
 
-// Change wallet address
+// تبديل المحفظة
 bot.action('change_wallet', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
 
-    await sendAndTrack(ctx, `<b>💳 CHANGE WALLET ADDRESS</b>
-${formatLine()}
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+💳 <b>CHANGE WALLET</b>
+${MINI_DIVIDER}
 
 Send your new BEP20 wallet address.
 
-<i>Example: <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code></i>
+<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>
 
-${formatLine()}
-
-📝 <b>Send your new address now:</b>`, getCancelKeyboard());
+${MINI_DIVIDER}
+📝 Send your new address
+${STAR_DIVIDER}`, getCancelKeyboard());
     
     userSessions.set(userId, { waitingForWalletUpdate: true, createdAt: Date.now() });
 });
 
-// ============================================================================
-// 13. 🔘 CALLBACK ACTIONS
-// ============================================================================
-
+// التحقق من القنوات
 bot.action('verify_membership', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
@@ -766,19 +829,25 @@ bot.action('verify_membership', async (ctx) => {
     const userData = userDoc.data();
 
     if (userData.isVerified) {
-        await sendAndTrack(ctx, `<b>✅ Already verified!</b>`, getMainKeyboard(userId));
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+✅ <b>Already verified!</b>
+${STAR_DIVIDER}`, getMainKeyboard(userId));
         return;
     }
 
     const missing = await getMissingChannels(userId);
     if (missing.length > 0) {
         let list = '';
-        for (const ch of missing) list += `• ${ch.name}\n`;
-        await sendAndTrack(ctx, `<b>⚠️ MISSING CHANNELS</b>
-${formatLine()}
+        for (const ch of missing) list += `📢 ${ch.name}\n`;
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+⚠️ <b>MISSING CHANNELS</b>
+${MINI_DIVIDER}
 ${list}
-${formatLine()}
-<i>Please join all channels and click VERIFY.</i>`, getChannelsKeyboard());
+${MINI_DIVIDER}
+<i>Join all channels and click VERIFY</i>
+${STAR_DIVIDER}`, getChannelsKeyboard());
         return;
     }
 
@@ -790,107 +859,39 @@ ${formatLine()}
     });
 
     const newBalance = (userData.balance || 0) + APP_CONFIG.welcomeBonus;
-    await sendAndTrack(ctx, `<b>✅ VERIFICATION SUCCESSFUL!</b>
-${formatLine()}
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+✅ <b>VERIFICATION SUCCESSFUL!</b>
+${MINI_DIVIDER}
 
-🎉 <b>+${formatAXC(APP_CONFIG.welcomeBonus)}</b> added to your balance!
+🎉 <b>+${formatAXC(APP_CONFIG.welcomeBonus)}</b> added!
 
 💰 <b>New Balance:</b> ${formatAXC(newBalance)}
 
-${formatLine()}
-
-<i>You can now invite friends and withdraw funds.</i>`, getMainKeyboard(userId));
+${MINI_DIVIDER}
+<i>You can now withdraw and invite friends</i>
+${STAR_DIVIDER}`, getMainKeyboard(userId));
 });
 
-bot.action('withdraw_axc', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    await ctx.answerCbQuery();
-
-    const user = await getOrCreateUser(userId, '', '');
-    if (!user) return;
-
-    // ✅ إعادة التحقق من القنوات
-    if (!await requireChannelVerification(ctx, userId)) return;
-
-    if ((user.balance || 0) < APP_CONFIG.minWithdraw) {
-        await sendAndTrack(ctx, `<b>❌ INSUFFICIENT BALANCE</b>
-${formatLine()}
-
-You need <b>${formatAXC(APP_CONFIG.minWithdraw)}</b> to withdraw.
-
-💰 Your balance: ${formatAXC(user.balance || 0)}
-
-💡 <b>Tip:</b> Invite friends to earn more AXC!`, getMainKeyboard(userId));
-        return;
-    }
-
-    const amount = user.balance;
-    await sendAndTrack(ctx, `<b>💸 WITHDRAWAL REQUEST</b>
-${formatLine()}
-
-💰 <b>Amount:</b> ${formatAXC(amount)}
-💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>
-
-${formatLine()}
-
-<i>Click CONFIRM to submit your withdrawal request.</i>`, getConfirmWithdrawKeyboard());
-
-    userSessions.set(userId, { withdrawAmount: amount, withdrawCurrency: 'AXC', createdAt: Date.now() });
-});
-
-bot.action('withdraw_usdt', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    await ctx.answerCbQuery();
-
-    const user = await getOrCreateUser(userId, '', '');
-    if (!user) return;
-
-    // ✅ إعادة التحقق من القنوات
-    if (!await requireChannelVerification(ctx, userId)) return;
-
-    const usdtAmount = user.usdtBalance || 0;
-
-    if (usdtAmount < APP_CONFIG.minWithdraw * APP_CONFIG.axcPrice) {
-        await sendAndTrack(ctx, `<b>❌ INSUFFICIENT USDT BALANCE</b>
-${formatLine()}
-
-You need <b>${formatUSD(APP_CONFIG.minWithdraw * APP_CONFIG.axcPrice)}</b> to withdraw USDT.
-
-💵 Your USDT balance: ${formatUSD(usdtAmount)}
-
-💡 <b>Tip:</b> Swap AXC to USDT first!`, getMainKeyboard(userId));
-        return;
-    }
-
-    await sendAndTrack(ctx, `<b>💸 USDT WITHDRAWAL REQUEST</b>
-${formatLine()}
-
-💵 <b>Amount:</b> ${formatUSD(usdtAmount)}
-💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>
-
-${formatLine()}
-
-<i>Click CONFIRM to submit your withdrawal request.</i>`, getConfirmWithdrawKeyboard());
-
-    userSessions.set(userId, { withdrawAmount: usdtAmount, withdrawCurrency: 'USDT', createdAt: Date.now() });
-});
-
+// تأكيد السحب
 bot.action('confirm_withdraw_final', async (ctx) => {
     const userId = ctx.from.id.toString();
     const session = userSessions.get(userId);
     await ctx.answerCbQuery();
 
     if (!session?.withdrawAmount) {
-        await sendAndTrack(ctx, `<b>❌ SESSION EXPIRED</b>
-${formatLine()}
-Please start over by clicking WITHDRAW again.`, getMainKeyboard(userId));
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+❌ <b>SESSION EXPIRED</b>
+${MINI_DIVIDER}
+Please start over by clicking WITHDRAW again.
+${STAR_DIVIDER}`, getMainKeyboard(userId));
         return;
     }
 
     const user = await getOrCreateUser(userId, '', '');
     if (!user) return;
 
-    // ✅ إعادة التحقق من القنوات قبل السحب
     if (!await requireChannelVerification(ctx, userId)) return;
 
     withdrawCooldownTracker.set(userId, Date.now());
@@ -915,32 +916,201 @@ Please start over by clicking WITHDRAW again.`, getMainKeyboard(userId));
 
     if (WITHDRAWAL_GROUP_ID) {
         await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID,
-            `<b>💸 WITHDRAWAL REQUEST</b>
-${formatLine()}
+            `${STAR_DIVIDER}
+💸 <b>WITHDRAWAL REQUEST</b>
+${MINI_DIVIDER}
 👤 ${escapeHtml(user.userName)}
 💰 ${session.withdrawCurrency === 'AXC' ? formatAXC(session.withdrawAmount) : formatUSD(session.withdrawAmount)}
 💳 <code>${user.walletAddress}</code>
-🆔 ${withdrawalRef.id}`, { parse_mode: 'HTML' }).catch(() => {});
+🆔 ${withdrawalRef.id}
+${STAR_DIVIDER}`, { parse_mode: 'HTML' }).catch(() => {});
     }
 
-    await sendAndTrack(ctx, `<b>✅ WITHDRAWAL REQUEST SUBMITTED!</b>
-${formatLine()}
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+✅ <b>WITHDRAWAL SUBMITTED!</b>
+${MINI_DIVIDER}
 
 💰 ${session.withdrawCurrency === 'AXC' ? formatAXC(session.withdrawAmount) : formatUSD(session.withdrawAmount)}
-⏳ <b>Processing Time:</b> 24-48 hours
+⏳ <b>Processing:</b> 24-48 hours
 
-<i>You will be notified once processed.</i>`, getMainKeyboard(userId));
+<i>You will be notified when processed</i>
+${STAR_DIVIDER}`, getMainKeyboard(userId));
 
     userSessions.delete(userId);
 });
 
-bot.action('cancel_action', async (ctx) => {
+// ============================================================================
+// 10. لوحة المشرف المحمية بكلمة سر
+// ============================================================================
+
+bot.hears('👑 ADMIN PANEL', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    
+    if (!isAdmin(userId)) {
+        await ctx.reply('⛔ <b>Access Denied</b>', { parse_mode: 'HTML' });
+        return;
+    }
+    
+    // التحقق مما إذا كان المشرف مصادقاً بالفعل
+    if (isAdminAuthenticated(userId)) {
+        await ctx.reply(`
+${STAR_DIVIDER}
+👑 <b>ADMIN CONTROL PANEL</b>
+${MINI_DIVIDER}
+✅ Authenticated
+${STAR_DIVIDER}`, { reply_markup: getSecureAdminKeyboard(), parse_mode: 'HTML' });
+        return;
+    }
+    
+    // طلب كلمة السر
+    await ctx.reply(`
+${STAR_DIVIDER}
+👑 <b>ADMIN AUTHENTICATION</b>
+${MINI_DIVIDER}
+
+🔐 Please enter your admin password to continue
+
+<i>Type the password in this chat</i>
+${STAR_DIVIDER}`, { parse_mode: 'HTML' });
+    
+    // انتظار كلمة السر من المشرف
+    adminSessions.set(userId, { waitingForPassword: true, createdAt: Date.now() });
+});
+
+// معالجة كلمة السر
+bot.on('text', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    const session = adminSessions.get(userId);
+    
+    // معالجة كلمة سر المشرف
+    if (session && session.waitingForPassword && isAdmin(userId)) {
+        const enteredPassword = ctx.message.text;
+        
+        if (enteredPassword === ADMIN_PASSWORD) {
+            adminSessions.set(userId, { authenticated: true, createdAt: Date.now() });
+            delete adminSessions.get(userId).waitingForPassword;
+            
+            await ctx.reply(`
+${STAR_DIVIDER}
+✅ <b>Authentication Successful!</b>
+${MINI_DIVIDER}
+
+Welcome to the Admin Panel
+${STAR_DIVIDER}`, { reply_markup: getSecureAdminKeyboard(), parse_mode: 'HTML' });
+        } else {
+            await ctx.reply(`
+${STAR_DIVIDER}
+❌ <b>Invalid Password</b>
+${MINI_DIVIDER}
+Access denied. Contact system administrator.
+${STAR_DIVIDER}`, { parse_mode: 'HTML' });
+            adminSessions.delete(userId);
+        }
+        return;
+    }
+});
+
+// تسجيل خروج المشرف
+bot.action('admin_logout', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
-    userSessions.delete(userId);
-    await sendAndTrack(ctx, `<b>❌ ACTION CANCELLED</b>
-${formatLine()}
-You have been returned to the main menu.`, getMainKeyboard(userId));
+    adminSessions.delete(userId);
+    await ctx.reply(`
+${STAR_DIVIDER}
+🔓 <b>Logged out successfully</b>
+${MINI_DIVIDER}
+You have been logged out of the admin panel.
+${STAR_DIVIDER}`, { parse_mode: 'HTML' });
+});
+
+// إحصائيات المشرف
+bot.action('admin_stats', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+        await ctx.answerCbQuery('Unauthorized');
+        return;
+    }
+    await ctx.answerCbQuery();
+    
+    if (!checkDb()) return;
+    
+    // استخدام العداد المخزن للحصول على العدد الدقيق
+    const usersSnapshot = await db.collection('users').get();
+    const pendingSnapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
+    
+    await ctx.reply(`
+${STAR_DIVIDER}
+📊 <b>LIVE STATISTICS</b>
+${MINI_DIVIDER}
+
+👥 <b>Total Users:</b> ${totalUsersCount || usersSnapshot.size}
+💸 <b>Pending Withdrawals:</b> ${pendingSnapshot.size}
+💰 <b>Active Users (30d):</b> Calculating...
+
+${MINI_DIVIDER}
+📅 Last updated: ${new Date().toLocaleString()}
+${STAR_DIVIDER}`, { parse_mode: 'HTML' });
+});
+
+bot.action('admin_users', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+        await ctx.answerCbQuery('Unauthorized');
+        return;
+    }
+    await ctx.answerCbQuery();
+    
+    const usersSnapshot = await db.collection('users').get();
+    await ctx.reply(`
+${STAR_DIVIDER}
+👥 <b>USER MANAGEMENT</b>
+${MINI_DIVIDER}
+
+📊 <b>Total Users:</b> ${totalUsersCount || usersSnapshot.size}
+
+<i>Use /search [username] to find users</i>
+${STAR_DIVIDER}`, { parse_mode: 'HTML' });
+});
+
+bot.action('admin_pending', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+        await ctx.answerCbQuery('Unauthorized');
+        return;
+    }
+    await ctx.answerCbQuery();
+    
+    const pendingSnapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
+    
+    if (pendingSnapshot.empty) {
+        await ctx.reply(`
+${STAR_DIVIDER}
+✅ <b>No pending withdrawals</b>
+${STAR_DIVIDER}`, { parse_mode: 'HTML' });
+        return;
+    }
+    
+    let msg = `${STAR_DIVIDER}\n💸 <b>PENDING WITHDRAWALS</b>\n${MINI_DIVIDER}\n\n`;
+    pendingSnapshot.forEach(doc => {
+        const data = doc.data();
+        msg += `👤 ${data.userName}\n💰 ${data.currency === 'AXC' ? formatAXC(data.amount) : formatUSD(data.amount)}\n🆔 ${doc.id}\n${MINI_DIVIDER}\n`;
+    });
+    msg += `${STAR_DIVIDER}`;
+    
+    await ctx.reply(msg, { parse_mode: 'HTML' });
+});
+
+// باقي أوامر المشرف (اختصاراً)
+bot.action('admin_broadcast', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+        await ctx.answerCbQuery('Unauthorized');
+        return;
+    }
+    await ctx.answerCbQuery();
+    await ctx.reply('📢 Send the message you want to broadcast to all users:', { parse_mode: 'HTML' });
+    adminSessions.set(userId, { broadcasting: true });
 });
 
 bot.action('back_to_menu', async (ctx) => {
@@ -948,117 +1118,100 @@ bot.action('back_to_menu', async (ctx) => {
     await ctx.answerCbQuery();
     userSessions.delete(userId);
     const user = await getOrCreateUser(userId, '', '');
-    await sendAndTrack(ctx, `<b>🎯 MAIN MENU</b>
-${formatLine()}
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+🎯 <b>MAIN MENU</b>
+${MINI_DIVIDER}
 💰 <b>Balance:</b> ${formatAXC(user?.balance || 0)}
-
-<i>👇 Select an option below:</i>`, getMainKeyboard(userId));
+${STAR_DIVIDER}`, getMainKeyboard(userId));
 });
 
-// ============================================================================
-// 14. 👑 ADMIN PANEL
-// ============================================================================
-
-bot.hears('👑 ADMIN PANEL', async (ctx) => {
+bot.action('cancel_action', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId)) {
-        await ctx.reply('<b>⛔ Access denied!</b>', { parse_mode: 'HTML' });
-        return;
-    }
-
-    await ctx.reply(`<b>👑 AXION AI ADMIN PANEL</b>
-${formatLine()}
-✅ <b>Authenticated as Admin</b>
-
-📋 <b>Click any button below:</b>`, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
-});
-
-// Admin action handlers (اختصاراً لأنها طويلة)
-bot.action('admin_stats', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
-    if (!checkDb()) return;
-    const usersSnapshot = await db.collection('users').get();
-    const pendingSnapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
-    await ctx.reply(`<b>📊 STATISTICS</b>
-${formatLine()}
-👥 <b>Users:</b> ${usersSnapshot.size}
-💸 <b>Pending Withdrawals:</b> ${pendingSnapshot.size}`, { parse_mode: 'HTML' });
+    userSessions.delete(userId);
+    await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+❌ <b>Action Cancelled</b>
+${MINI_DIVIDER}
+Returning to main menu...
+${STAR_DIVIDER}`, getMainKeyboard(userId));
 });
 
-// باقي Admin handlers مماثلة للنسخة السابقة (محذوفة للاختصار)
-
 // ============================================================================
-// 15. 📡 TEXT HANDLER (UNIFIED)
+// 11. معالجة النصوص (المحفظة)
 // ============================================================================
 
 bot.on('text', async (ctx) => {
     const userId = ctx.from.id.toString();
     const text = ctx.message.text;
 
-    // Skip commands and buttons
     if (text.startsWith('/')) return;
-    if (['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW', '🔄 SWAP', '⚙️ SETTINGS', '👑 ADMIN PANEL'].includes(text)) return;
+    
+    const adminSession = adminSessions.get(userId);
+    if (adminSession?.broadcasting && isAdmin(userId) && isAdminAuthenticated(userId)) {
+        // إرسال رسالة جماعية
+        const usersSnapshot = await db.collection('users').get();
+        let sent = 0;
+        for (const doc of usersSnapshot.docs) {
+            try {
+                await bot.telegram.sendMessage(doc.id, text, { parse_mode: 'HTML' });
+                sent++;
+                await new Promise(r => setTimeout(r, 50));
+            } catch(e) {}
+        }
+        await ctx.reply(`✅ Broadcast sent to ${sent} users`);
+        adminSessions.delete(userId);
+        return;
+    }
 
     const session = userSessions.get(userId);
 
-    // ✅ Handle initial wallet setup
     if (session?.waitingForWallet && isValidBEP20(text)) {
         await updateUser(userId, { walletAddress: text });
         userSessions.delete(userId);
-        await sendAndTrack(ctx, `<b>✅ WALLET ADDRESS SAVED!</b>
-${formatLine()}
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+✅ <b>WALLET SAVED!</b>
+${MINI_DIVIDER}
 💳 <code>${text}</code>
-
-<i>You can now withdraw funds.</i>`, getMainKeyboard(userId));
+${MINI_DIVIDER}
+<i>You can now withdraw funds</i>
+${STAR_DIVIDER}`, getMainKeyboard(userId));
         return;
     }
 
-    // ✅ Handle wallet update from settings
     if (session?.waitingForWalletUpdate && isValidBEP20(text)) {
         await updateUser(userId, { walletAddress: text });
         userSessions.delete(userId);
-        await sendAndTrack(ctx, `<b>✅ WALLET ADDRESS UPDATED!</b>
-${formatLine()}
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+✅ <b>WALLET UPDATED!</b>
+${MINI_DIVIDER}
 💳 <code>${text}</code>
-
-<i>Your withdrawal wallet has been updated.</i>`, getMainKeyboard(userId));
+${STAR_DIVIDER}`, getMainKeyboard(userId));
         return;
     }
 
-    // Invalid address
-    if (session?.waitingForWallet && !isValidBEP20(text)) {
-        await sendAndTrack(ctx, `<b>❌ INVALID ADDRESS</b>
-${formatLine()}
+    if ((session?.waitingForWallet || session?.waitingForWalletUpdate) && !isValidBEP20(text)) {
+        await sendAndTrack(ctx, `
+${STAR_DIVIDER}
+❌ <b>INVALID ADDRESS</b>
+${MINI_DIVIDER}
 
 Please send a valid BEP20 wallet address.
 
-<i>Example: <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code></i>
+<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>
 
-${formatLine()}
-
-📝 <b>Try again or click CANCEL:</b>`, getCancelKeyboard());
-        return;
-    }
-
-    if (session?.waitingForWalletUpdate && !isValidBEP20(text)) {
-        await sendAndTrack(ctx, `<b>❌ INVALID ADDRESS</b>
-${formatLine()}
-
-Please send a valid BEP20 wallet address.
-
-<i>Example: <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code></i>
-
-${formatLine()}
-
-📝 <b>Try again or click CANCEL:</b>`, getCancelKeyboard());
+${MINI_DIVIDER}
+📝 Try again or click CANCEL
+${STAR_DIVIDER}`, getCancelKeyboard());
         return;
     }
 });
 
 // ============================================================================
-// 16. 📡 EXPRESS SERVER
+// 12. خادم Express
 // ============================================================================
 
 app.use(cors());
@@ -1066,33 +1219,33 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
-app.get('/health', (req, res) => { res.json({ status: 'alive', timestamp: Date.now(), firebase: firebaseHealthy ? 'connected' : 'disconnected' }); });
+app.get('/health', (req, res) => { res.json({ status: 'alive', timestamp: Date.now(), totalUsers: totalUsersCount, firebase: firebaseHealthy ? 'connected' : 'disconnected' }); });
 app.get('/api/config', (req, res) => { res.json({ firebaseConfig: firebaseWebConfig, ownerWallet: OWNER_WALLET, status: 'ok' }); });
 app.get('/tonconnect-manifest.json', (req, res) => { res.sendFile(path.join(__dirname, 'tonconnect-manifest.json')); });
 
 // ============================================================================
-// 17. 🚀 LAUNCH
+// 13. تشغيل البوت
 // ============================================================================
 
 bot.launch({ dropPendingUpdates: true })
-    .then(() => console.log('🚀 Axion AI Bot v20.0 Started Successfully'))
+    .then(() => console.log('🚀 Axion AI Bot Started Successfully'))
     .catch(err => console.error('❌ Bot error:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 app.listen(PORT, () => {
-    console.log(`\n🌟 AXION AI v20.0 - PROFESSIONAL EDITION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📍 Port: ${PORT}
-🔥 Firebase: ${db && firebaseHealthy ? '✅ Connected' : '❌ Disconnected'}
-👑 Admin ID: ${ADMIN_ID || 'Not configured'}
-🤖 Bot: ${BOT_TOKEN ? '✅ Configured' : 'Missing'}
-💸 Withdrawals: AXC + USDT
-🔄 Swap: Mini App with TON Connect
-⚙️ Settings: Change wallet, manage account
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎉 Axion AI is READY for battle!`);
+    console.log(`
+╔════════════════════════════════════════╗
+║     AXION AI v3.0 - PROFESSIONAL       ║
+╠════════════════════════════════════════╣
+║  📍 Port: ${PORT}                              ║
+║  🔥 Firebase: ${db && firebaseHealthy ? '✅' : '❌'}                            ║
+║  👑 Admin: ${ADMIN_ID ? '✅' : '❌'}                               ║
+║  🔐 Admin Password: ${ADMIN_PASSWORD ? '✅' : '❌'}                       ║
+║  📊 User Counter: ${totalUsersCount} active              ║
+╚════════════════════════════════════════╝
+    `);
 });
 
 // ============================================================================
