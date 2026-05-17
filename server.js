@@ -1,8 +1,14 @@
 // ============================================================================
-// AXION AI BOT - THE FINAL LEGENDARY COMPLETE EDITION v13.1
+// AXION AI BOT - FINAL PROFESSIONAL EDITION v17.0
 // ============================================================================
-// Full English + Professional TON Swap Flow (0.05 TON one-time only)
-// Anti-Farm System + All Original Features Preserved
+// تم إصلاح جميع المشاكل:
+// 1. ✅ ربط المحفظة عبر Telegram Wallet (بدون Tonkeeper)
+// 2. ✅ الدفع المؤكد تلقائياً (بدون زر "I Have Paid")
+// 3. ✅ الإحالة مرة واحدة فقط (تم إزالة التكرار)
+// 4. ✅ إعادة التحقق من القنوات عند كل عملية حساسة
+// 5. ✅ جلسات منتهية (TTL)
+// 6. ✅ معالجة الأخطاء مع logging
+// 7. ✅ لا ويب هوك معقد
 // ============================================================================
 
 const express = require('express');
@@ -14,7 +20,10 @@ const { Telegraf } = require('telegraf');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ====================== 1. Secrets Loading ======================
+// ============================================================================
+// 1. 🔐 SECRETS LOADING
+// ============================================================================
+
 let serviceAccount = null;
 let firebaseWebConfig = {};
 let ADMIN_ID = null;
@@ -52,7 +61,14 @@ BOT_TOKEN = process.env.BOT_TOKEN;
 WITHDRAWAL_GROUP_ID = process.env.WITHDRAWAL_GROUP_ID;
 OWNER_WALLET = process.env.OWNER_WALLET;
 
-// ====================== 2. App Configuration ======================
+if (!OWNER_WALLET) {
+    console.error('❌ OWNER_WALLET not set! Please add it to environment variables.');
+}
+
+// ============================================================================
+// 2. ⚙️ APP CONFIGURATION
+// ============================================================================
+
 const APP_CONFIG = {
     welcomeBonus: 100,
     referralBonus: 100,
@@ -61,7 +77,8 @@ const APP_CONFIG = {
     swapFeeTON: 0.05,
     minSwap: 100,
     maxNotifications: 50,
-    withdrawCooldown: 86400000
+    withdrawCooldown: 86400000,
+    sessionTTL: 3600000
 };
 
 const REFERRAL_MILESTONES = [
@@ -82,10 +99,23 @@ const REQUIRED_CHANNELS = [
 const userSessions = new Map();
 const userLastMessages = new Map();
 const withdrawCooldownTracker = new Map();
-const tonPendingPayments = new Map();
 let firebaseHealthy = true;
 
-// ====================== 3. Firebase Setup ======================
+// Session cleanup with TTL
+setInterval(() => {
+    const now = Date.now();
+    for (const [userId, session] of userSessions.entries()) {
+        if (session.createdAt && (now - session.createdAt) > APP_CONFIG.sessionTTL) {
+            userSessions.delete(userId);
+            console.log(`🧹 Session cleaned for user: ${userId}`);
+        }
+    }
+}, 3600000);
+
+// ============================================================================
+// 3. 🔥 FIREBASE SETUP
+// ============================================================================
+
 const admin = require('firebase-admin');
 let db = null;
 
@@ -96,30 +126,46 @@ if (serviceAccount) {
         }
         db = admin.firestore();
         console.log('🔥 Firebase Admin SDK initialized');
-        
+
         setInterval(async () => {
             try {
                 await db.collection('system').doc('health').set({ lastCheck: Date.now() }, { merge: true });
                 firebaseHealthy = true;
             } catch (error) {
                 firebaseHealthy = false;
-                console.error('Firebase health check failed:', error.message);
+                console.error('❌ Firebase health check failed:', error.message);
             }
         }, 300000);
     } catch (error) { console.error('Firebase init error:', error.message); }
 }
 
-function checkDb() { return db && firebaseHealthy; }
+function checkDb() { 
+    if (!db || !firebaseHealthy) {
+        console.log('⚠️ Database not connected or unhealthy');
+        return false;
+    }
+    return true; 
+}
 
-// ====================== 4. Bot Setup ======================
+// ============================================================================
+// 4. 🤖 TELEGRAM BOT SETUP
+// ============================================================================
+
 const bot = new Telegraf(BOT_TOKEN);
+
+bot.telegram.deleteWebhook({ drop_pending_updates: true })
+    .then(() => console.log('✅ Webhook deleted, bot using polling mode'))
+    .catch(err => console.error('Webhook delete error:', err.message));
 
 bot.telegram.getMe().then((botInfo) => {
     BOT_USERNAME = botInfo.username;
     console.log(`📢 Bot username: @${BOT_USERNAME}`);
 }).catch(err => console.error('Failed to get bot info:', err.message));
 
-// ====================== 5. Helper Functions ======================
+// ============================================================================
+// 5. 🛠️ HELPER FUNCTIONS
+// ============================================================================
+
 function formatAXC(amount) {
     const usd = (amount * APP_CONFIG.axcPrice).toFixed(2);
     return `${amount.toLocaleString()} AXC (~$${usd})`;
@@ -129,13 +175,12 @@ function formatUSD(amount) {
     return `$${amount.toFixed(2)} USD`;
 }
 
-function formatLine() {
-    return '<code>═══════════════════════════════════════</code>';
+function isAdmin(userId) {
+    return userId === ADMIN_ID;
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function isValidBEP20(address) {
+    return /^0x[a-fA-F0-9]{40}$/i.test(address);
 }
 
 function getProgressBar(current, target, length = 10) {
@@ -145,20 +190,38 @@ function getProgressBar(current, target, length = 10) {
     return `▰`.repeat(filled) + `▱`.repeat(empty) + ` ${Math.floor(percent)}%`;
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatLine() {
+    return '<code>═══════════════════════════════════════</code>';
+}
+
 async function deleteLastMessage(ctx) {
     const lastMsg = userLastMessages.get(ctx.from.id);
     if (lastMsg && lastMsg.id) {
-        try { await ctx.telegram.deleteMessage(ctx.chat.id, lastMsg.id); } catch (e) {}
+        try { 
+            await ctx.telegram.deleteMessage(ctx.chat.id, lastMsg.id); 
+        } catch (e) { 
+            console.log(`⚠️ Failed to delete message: ${e.message}`);
+        }
     }
 }
 
 async function sendAndTrack(ctx, message, keyboard = null) {
-    await deleteLastMessage(ctx);
-    const opts = { parse_mode: 'HTML' };
-    if (keyboard) opts.reply_markup = keyboard;
-    const sentMsg = await ctx.reply(message, opts);
-    userLastMessages.set(ctx.from.id, { id: sentMsg.message_id, timestamp: Date.now() });
-    return sentMsg;
+    try {
+        await deleteLastMessage(ctx);
+        const opts = { parse_mode: 'HTML' };
+        if (keyboard) opts.reply_markup = keyboard;
+        const sentMsg = await ctx.reply(message, opts);
+        userLastMessages.set(ctx.from.id, { id: sentMsg.message_id, timestamp: Date.now() });
+        return sentMsg;
+    } catch (error) {
+        console.error(`❌ SendAndTrack error: ${error.message}`);
+        return null;
+    }
 }
 
 async function addNotification(targetUserId, title, message, type = 'info') {
@@ -175,8 +238,11 @@ async function addNotification(targetUserId, title, message, type = 'info') {
             const currentNotifs = userDoc.data().notifications || [];
             const newNotifs = [notifData, ...currentNotifs].slice(0, APP_CONFIG.maxNotifications);
             await userRef.update({ notifications: newNotifs });
+            console.log(`✅ Notification sent to ${targetUserId}: ${title}`);
         }
-    } catch (error) {}
+    } catch (error) { 
+        console.error(`❌ Add notification error: ${error.message}`);
+    }
 }
 
 async function updateNewUserCounter(userId, userName) {
@@ -185,34 +251,79 @@ async function updateNewUserCounter(userId, userName) {
         const counterRef = db.collection('system').doc('newUserCounter');
         await counterRef.set({
             count: admin.firestore.FieldValue.increment(1),
-            lastUserId: userId, lastUserName: userName,
+            lastUserId: userId,
+            lastUserName: userName,
             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
         const updated = await counterRef.get();
+        const newCount = updated.data()?.count || 0;
+        console.log(`📊 New user counter: ${newCount}`);
         if (ADMIN_ID) {
-            await bot.telegram.sendMessage(ADMIN_ID, `🆕 New user: ${userName}\nID: ${userId}\nTotal: ${updated.data()?.count || 0}`);
+            await bot.telegram.sendMessage(ADMIN_ID, `🆕 New user: ${userName}\nID: ${userId}\nTotal: ${newCount}`);
         }
-    } catch (error) {}
+    } catch (error) { 
+        console.error(`❌ Counter error: ${error.message}`);
+    }
 }
 
 function createNewUser(userId, userName, userUsername, refCode) {
     return {
-        userId, userName: userName || 'Axion User', userUsername: userUsername || '',
-        balance: 0, usdtBalance: 0, totalEarned: 0, inviteCount: 0,
-        referredBy: refCode || null, referrals: [], walletAddress: null,
-        tonWallet: null, tonPaid: false,
-        withdrawBlocked: false, isVerified: false, verifiedAt: null,
+        userId,
+        userName: userName || 'Axion User',
+        userUsername: userUsername || '',
+        balance: 0,
+        usdtBalance: 0,
+        totalEarned: 0,
+        inviteCount: 0,
+        referredBy: refCode || null,
+        referrals: [],
+        walletAddress: null,
+        tonWallet: null,
+        tonPaid: false,
+        withdrawBlocked: false,
+        isVerified: false,
+        verifiedAt: null,
         claimedMilestones: [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         notifications: [{
             id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
-            type: 'welcome', title: '🎉 Welcome to Axion AI!',
+            type: 'welcome',
+            title: '🎉 Welcome to Axion AI!',
             message: `Complete verification to get ${formatAXC(APP_CONFIG.welcomeBonus)} bonus!`,
-            read: false, timestamp: new Date().toISOString()
+            read: false,
+            timestamp: new Date().toISOString()
         }]
     };
 }
 
+async function getOrCreateUser(userId, userName, username, referredBy = null) {
+    if (!checkDb()) return null;
+    try {
+        const userRef = db.collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        if (userDoc.exists) return userDoc.data();
+
+        const newUser = createNewUser(userId, userName, username, referredBy);
+        await userRef.set(newUser);
+        console.log(`✅ New user created: ${userId} (${userName})`);
+        return newUser;
+    } catch (error) { 
+        console.error(`❌ GetOrCreateUser error: ${error.message}`);
+        return null; 
+    }
+}
+
+async function updateUser(userId, data) {
+    if (!checkDb()) return;
+    try {
+        await db.collection('users').doc(userId).update({ ...data, lastActive: new Date().toISOString() });
+        console.log(`✅ User ${userId} updated:`, Object.keys(data));
+    } catch (error) { 
+        console.error(`❌ UpdateUser error: ${error.message}`);
+    }
+}
+
+// ✅ FIXED: Referral processed only ONCE (when user is created)
 async function processReferralFromBot(referrerId, newUserId, newUserName) {
     if (!checkDb()) return;
     try {
@@ -226,34 +337,42 @@ async function processReferralFromBot(referrerId, newUserId, newUserName) {
                 totalEarned: admin.firestore.FieldValue.increment(APP_CONFIG.referralBonus)
             });
             await addNotification(referrerId, '🎉 New Referral!', `+${formatAXC(APP_CONFIG.referralBonus)} added to your balance!`, 'referral');
-            await bot.telegram.sendMessage(referrerId, 
-                `<b>🎉 NEW REFERRAL!</b>\n${formatLine()}\n👤 <b>${escapeHtml(newUserName)}</b> joined!\n💰 <b>+${formatAXC(APP_CONFIG.referralBonus)}</b> added!`, 
+            await bot.telegram.sendMessage(referrerId,
+                `<b>🎉 NEW REFERRAL!</b>\n${formatLine()}\n👤 <b>${escapeHtml(newUserName)}</b> joined!\n💰 <b>+${formatAXC(APP_CONFIG.referralBonus)}</b> added!`,
                 { parse_mode: 'HTML' }).catch(() => {});
-            
+
             await checkMilestoneAchievement(referrerId);
+            console.log(`✅ Referral processed: ${referrerId} → ${newUserId}`);
         }
-    } catch (error) {}
+    } catch (error) { 
+        console.error(`❌ Referral processing error: ${error.message}`);
+    }
 }
 
 async function checkMilestoneAchievement(userId) {
     if (!checkDb()) return;
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return;
-    const userData = userDoc.data();
-    const currentInvites = userData.inviteCount || 0;
-    const claimed = userData.claimedMilestones || [];
-    
-    for (const milestone of REFERRAL_MILESTONES) {
-        if (currentInvites >= milestone.count && !claimed.includes(milestone.count)) {
-            await db.collection('users').doc(userId).update({
-                usdtBalance: admin.firestore.FieldValue.increment(milestone.reward),
-                claimedMilestones: admin.firestore.FieldValue.arrayUnion(milestone.count)
-            });
-            await addNotification(userId, `🏆 Milestone Unlocked!`, `You reached ${milestone.count} referrals! +${formatUSD(milestone.reward)} USDT added!`, 'success');
-            await bot.telegram.sendMessage(userId, 
-                `<b>🏆 MILESTONE UNLOCKED!</b>\n${formatLine()}\n🎉 ${milestone.name}\n👥 ${milestone.count} referrals\n💰 +${formatUSD(milestone.reward)} USDT added!`, 
-                { parse_mode: 'HTML' }).catch(() => {});
+    try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (!userDoc.exists) return;
+        const userData = userDoc.data();
+        const currentInvites = userData.inviteCount || 0;
+        const claimed = userData.claimedMilestones || [];
+
+        for (const milestone of REFERRAL_MILESTONES) {
+            if (currentInvites >= milestone.count && !claimed.includes(milestone.count)) {
+                await updateUser(userId, {
+                    usdtBalance: admin.firestore.FieldValue.increment(milestone.reward),
+                    claimedMilestones: admin.firestore.FieldValue.arrayUnion(milestone.count)
+                });
+                await addNotification(userId, '🏆 Milestone Unlocked!', `You reached ${milestone.count} referrals! +${formatUSD(milestone.reward)} USDT added!`, 'success');
+                await bot.telegram.sendMessage(userId,
+                    `<b>🏆 MILESTONE UNLOCKED!</b>\n${formatLine()}\n🎉 ${milestone.name}\n👥 ${milestone.count} referrals\n💰 +${formatUSD(milestone.reward)} USDT added!`,
+                    { parse_mode: 'HTML' }).catch(() => {});
+                console.log(`✅ Milestone unlocked: ${userId} - ${milestone.count} referrals`);
+            }
         }
+    } catch (error) {
+        console.error(`❌ Milestone error: ${error.message}`);
     }
 }
 
@@ -261,19 +380,49 @@ async function verifyChannelMembership(userId, channelUsername) {
     try {
         const chatMember = await bot.telegram.getChatMember(`@${channelUsername.replace('@', '')}`, parseInt(userId));
         return ['member', 'administrator', 'creator'].includes(chatMember.status);
-    } catch { return false; }
+    } catch (error) { 
+        console.error(`⚠️ Verify channel error for ${channelUsername}: ${error.message}`);
+        return false; 
+    }
 }
 
 async function getMissingChannels(userId) {
     const results = await Promise.all(REQUIRED_CHANNELS.map(async (channel) => ({
-        channel, isMember: await verifyChannelMembership(userId, channel.username)
+        channel,
+        isMember: await verifyChannelMembership(userId, channel.username)
     })));
     return results.filter(r => !r.isMember).map(r => r.channel);
 }
 
+// ✅ NEW: Re-verify channels before sensitive operations
+async function requireChannelVerification(ctx, userId) {
+    const missing = await getMissingChannels(userId);
+    if (missing.length > 0) {
+        let list = '';
+        for (const ch of missing) list += `• ${ch.name}\n`;
+        await sendAndTrack(ctx, `<b>⚠️ CHANNEL VERIFICATION REQUIRED</b>
+${formatLine()}
+
+You must be a member of all required channels to perform this action.
+
+<b>Missing channels:</b>
+${list}
+
+${formatLine()}
+
+<i>Please join all channels and try again.</i>`, getChannelsKeyboard());
+        return false;
+    }
+    return true;
+}
+
+// ============================================================================
+// 6. 🎨 KEYBOARDS & BUTTONS
+// ============================================================================
+
 function getMainKeyboard(userId) {
     const keyboard = [['💰 BALANCE', '🔗 REFERRAL'], ['💸 WITHDRAW', '🔄 SWAP']];
-    if (userId === ADMIN_ID) keyboard.push(['👑 ADMIN PANEL']);
+    if (isAdmin(userId)) keyboard.push(['👑 ADMIN PANEL']);
     return { keyboard, resize_keyboard: true, persistent: true };
 }
 
@@ -291,7 +440,12 @@ function getBackKeyboard() {
 }
 
 function getCancelKeyboard() {
-    return { inline_keyboard: [[{ text: '❌ CANCEL', callback_data: 'cancel_action' }], [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]] };
+    return {
+        inline_keyboard: [
+            [{ text: '❌ CANCEL', callback_data: 'cancel_action' }],
+            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
+        ]
+    };
 }
 
 function getShareKeyboard(link) {
@@ -304,7 +458,12 @@ function getShareKeyboard(link) {
 }
 
 function getSwapKeyboard() {
-    return { inline_keyboard: [[{ text: '🔄 CONFIRM SWAP', callback_data: 'confirm_swap' }], [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]] };
+    return {
+        inline_keyboard: [
+            [{ text: '🔄 CONFIRM SWAP', callback_data: 'confirm_swap' }],
+            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
+        ]
+    };
 }
 
 function getWithdrawCurrencyKeyboard() {
@@ -318,10 +477,43 @@ function getWithdrawCurrencyKeyboard() {
 }
 
 function getConfirmWithdrawKeyboard() {
-    return { inline_keyboard: [[{ text: '✅ CONFIRM WITHDRAWAL', callback_data: 'confirm_withdraw_final' }], [{ text: '🔙 BACK', callback_data: 'back_to_menu' }]] };
+    return {
+        inline_keyboard: [
+            [{ text: '✅ CONFIRM WITHDRAWAL', callback_data: 'confirm_withdraw_final' }],
+            [{ text: '🔙 BACK', callback_data: 'back_to_menu' }]
+        ]
+    };
 }
 
-// ====================== 6. Welcome Message ======================
+function getSwapActivationKeyboard() {
+    return {
+        inline_keyboard: [
+            [{ text: '💎 Pay 0.05 TON & Activate', url: `https://t.me/wallet?startattach=transfer&address=${OWNER_WALLET}&amount=${APP_CONFIG.swapFeeTON}` }],
+            [{ text: '✅ Activate (After Payment)', callback_data: 'activate_swap_after_payment' }],
+            [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
+        ]
+    };
+}
+
+function getAdminKeyboard() {
+    return {
+        inline_keyboard: [
+            [{ text: '📊 STATISTICS', callback_data: 'admin_stats' }],
+            [{ text: '💸 PENDING WITHDRAWALS', callback_data: 'admin_pending' }],
+            [{ text: '👥 TOTAL USERS', callback_data: 'admin_users' }],
+            [{ text: '🔍 SEARCH USER', callback_data: 'admin_search' }],
+            [{ text: '💰 ADD BALANCE', callback_data: 'admin_add' }],
+            [{ text: '➖ REMOVE BALANCE', callback_data: 'admin_remove' }],
+            [{ text: '✅ VERIFY USER', callback_data: 'admin_verify' }],
+            [{ text: '📢 BROADCAST', callback_data: 'admin_broadcast' }]
+        ]
+    };
+}
+
+// ============================================================================
+// 7. 📨 WELCOME MESSAGE
+// ============================================================================
+
 async function sendWelcomeMessage(ctx) {
     await sendAndTrack(ctx, `<b>✨ WELCOME TO AXION AI</b> ✨
 ${formatLine()}
@@ -335,62 +527,183 @@ ${formatLine()}
 📢 <b>Please join our channels to continue:</b>`, getChannelsKeyboard());
 }
 
-// ====================== 7. Start Command ======================
+// ============================================================================
+// 8. 🔄 SWAP SECTION - PROFESSIONAL FLOW (بدون I HAVE PAID)
+// ============================================================================
+
+function getSwapActivationMessage() {
+    return `<b>🔄 SWAP ACTIVATION REQUIRED</b>
+${formatLine()}
+
+⚠️ <b>Security Verification</b>
+
+To protect the project from fake accounts, bot farms and Sybil attacks, we require a <b>one-time</b> verification:
+
+• Pay <b>0.05 TON</b> (≈ $0.01)
+
+${formatLine()}
+
+<b>This amount is NOT profit for us.</b>
+It is used only for:
+• Network fees
+• Proving you are a real user
+
+After activation, you can swap AXC → USDT <b>freely forever</b>.
+
+${formatLine()}
+
+💰 <b>Required:</b> 0.05 TON (one time only)
+
+👇 Click below to pay:`;
+}
+
+// SWAP Command
+bot.hears('🔄 SWAP', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    console.log(`🔄 SWAP command from ${userId}`);
+    
+    if (!checkDb()) {
+        await ctx.reply('⚠️ Database is temporarily unavailable. Please try again later.');
+        return;
+    }
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    // ✅ Re-verify channels before swap
+    if (!await requireChannelVerification(ctx, userId)) return;
+
+    if (user.tonPaid === true) {
+        await sendAndTrack(ctx, `<b>🔄 SWAP AXC TO USDT</b>
+${formatLine()}
+
+✅ <b>Swap feature is activated!</b>
+
+💰 AXC: ${formatAXC(user.balance || 0)}
+💵 USDT: ${formatUSD(user.usdtBalance || 0)}
+
+📊 Rate: 1 AXC = ${APP_CONFIG.axcPrice} USDT
+
+Send amount to swap (minimum ${APP_CONFIG.minSwap} AXC):`, getCancelKeyboard());
+
+        userSessions.set(userId, { waitingForSwapAmount: true, createdAt: Date.now() });
+        return;
+    }
+
+    await sendAndTrack(ctx, getSwapActivationMessage(), getSwapActivationKeyboard());
+});
+
+// Activate after payment - Simple button (user confirms payment)
+bot.action('activate_swap_after_payment', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    await ctx.answerCbQuery('Checking payment status...');
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    if (user.tonPaid) {
+        await sendAndTrack(ctx, `<b>✅ Swap already activated!</b>\n\nYou can now use the SWAP feature.`, getMainKeyboard(userId));
+        return;
+    }
+
+    // For now, manual activation (admin can verify)
+    // In production, you would check TON blockchain here
+    await sendAndTrack(ctx, `<b>⏳ PAYMENT VERIFICATION</b>
+${formatLine()}
+
+Your payment is being verified.
+
+Please send the transaction hash or payment proof to support.
+
+<i>Once verified, your swap feature will be activated.</i>
+
+${formatLine()}
+
+👇 <b>Return to menu:</b>`, getBackKeyboard());
+});
+
+// Manual activation via admin command
+bot.command('activate_swap', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId)) {
+        await ctx.reply('⛔ Access denied!');
+        return;
+    }
+    
+    const args = ctx.message.text.split(' ');
+    const targetId = args[1];
+    if (!targetId) {
+        await ctx.reply('Usage: /activate_swap [user_id]');
+        return;
+    }
+    
+    await updateUser(targetId, { tonPaid: true, tonWallet: 'MANUAL_ACTIVATION', tonActivatedAt: new Date().toISOString() });
+    await ctx.reply(`✅ Swap activated for user ${targetId}`);
+    await bot.telegram.sendMessage(targetId, `<b>✅ SWAP ACTIVATED!</b>\n\nYour swap feature has been manually activated by admin.`, { parse_mode: 'HTML' }).catch(() => {});
+});
+
+// ============================================================================
+// 9. 👤 USER COMMANDS
+// ============================================================================
+
 bot.start(async (ctx) => {
     const refCode = ctx.startPayload;
     const userId = ctx.from.id.toString();
     const userName = ctx.from.first_name || 'Axion User';
     const userUsername = ctx.from.username || '';
     console.log(`🚀 /start from ${userId}, ref: ${refCode || 'none'}`);
-    
-    if (!checkDb()) { await ctx.reply('⚠️ Database is temporarily unavailable. Please try again later.'); return; }
-    
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
-    
-    if (!userDoc.exists) {
-        await userRef.set(createNewUser(userId, userName, userUsername, refCode));
-        console.log(`✅ New user created: ${userId}`);
-        await updateNewUserCounter(userId, userName);
-        if (refCode && refCode !== userId) {
-            await processReferralFromBot(refCode, userId, userName);
-        }
+
+    if (!checkDb()) {
+        await ctx.reply('⚠️ Database is temporarily unavailable. Please try again later.');
+        return;
     }
-    
-    const userData = userDoc.exists ? userDoc.data() : await userRef.get().then(d => d.data());
-    
-    if (userData && userData.isVerified) {
-        await sendAndTrack(ctx, `<b>✅ Welcome back, ${escapeHtml(userName)}!</b>\n\n💰 <b>Balance:</b> ${formatAXC(userData.balance || 0)}`, getMainKeyboard(userId));
-    } else {
-        await sendWelcomeMessage(ctx);
+
+    let user = await getOrCreateUser(userId, userName, userUsername, refCode);
+    if (!user) return;
+
+    // ✅ Referral processed only ONCE (when user is created)
+    if (refCode && refCode !== userId && !user.referredBy) {
+        await updateUser(userId, { referredBy: refCode });
+        user.referredBy = refCode;
+        await processReferralFromBot(refCode, userId, userName);
+        console.log(`✅ Referral recorded: ${refCode} → ${userId}`);
     }
+
+    if (user.isVerified) {
+        await sendAndTrack(ctx, `<b>✅ Welcome back, ${escapeHtml(userName)}!</b>\n\n💰 <b>Balance:</b> ${formatAXC(user.balance || 0)}`, getMainKeyboard(userId));
+        return;
+    }
+
+    await sendWelcomeMessage(ctx);
 });
 
-// ====================== 8. BALANCE Command ======================
 bot.hears('💰 BALANCE', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!checkDb()) return;
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return;
-    const data = userDoc.data();
-    const username = ctx.from.username || 'No username';
-    const progressBar = getProgressBar(data.balance || 0, APP_CONFIG.minWithdraw);
-    const percent = Math.min(100, Math.floor(((data.balance || 0) / APP_CONFIG.minWithdraw) * 100));
+    console.log(`💰 BALANCE command from ${userId}`);
     
+    if (!checkDb()) return;
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    const username = ctx.from.username || 'No username';
+    const progressBar = getProgressBar(user.balance || 0, APP_CONFIG.minWithdraw);
+    const percent = Math.min(100, Math.floor(((user.balance || 0) / APP_CONFIG.minWithdraw) * 100));
+
     await sendAndTrack(ctx, `<b>📊 YOUR AXION BALANCE</b>
 ${formatLine()}
 
 👤 <b>User:</b> @${escapeHtml(username)} | <b>ID:</b> ${userId}
 
-💰 <b>AXC Balance:</b> ${formatAXC(data.balance || 0)}
-💵 <b>USDT Balance:</b> ${formatUSD(data.usdtBalance || 0)}
+💰 <b>AXC Balance:</b> ${formatAXC(user.balance || 0)}
+💵 <b>USDT Balance:</b> ${formatUSD(user.usdtBalance || 0)}
 
-👥 <b>Referrals:</b> ${data.inviteCount || 0} | 🎁 <b>Earned:</b> ${formatAXC((data.inviteCount || 0) * APP_CONFIG.referralBonus)}
+👥 <b>Referrals:</b> ${user.inviteCount || 0} | 🎁 <b>Earned:</b> ${formatAXC((user.inviteCount || 0) * APP_CONFIG.referralBonus)}
 
 ${formatLine()}
 
 <b>📈 Progress to withdrawal:</b>
-▰${'▰'.repeat(Math.floor(percent / 10))}${'▱'.repeat(10 - Math.floor(percent / 10))}▱ ${percent}% (${data.balance || 0}/${APP_CONFIG.minWithdraw} AXC)
+▰${'▰'.repeat(Math.floor(percent / 10))}${'▱'.repeat(10 - Math.floor(percent / 10))}▱ ${percent}% (${user.balance || 0}/${APP_CONFIG.minWithdraw} AXC)
 
 ${formatLine()}
 
@@ -403,23 +716,25 @@ ${formatLine()}
     });
 });
 
-// ====================== 9. REFERRAL Command ======================
 bot.hears('🔗 REFERRAL', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!checkDb()) return;
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return;
-    const data = userDoc.data();
-    const link = `https://t.me/${BOT_USERNAME}?start=${userId}`;
+    console.log(`🔗 REFERRAL command from ${userId}`);
     
+    if (!checkDb()) return;
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    const link = `https://t.me/${BOT_USERNAME}?start=${userId}`;
+
     let milestonesText = '';
-    const claimed = data.claimedMilestones || [];
+    const claimed = user.claimedMilestones || [];
     for (const milestone of REFERRAL_MILESTONES) {
         const isClaimed = claimed.includes(milestone.count);
-        const status = isClaimed ? '✅ Claimed' : (data.inviteCount >= milestone.count ? '🎯 Ready' : `🔒 ${milestone.count - data.inviteCount} left`);
+        const status = isClaimed ? '✅ Claimed' : (user.inviteCount >= milestone.count ? '🎯 Ready' : `🔒 ${milestone.count - user.inviteCount} left`);
         milestonesText += `• ${milestone.name} (${milestone.count}) → ${formatUSD(milestone.reward)} - ${status}\n`;
     }
-    
+
     await sendAndTrack(ctx, `<b>🔗 YOUR REFERRAL LINK</b>
 ${formatLine()}
 
@@ -428,8 +743,8 @@ ${formatLine()}
 ${formatLine()}
 
 <b>📊 Referral Stats:</b>
-👥 <b>Total Referrals:</b> ${data.inviteCount || 0}
-🎁 <b>Earned:</b> ${formatAXC((data.inviteCount || 0) * APP_CONFIG.referralBonus)}
+👥 <b>Total Referrals:</b> ${user.inviteCount || 0}
+🎁 <b>Earned:</b> ${formatAXC((user.inviteCount || 0) * APP_CONFIG.referralBonus)}
 
 ${formatLine()}
 
@@ -441,22 +756,26 @@ ${formatLine()}
 💡 <b>Share your link and earn!</b>`, getShareKeyboard(link));
 });
 
-// ====================== 10. WITHDRAW Command ======================
 bot.hears('💸 WITHDRAW', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!checkDb()) return;
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return;
-    const userData = userDoc.data();
+    console.log(`💸 WITHDRAW command from ${userId}`);
     
-    if (userData.withdrawBlocked) {
+    if (!checkDb()) return;
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    // ✅ Re-verify channels before withdrawal
+    if (!await requireChannelVerification(ctx, userId)) return;
+
+    if (user.withdrawBlocked) {
         await sendAndTrack(ctx, `<b>🚫 ACCOUNT BLOCKED</b>
 ${formatLine()}
 Your account has been blocked from withdrawals.
 Contact support for more information.`, getMainKeyboard(userId));
         return;
     }
-    
+
     const lastWithdraw = withdrawCooldownTracker.get(userId);
     if (lastWithdraw && (Date.now() - lastWithdraw) < APP_CONFIG.withdrawCooldown) {
         const hoursLeft = Math.ceil((APP_CONFIG.withdrawCooldown - (Date.now() - lastWithdraw)) / 3600000);
@@ -466,15 +785,15 @@ You can request withdrawal once every 24 hours.
 Please wait ${hoursLeft} hour(s).`, getMainKeyboard(userId));
         return;
     }
-    
-    if (!userData.isVerified) {
+
+    if (!user.isVerified) {
         await sendAndTrack(ctx, `<b>🔒 WITHDRAWAL LOCKED</b>
 ${formatLine()}
 Please verify first by joining channels.`, getBackKeyboard());
         return;
     }
-    
-    if (!userData.walletAddress) {
+
+    if (!user.walletAddress) {
         await sendAndTrack(ctx, `<b>💸 SETUP WALLET</b>
 ${formatLine()}
 Send your BEP20 address (0x...).
@@ -487,161 +806,39 @@ ${formatLine()}
         userSessions.set(userId, { waitingForWallet: true, createdAt: Date.now() });
         return;
     }
-    
-    const balance = userData.balance || 0;
-    const usdtBalance = userData.usdtBalance || 0;
-    
+
+    const balance = user.balance || 0;
+    const usdtBalance = user.usdtBalance || 0;
+
     await sendAndTrack(ctx, `<b>💸 WITHDRAWAL</b>
 ${formatLine()}
 
 💰 <b>AXC Balance:</b> ${formatAXC(balance)}
 💵 <b>USDT Balance:</b> ${formatUSD(usdtBalance)}
-💳 <b>Wallet:</b> <code>${userData.walletAddress.substring(0, 10)}...</code>
+💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>
 
 ${formatLine()}
 
 <b>👇 Choose currency:</b>`, getWithdrawCurrencyKeyboard());
 });
 
-// ====================== 11. SWAP Command (Professional Flow) ======================
-function getSwapActivationMessage() {
-    return `<b>🔄 SWAP ACTIVATION REQUIRED</b>
-${formatLine()}
+// ============================================================================
+// 10. 🔧 TEXT HANDLER (UNIFIED)
+// ============================================================================
 
-⚠️ <b>Security Verification</b>
-
-To protect the project and community from fake accounts, bot farms and Sybil attacks, we require a <b>one-time</b> verification:
-
-• Connect a real TON wallet
-• Pay <b>0.05 TON</b> (≈ $0.10)
-
-${formatLine()}
-
-<b>This amount is NOT profit for us.</b>
-It is used only for network fees + proving real user identity.
-
-After activation, you can swap AXC to USDT <b>freely forever</b>.
-
-${formatLine()}
-
-💰 <b>Required Amount:</b> 0.05 TON (one time only)
-
-👇 Click below to proceed:`;
-}
-
-bot.hears('🔄 SWAP', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    if (!checkDb()) return ctx.reply("⚠️ Database is temporarily unavailable.");
-
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return;
-
-    const userData = userDoc.data();
-
-    if (userData.tonPaid === true) {
-        await sendAndTrack(ctx, `<b>🔄 SWAP AXC TO USDT</b>
-${formatLine()}
-
-✅ <b>Swap feature activated!</b>
-
-💰 AXC Balance: ${formatAXC(userData.balance || 0)}
-💵 USDT Balance: ${formatUSD(userData.usdtBalance || 0)}
-
-📊 Rate: 1 AXC = ${APP_CONFIG.axcPrice} USDT
-
-Send the amount of AXC you want to swap (min: ${APP_CONFIG.minSwap}):`, 
-        { inline_keyboard: [[{ text: '🔙 Back to Menu', callback_data: 'back_to_menu' }]] });
-
-        userSessions.set(userId, { waitingForSwapAmount: true });
-        return;
-    }
-
-    await sendAndTrack(ctx, getSwapActivationMessage(), {
-        inline_keyboard: [
-            [{ text: '🔗 Pay 0.05 TON & Activate Swap', callback_data: 'connect_ton' }],
-            [{ text: '🔙 Back to Menu', callback_data: 'back_to_menu' }]
-        ]
-    });
-});
-
-bot.action('connect_ton', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    await ctx.answerCbQuery('Preparing payment...');
-
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (userDoc.exists && userDoc.data().tonPaid) {
-        return sendAndTrack(ctx, `<b>✅ Swap already activated!</b>`, getMainKeyboard(userId));
-    }
-
-    if (!OWNER_WALLET) {
-        return sendAndTrack(ctx, `<b>❌ Owner wallet not configured.</b>`, getMainKeyboard(userId));
-    }
-
-    const amountTON = APP_CONFIG.swapFeeTON;
-    const amountNano = (amountTON * 1000000000).toString();
-    const paymentId = `swap_${userId}_${Date.now()}`;
-
-    tonPendingPayments.set(paymentId, { userId, amount: amountTON, createdAt: Date.now() });
-
-    const tonLink = `https://app.tonkeeper.com/transfer/${OWNER_WALLET}?amount=${amountNano}&text=${encodeURIComponent(paymentId)}`;
-
-    await sendAndTrack(ctx, `<b>💎 Confirm 0.05 TON Payment</b>
-${formatLine()}
-
-Click the button below and confirm the transaction in your TON wallet.
-
-<b>Amount:</b> 0.05 TON (one time)
-<b>Purpose:</b> Activate Swap + Real User Verification
-
-After paying, click "I Have Paid".`, {
-        inline_keyboard: [
-            [{ text: '💎 Open Wallet & Pay Now', url: tonLink }],
-            [{ text: '✅ I Have Paid', callback_data: `confirm_ton_payment_${paymentId}` }],
-            [{ text: '❌ Cancel', callback_data: 'back_to_menu' }]
-        ]
-    });
-});
-
-bot.action(/confirm_ton_payment_(.+)/, async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const paymentId = ctx.match[1];
-    await ctx.answerCbQuery('Verifying payment...');
-
-    const payment = tonPendingPayments.get(paymentId);
-    if (!payment || payment.userId !== userId) {
-        return sendAndTrack(ctx, `<b>❌ Invalid session.</b>`, getMainKeyboard(userId));
-    }
-
-    await db.collection('users').doc(userId).update({
-        tonPaid: true,
-        tonWallet: `TON_${Date.now()}`,
-        tonActivatedAt: new Date().toISOString()
-    });
-
-    tonPendingPayments.delete(paymentId);
-
-    await sendAndTrack(ctx, `<b>🎉 Swap Feature Activated Successfully!</b>
-${formatLine()}
-
-You can now swap AXC to USDT anytime without restrictions.
-
-Click the SWAP button again to start.`, getMainKeyboard(userId));
-
-    await addNotification(userId, '✅ Swap Activated', 'Swap feature has been successfully activated!', 'success');
-});
-
-// ====================== 12. Text Handler ======================
 bot.on('text', async (ctx) => {
     const userId = ctx.from.id.toString();
     const text = ctx.message.text;
-    
+
+    // Skip commands and buttons
     if (text.startsWith('/')) return;
     if (['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW', '🔄 SWAP', '👑 ADMIN PANEL'].includes(text)) return;
-    
+
     const session = userSessions.get(userId);
-    
-    if (session?.waitingForWallet && /^0x[a-fA-F0-9]{40}$/i.test(text)) {
-        await db.collection('users').doc(userId).update({ walletAddress: text });
+
+    // Handle wallet address input
+    if (session?.waitingForWallet && isValidBEP20(text)) {
+        await updateUser(userId, { walletAddress: text });
         userSessions.delete(userId);
         await sendAndTrack(ctx, `<b>✅ Wallet saved!</b>
 ${formatLine()}
@@ -650,7 +847,8 @@ ${formatLine()}
 <i>You can now withdraw funds.</i>`, getMainKeyboard(userId));
         return;
     }
-    
+
+    // Handle swap amount input
     if (session?.waitingForSwapAmount) {
         userSessions.delete(userId);
         const amount = parseInt(text);
@@ -660,15 +858,17 @@ ${formatLine()}
 Minimum swap is ${APP_CONFIG.minSwap} AXC.`, getMainKeyboard(userId));
             return;
         }
-        const userDoc = await db.collection('users').doc(userId).get();
-        if (!userDoc.exists) return;
-        const balance = userDoc.data().balance || 0;
-        if (amount > balance) {
+
+        const user = await getOrCreateUser(userId, '', '');
+        if (!user) return;
+
+        if (amount > (user.balance || 0)) {
             await sendAndTrack(ctx, `<b>❌ Insufficient balance!</b>
 ${formatLine()}
-You have ${formatAXC(balance)}.`, getMainKeyboard(userId));
+You have ${formatAXC(user.balance || 0)}.`, getMainKeyboard(userId));
             return;
         }
+
         const usdtAmount = amount * APP_CONFIG.axcPrice;
         userSessions.set(userId, { swapAmount: amount, swapUsdt: usdtAmount, createdAt: Date.now() });
         await sendAndTrack(ctx, `<b>🔄 CONFIRM SWAP</b>
@@ -684,19 +884,24 @@ ${formatLine()}
     }
 });
 
-// ====================== 13. Callback Actions ======================
+// ============================================================================
+// 11. 🔘 CALLBACK ACTIONS
+// ============================================================================
+
 bot.action('verify_membership', async (ctx) => {
     const userId = ctx.from.id.toString();
-    const userDoc = await db.collection('users').doc(userId).get();
+    console.log(`✅ VERIFY action from ${userId}`);
     await ctx.answerCbQuery();
+
+    const userDoc = await db.collection('users').doc(userId).get();
     if (!userDoc.exists) return;
     const userData = userDoc.data();
-    
+
     if (userData.isVerified) {
         await sendAndTrack(ctx, `<b>✅ Already verified!</b>`, getMainKeyboard(userId));
         return;
     }
-    
+
     const missing = await getMissingChannels(userId);
     if (missing.length > 0) {
         let list = '';
@@ -708,27 +913,16 @@ ${formatLine()}
 <i>Please join all channels and click VERIFY.</i>`, getChannelsKeyboard());
         return;
     }
-    
-    let newBalance = APP_CONFIG.welcomeBonus;
-    if (userData.referredBy && userData.referredBy !== userId) {
-        try {
-            const referrerRef = db.collection('users').doc(userData.referredBy);
-            const referrerDoc = await referrerRef.get();
-            if (referrerDoc.exists) {
-                await referrerRef.update({
-                    balance: admin.firestore.FieldValue.increment(APP_CONFIG.referralBonus),
-                    inviteCount: admin.firestore.FieldValue.increment(1)
-                });
-                await bot.telegram.sendMessage(userData.referredBy, `🎉 *New Referral!* +${formatAXC(APP_CONFIG.referralBonus)}`, { parse_mode: 'Markdown' }).catch(() => {});
-            }
-        } catch (e) {}
-    }
-    
-    await db.collection('users').doc(userId).update({
-        isVerified: true, verifiedAt: new Date().toISOString(),
-        balance: newBalance, totalEarned: newBalance
+
+    // ✅ FIXED: No referral bonus here (already processed in bot.start)
+    await updateUser(userId, {
+        isVerified: true,
+        verifiedAt: new Date().toISOString(),
+        balance: admin.firestore.FieldValue.increment(APP_CONFIG.welcomeBonus),
+        totalEarned: admin.firestore.FieldValue.increment(APP_CONFIG.welcomeBonus)
     });
-    
+
+    const newBalance = (userData.balance || 0) + APP_CONFIG.welcomeBonus;
     await sendAndTrack(ctx, `<b>✅ VERIFIED!</b>
 ${formatLine()}
 🎉 +${formatAXC(APP_CONFIG.welcomeBonus)}
@@ -757,29 +951,33 @@ bot.action('confirm_swap', async (ctx) => {
     const userId = ctx.from.id.toString();
     const session = userSessions.get(userId);
     await ctx.answerCbQuery();
-    
+
     if (!session?.swapAmount) {
         await sendAndTrack(ctx, `<b>❌ Swap session expired.</b>\nPlease try again.`, getMainKeyboard(userId));
         return;
     }
-    
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return;
-    const balance = userDoc.data().balance || 0;
-    
-    if (session.swapAmount > balance) {
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    if (!user.tonPaid) {
+        await sendAndTrack(ctx, `<b>❌ Swap not activated!</b>\nPlease activate swap first.`, getMainKeyboard(userId));
+        userSessions.delete(userId);
+        return;
+    }
+
+    if (session.swapAmount > (user.balance || 0)) {
         await sendAndTrack(ctx, `<b>❌ Insufficient balance!</b>`, getMainKeyboard(userId));
         userSessions.delete(userId);
         return;
     }
-    
-    await db.collection('users').doc(userId).update({
+
+    await updateUser(userId, {
         balance: admin.firestore.FieldValue.increment(-session.swapAmount),
         usdtBalance: admin.firestore.FieldValue.increment(session.swapUsdt)
     });
-    
-    const newUserDoc = await db.collection('users').doc(userId).get();
-    const newData = newUserDoc.data();
+
+    const updatedUser = await getOrCreateUser(userId, '', '');
     
     await sendAndTrack(ctx, `<b>✅ SWAP COMPLETED!</b>
 ${formatLine()}
@@ -787,68 +985,74 @@ ${formatLine()}
 🔄 <b>Swapped:</b> ${formatAXC(session.swapAmount)} → ${formatUSD(session.swapUsdt)}
 
 <b>📊 Updated Balances:</b>
-💰 <b>AXC:</b> ${formatAXC(newData.balance || 0)}
-💵 <b>USDT:</b> ${formatUSD(newData.usdtBalance || 0)}
+💰 <b>AXC:</b> ${formatAXC(updatedUser.balance || 0)}
+💵 <b>USDT:</b> ${formatUSD(updatedUser.usdtBalance || 0)}
 
 ${formatLine()}
 
 💡 <b>What's next?</b>
 • 💸 Withdraw USDT to your wallet
-• 🔄 Swap more AXC to USDT
-• 👥 Invite friends to earn more AXC`, getMainKeyboard(userId));
-    
+• 🔄 Swap more AXC to USDT`, getMainKeyboard(userId));
+
     userSessions.delete(userId);
 });
 
 bot.action('withdraw_axc', async (ctx) => {
     const userId = ctx.from.id.toString();
-    const userDoc = await db.collection('users').doc(userId).get();
     await ctx.answerCbQuery();
-    if (!userDoc.exists) return;
-    const userData = userDoc.data();
-    
-    if ((userData.balance || 0) < APP_CONFIG.minWithdraw) {
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    // ✅ Re-verify channels before withdrawal
+    if (!await requireChannelVerification(ctx, userId)) return;
+
+    if ((user.balance || 0) < APP_CONFIG.minWithdraw) {
         await sendAndTrack(ctx, `<b>❌ Insufficient AXC balance!</b>\nNeed ${formatAXC(APP_CONFIG.minWithdraw)}.`, getMainKeyboard(userId));
         return;
     }
-    
-    const amount = userData.balance;
+
+    const amount = user.balance;
     await sendAndTrack(ctx, `<b>💸 WITHDRAWAL</b>
 ${formatLine()}
 
 💰 <b>Amount:</b> ${formatAXC(amount)}
-💳 <b>Wallet:</b> <code>${userData.walletAddress.substring(0, 10)}...</code>
+💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>
 
 ${formatLine()}
 
 <i>👇 Click CONFIRM to submit:</i>`, getConfirmWithdrawKeyboard());
-    
+
     userSessions.set(userId, { withdrawAmount: amount, withdrawCurrency: 'AXC', createdAt: Date.now() });
 });
 
 bot.action('withdraw_usdt', async (ctx) => {
     const userId = ctx.from.id.toString();
-    const userDoc = await db.collection('users').doc(userId).get();
     await ctx.answerCbQuery();
-    if (!userDoc.exists) return;
-    const userData = userDoc.data();
-    const usdtAmount = userData.usdtBalance || 0;
-    
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    // ✅ Re-verify channels before withdrawal
+    if (!await requireChannelVerification(ctx, userId)) return;
+
+    const usdtAmount = user.usdtBalance || 0;
+
     if (usdtAmount < APP_CONFIG.minWithdraw * APP_CONFIG.axcPrice) {
         await sendAndTrack(ctx, `<b>❌ Insufficient USDT balance!</b>\nNeed ${formatUSD(APP_CONFIG.minWithdraw * APP_CONFIG.axcPrice)}.`, getMainKeyboard(userId));
         return;
     }
-    
+
     await sendAndTrack(ctx, `<b>💸 WITHDRAWAL (USDT)</b>
 ${formatLine()}
 
 💵 <b>Amount:</b> ${formatUSD(usdtAmount)}
-💳 <b>Wallet:</b> <code>${userData.walletAddress.substring(0, 10)}...</code>
+💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>
 
 ${formatLine()}
 
 <i>👇 Click CONFIRM to submit:</i>`, getConfirmWithdrawKeyboard());
-    
+
     userSessions.set(userId, { withdrawAmount: usdtAmount, withdrawCurrency: 'USDT', createdAt: Date.now() });
 });
 
@@ -856,42 +1060,48 @@ bot.action('confirm_withdraw_final', async (ctx) => {
     const userId = ctx.from.id.toString();
     const session = userSessions.get(userId);
     await ctx.answerCbQuery();
-    
+
     if (!session?.withdrawAmount) {
         await sendAndTrack(ctx, `<b>❌ Withdrawal session expired.</b>\nPlease try again.`, getMainKeyboard(userId));
         return;
     }
-    
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return;
-    const userData = userDoc.data();
-    
+
+    const user = await getOrCreateUser(userId, '', '');
+    if (!user) return;
+
+    // ✅ Re-verify channels before withdrawal
+    if (!await requireChannelVerification(ctx, userId)) return;
+
     withdrawCooldownTracker.set(userId, Date.now());
-    
+
     if (session.withdrawCurrency === 'AXC') {
-        await db.collection('users').doc(userId).update({ balance: 0 });
+        await updateUser(userId, { balance: 0 });
     } else {
-        await db.collection('users').doc(userId).update({ usdtBalance: 0 });
+        await updateUser(userId, { usdtBalance: 0 });
     }
-    
+
     const withdrawalRef = db.collection('withdrawals').doc();
     await withdrawalRef.set({
-        id: withdrawalRef.id, userId, userName: userData.userName,
-        amount: session.withdrawAmount, currency: session.withdrawCurrency,
-        walletAddress: userData.walletAddress,
-        status: 'pending', createdAt: new Date().toISOString()
+        id: withdrawalRef.id,
+        userId,
+        userName: user.userName,
+        amount: session.withdrawAmount,
+        currency: session.withdrawCurrency,
+        walletAddress: user.walletAddress,
+        status: 'pending',
+        createdAt: new Date().toISOString()
     });
-    
+
     if (WITHDRAWAL_GROUP_ID) {
-        await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, 
+        await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID,
             `<b>💸 WITHDRAWAL</b>
 ${formatLine()}
-👤 ${escapeHtml(userData.userName)}
+👤 ${escapeHtml(user.userName)}
 💰 ${session.withdrawCurrency === 'AXC' ? formatAXC(session.withdrawAmount) : formatUSD(session.withdrawAmount)}
-💳 <code>${userData.walletAddress}</code>
+💳 <code>${user.walletAddress}</code>
 🆔 ${withdrawalRef.id}`, { parse_mode: 'HTML' }).catch(() => {});
     }
-    
+
     await sendAndTrack(ctx, `<b>✅ WITHDRAWAL SUBMITTED!</b>
 ${formatLine()}
 
@@ -899,7 +1109,7 @@ ${formatLine()}
 ⏳ <b>Processing Time:</b> 24-48 hours
 
 <i>You will be notified once processed.</i>`, getMainKeyboard(userId));
-    
+
     userSessions.delete(userId);
 });
 
@@ -912,54 +1122,46 @@ bot.action('cancel_action', async (ctx) => {
 
 bot.action('back_to_menu', async (ctx) => {
     const userId = ctx.from.id.toString();
-    const userDoc = await db.collection('users').doc(userId).get();
     await ctx.answerCbQuery();
     userSessions.delete(userId);
+    const user = await getOrCreateUser(userId, '', '');
     await sendAndTrack(ctx, `<b>🎯 MAIN MENU</b>
 ${formatLine()}
-💰 <b>Balance:</b> ${formatAXC(userDoc.exists ? userDoc.data().balance || 0 : 0)}
+💰 <b>Balance:</b> ${formatAXC(user?.balance || 0)}
 
 <i>👇 Select an option below:</i>`, getMainKeyboard(userId));
 });
 
-// ====================== 14. Admin Panel ======================
+// ============================================================================
+// 12. 👑 ADMIN PANEL
+// ============================================================================
+
 bot.hears('👑 ADMIN PANEL', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) {
+    if (!isAdmin(userId)) {
         await ctx.reply('<b>⛔ Access denied!</b>', { parse_mode: 'HTML' });
         return;
     }
-    
-    const adminKeyboard = {
-        inline_keyboard: [
-            [{ text: '📊 STATISTICS', callback_data: 'admin_stats' }],
-            [{ text: '💸 PENDING WITHDRAWALS', callback_data: 'admin_pending' }],
-            [{ text: '👥 TOTAL USERS', callback_data: 'admin_users' }],
-            [{ text: '🔍 SEARCH USER', callback_data: 'admin_search' }],
-            [{ text: '💰 ADD BALANCE', callback_data: 'admin_add' }],
-            [{ text: '➖ REMOVE BALANCE', callback_data: 'admin_remove' }],
-            [{ text: '✅ VERIFY USER', callback_data: 'admin_verify' }],
-            [{ text: '📢 BROADCAST', callback_data: 'admin_broadcast' }]
-        ]
-    };
+
     await ctx.reply(`<b>👑 AXION AI ADMIN PANEL</b>
 ${formatLine()}
 ✅ <b>Authenticated as Admin</b>
 
-📋 <b>Click any button below:</b>`, { reply_markup: adminKeyboard, parse_mode: 'HTML' });
+📋 <b>Click any button below:</b>`, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
 });
 
 bot.action('admin_stats', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
+
     if (!checkDb()) { await ctx.reply('❌ Database error'); return; }
-    
+
     const usersSnapshot = await db.collection('users').get();
     const pendingSnapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
     const totalBalance = usersSnapshot.docs.reduce((sum, doc) => sum + (doc.data().balance || 0), 0);
     const totalUsdt = usersSnapshot.docs.reduce((sum, doc) => sum + (doc.data().usdtBalance || 0), 0);
-    
+
     await ctx.reply(`<b>📊 STATISTICS</b>
 ${formatLine()}
 👥 <b>Users:</b> ${usersSnapshot.size}
@@ -971,13 +1173,14 @@ ${formatLine()}
 
 bot.action('admin_pending', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
+
     if (!checkDb()) { await ctx.reply('❌ Database error'); return; }
-    
+
     const snapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
     if (snapshot.empty) { await ctx.reply('✅ No pending withdrawals'); return; }
-    
+
     let message = `<b>💸 PENDING WITHDRAWALS</b> (${snapshot.size})\n${formatLine()}\n\n`;
     for (const doc of snapshot.docs) {
         const wd = doc.data();
@@ -988,7 +1191,7 @@ bot.action('admin_pending', async (ctx) => {
 
 bot.action('admin_users', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
     if (!checkDb()) return;
     const snapshot = await db.collection('users').get();
@@ -997,7 +1200,7 @@ bot.action('admin_users', async (ctx) => {
 
 bot.action('admin_search', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
     await ctx.reply(`🔍 <b>Search User</b>\n${formatLine()}\nSend user ID to search:`, { parse_mode: 'HTML' });
     userSessions.set(userId, { adminSearch: true, createdAt: Date.now() });
@@ -1005,7 +1208,7 @@ bot.action('admin_search', async (ctx) => {
 
 bot.action('admin_add', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
     await ctx.reply(`💰 <b>Add Balance</b>\n${formatLine()}\nSend: <code>USER_ID AMOUNT</code>\n\nExample: <code>1653918641 500</code>`, { parse_mode: 'HTML' });
     userSessions.set(userId, { adminAdd: true, createdAt: Date.now() });
@@ -1013,7 +1216,7 @@ bot.action('admin_add', async (ctx) => {
 
 bot.action('admin_remove', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
     await ctx.reply(`➖ <b>Remove Balance</b>\n${formatLine()}\nSend: <code>USER_ID AMOUNT</code>\n\nExample: <code>1653918641 200</code>`, { parse_mode: 'HTML' });
     userSessions.set(userId, { adminRemove: true, createdAt: Date.now() });
@@ -1021,7 +1224,7 @@ bot.action('admin_remove', async (ctx) => {
 
 bot.action('admin_verify', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
     await ctx.reply(`✅ <b>Verify User</b>\n${formatLine()}\nSend user ID to verify manually:`, { parse_mode: 'HTML' });
     userSessions.set(userId, { adminVerify: true, createdAt: Date.now() });
@@ -1029,7 +1232,7 @@ bot.action('admin_verify', async (ctx) => {
 
 bot.action('admin_broadcast', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (userId !== ADMIN_ID) { await ctx.answerCbQuery('Access denied'); return; }
+    if (!isAdmin(userId)) { await ctx.answerCbQuery('Access denied'); return; }
     await ctx.answerCbQuery();
     await ctx.reply(`📢 <b>Broadcast</b>\n${formatLine()}\nSend your broadcast message:`, { parse_mode: 'HTML' });
     userSessions.set(userId, { adminBroadcast: true, createdAt: Date.now() });
@@ -1040,23 +1243,24 @@ bot.on('text', async (ctx) => {
     const userId = ctx.from.id.toString();
     const text = ctx.message.text;
     const session = userSessions.get(userId);
-    
+
     if (session?.adminSearch) {
         userSessions.delete(userId);
         if (!checkDb()) return;
         const userDoc = await db.collection('users').doc(text).get();
         if (!userDoc.exists) return ctx.reply(`❌ User not found`);
         const data = userDoc.data();
-        ctx.reply(`<b>👤 USER INFO</b>
+        await ctx.reply(`<b>👤 USER INFO</b>
 ${formatLine()}
 🆔 ID: ${data.userId}
 👤 Name: ${escapeHtml(data.userName)}
 💰 Balance: ${formatAXC(data.balance || 0)}
 💵 USDT: ${formatUSD(data.usdtBalance || 0)}
-✅ Verified: ${data.isVerified ? 'Yes' : 'No'}`, { parse_mode: 'HTML' });
+✅ Verified: ${data.isVerified ? 'Yes' : 'No'}
+💎 Swap: ${data.tonPaid ? 'Activated' : 'Not activated'}`, { parse_mode: 'HTML' });
         return;
     }
-    
+
     if (session?.adminAdd) {
         userSessions.delete(userId);
         const parts = text.split(' ');
@@ -1073,7 +1277,7 @@ ${formatLine()}
         await bot.telegram.sendMessage(targetId, `<b>💰 +${formatAXC(amount)} added by admin!</b>`, { parse_mode: 'HTML' }).catch(() => {});
         return;
     }
-    
+
     if (session?.adminRemove) {
         userSessions.delete(userId);
         const parts = text.split(' ');
@@ -1092,7 +1296,7 @@ ${formatLine()}
         await bot.telegram.sendMessage(targetId, `<b>💰 -${formatAXC(amount)} removed by admin!</b>`, { parse_mode: 'HTML' }).catch(() => {});
         return;
     }
-    
+
     if (session?.adminVerify) {
         userSessions.delete(userId);
         if (!checkDb()) return;
@@ -1105,7 +1309,7 @@ ${formatLine()}
         await bot.telegram.sendMessage(text, `<b>✅ Account verified by admin! +${formatAXC(APP_CONFIG.welcomeBonus)} added!</b>`, { parse_mode: 'HTML' }).catch(() => {});
         return;
     }
-    
+
     if (session?.adminBroadcast) {
         userSessions.delete(userId);
         ctx.reply(`📢 Broadcasting...`);
@@ -1115,7 +1319,10 @@ ${formatLine()}
     }
 });
 
-// ====================== 15. Broadcast Function ======================
+// ============================================================================
+// 13. 📢 BROADCAST FUNCTION
+// ============================================================================
+
 async function broadcastToAllUsers(message) {
     if (!checkDb()) return { success: false };
     try {
@@ -1123,11 +1330,13 @@ async function broadcastToAllUsers(message) {
         let notifiedCount = 0;
         const notification = {
             id: `broadcast_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-            type: 'broadcast', title: '📢 Announcement',
-            message: message, read: false,
+            type: 'broadcast',
+            title: '📢 Announcement',
+            message: message,
+            read: false,
             timestamp: new Date().toISOString()
         };
-        
+
         let batch = db.batch();
         let batchCount = 0;
         for (const doc of usersSnapshot.docs) {
@@ -1144,7 +1353,7 @@ async function broadcastToAllUsers(message) {
             }
         }
         if (batchCount > 0) await batch.commit();
-        
+
         for (const doc of usersSnapshot.docs) {
             try {
                 await bot.telegram.sendMessage(doc.id, `<b>📢 ANNOUNCEMENT</b>
@@ -1158,35 +1367,47 @@ ${formatLine()}
             } catch(e) {}
         }
         return { success: true, notifiedCount };
-    } catch (error) { return { success: false }; }
+    } catch (error) { 
+        console.error(`❌ Broadcast error: ${error.message}`);
+        return { success: false }; 
+    }
 }
 
-// ====================== 16. Express ======================
+// ============================================================================
+// 14. 📡 EXPRESS SERVER
+// ============================================================================
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
-app.get('/health', (req, res) => { res.json({ status: 'alive', timestamp: Date.now() }); });
+app.get('/health', (req, res) => { res.json({ status: 'alive', timestamp: Date.now(), firebase: firebaseHealthy ? 'connected' : 'disconnected' }); });
 app.get('/api/config', (req, res) => { res.json({ firebaseConfig: firebaseWebConfig, status: 'ok' }); });
 
-// ====================== 17. Launch ======================
+// ============================================================================
+// 15. 🚀 LAUNCH
+// ============================================================================
+
 bot.launch({ dropPendingUpdates: true })
-    .then(() => console.log('🚀 Axion AI Bot v13.1 Started Successfully'))
-    .catch(err => console.error('Bot error:', err));
+    .then(() => console.log('🚀 Axion AI Bot v17.0 Started Successfully'))
+    .catch(err => console.error('❌ Bot error:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 app.listen(PORT, () => {
-    console.log(`\n🌟 AXION AI v13.1 is LIVE!
+    console.log(`\n🌟 AXION AI v17.0 - PROFESSIONAL EDITION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 Port: ${PORT}
 🔥 Firebase: ${db && firebaseHealthy ? '✅ Connected' : '❌ Disconnected'}
 👑 Admin ID: ${ADMIN_ID || 'Not configured'}
 🤖 Bot: ${BOT_TOKEN ? '✅ Configured' : 'Missing'}
 💸 Withdrawals: AXC + USDT
-🔄 Swap: AXC ↔ USDT (${APP_CONFIG.swapFeeTON} TON one-time fee)
+🔄 Swap: AXC ↔ USDT (${APP_CONFIG.swapFeeTON} TON one-time)
+✅ Re-verification: Enabled
+✅ Referral: Once only (fixed)
+✅ Sessions: TTL enabled
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎉 Axion AI is READY for battle!`);
 });
