@@ -1,13 +1,11 @@
 // ============================================================================
-// AXION AI BOT - COMPLETE PROFESSIONAL EDITION v22.0
 // ============================================================================
-// جميع الميزات والوظائف تعمل بكفاءة:
-// ✅ نظام حفظ وتغيير المحفظة
-// ✅ لوحة مشرف متكاملة (إحصائيات - بث - إضافة رصيد - بحث)
-// ✅ نظام إحالة متطور
-// ✅ عداد مستخدمين دقيق
-// ✅ إشعارات احترافية
-// ✅ أزرار عائمة تستجيب بشكل فوري
+// AXION AI BOT - COMPLETE PROFESSIONAL EDITION v23.0
+// ============================================================================
+// تم إصلاح:
+// ✅ استقبال الردود من المستخدمين (عناوين المحفظة)
+// ✅ استقبال ردود المشرف (بث - إضافة رصيد - بحث)
+// ✅ جميع مزايا المشرف تعمل بشكل احترافي
 // ============================================================================
 
 const express = require('express');
@@ -56,7 +54,6 @@ try {
         ADMIN_ID = adminConfig.admin_id;
         ADMIN_PASSWORD = adminConfig.admin_password;
         console.log('✅ Admin config loaded | ID:', ADMIN_ID);
-        console.log('🔐 Admin password:', ADMIN_PASSWORD ? '✅ Loaded' : '❌ Missing');
     }
 } catch (error) { console.error('Admin config error:', error.message); }
 
@@ -148,9 +145,7 @@ if (serviceAccount) {
         }
         db = admin.firestore();
         console.log('🔥 Firebase Admin SDK initialized');
-
         updateTotalUsersCount();
-
         setInterval(async () => {
             try {
                 await db.collection('system').doc('health').set({ lastCheck: Date.now() }, { merge: true });
@@ -165,10 +160,6 @@ if (serviceAccount) {
 
 function checkDb() { return db && firebaseHealthy; }
 
-// ============================================================================
-// 4. 📊 USER COUNTER SYSTEM
-// ============================================================================
-
 async function updateTotalUsersCount() {
     if (!checkDb()) return;
     try {
@@ -179,13 +170,11 @@ async function updateTotalUsersCount() {
             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
         console.log(`📊 Total users count: ${totalUsersCount}`);
-    } catch (error) {
-        console.error('Error counting users:', error.message);
-    }
+    } catch (error) { console.error('Error counting users:', error.message); }
 }
 
 // ============================================================================
-// 5. 🤖 TELEGRAM BOT SETUP
+// 4. 🤖 TELEGRAM BOT SETUP
 // ============================================================================
 
 const bot = new Telegraf(BOT_TOKEN);
@@ -200,7 +189,7 @@ bot.telegram.getMe().then((botInfo) => {
 }).catch(err => console.error('Failed to get bot info:', err.message));
 
 // ============================================================================
-// 6. 🛠️ HELPER FUNCTIONS
+// 5. 🛠️ HELPER FUNCTIONS
 // ============================================================================
 
 function formatAXC(amount) {
@@ -235,10 +224,6 @@ function getProgressBar(current, target, length = 10) {
 function escapeHtml(text) {
     if (!text) return '';
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function formatLine() {
-    return `<code>${DIVIDER}</code>`;
 }
 
 async function deleteLastMessage(ctx) {
@@ -334,7 +319,7 @@ async function updateUser(userId, data) {
 }
 
 // ============================================================================
-// 7. 🔗 REFERRAL SYSTEM
+// 6. 🔗 REFERRAL SYSTEM
 // ============================================================================
 
 async function processReferralFromBot(referrerId, newUserId, newUserName) {
@@ -417,7 +402,7 @@ async function checkMilestoneAchievement(userId) {
 }
 
 // ============================================================================
-// 8. 🔒 CHANNEL VERIFICATION
+// 7. 🔒 CHANNEL VERIFICATION
 // ============================================================================
 
 async function verifyChannelMembership(userId, channelUsername) {
@@ -454,7 +439,7 @@ async function requireChannelVerification(ctx, userId) {
 }
 
 // ============================================================================
-// 9. 🎨 KEYBOARDS & BUTTONS
+// 8. 🎨 KEYBOARDS & BUTTONS
 // ============================================================================
 
 function getMainKeyboard(userId) {
@@ -537,7 +522,7 @@ function getAdminKeyboard() {
 }
 
 // ============================================================================
-// 10. 📨 BOT COMMANDS
+// 9. 📨 BOT COMMANDS
 // ============================================================================
 
 async function sendWelcomeMessage(ctx) {
@@ -721,7 +706,7 @@ bot.hears('⚙️ SETTINGS', async (ctx) => {
 });
 
 // ============================================================================
-// 11. 🔘 CALLBACK ACTIONS
+// 10. 🔘 CALLBACK ACTIONS
 // ============================================================================
 
 bot.action('change_wallet', async (ctx) => {
@@ -881,7 +866,7 @@ bot.action('back_to_menu', async (ctx) => {
 });
 
 // ============================================================================
-// 12. 👑 ADMIN PANEL - مع جميع الوظائف
+// 11. 👑 ADMIN PANEL
 // ============================================================================
 
 bot.hears('👑 ADMIN PANEL', async (ctx) => {
@@ -901,18 +886,20 @@ bot.hears('👑 ADMIN PANEL', async (ctx) => {
     adminSessions.set(userId, { waitingForPassword: true, createdAt: Date.now() });
 });
 
-// معالجة كلمة السر
+// ============================================================================
+// 12. 📝 MAIN TEXT HANDLER - يتعامل مع جميع الردود
+// ============================================================================
+
 bot.on('text', async (ctx) => {
     const userId = ctx.from.id.toString();
-    const session = adminSessions.get(userId);
+    const messageText = ctx.message.text;
     
-    if (session && session.waitingForPassword && isAdmin(userId)) {
-        const enteredPassword = ctx.message.text.trim();
-        
-        if (enteredPassword === ADMIN_PASSWORD) {
+    // 1. معالجة كلمة سر المشرف
+    const adminSession = adminSessions.get(userId);
+    if (adminSession?.waitingForPassword && isAdmin(userId)) {
+        if (messageText.trim() === ADMIN_PASSWORD) {
             adminSessions.set(userId, { authenticated: true, createdAt: Date.now() });
             delete adminSessions.get(userId).waitingForPassword;
-            
             await ctx.reply(formatProfessionalMessage('✅ LOGIN SUCCESSFUL', 'Welcome to Admin Panel.'), { parse_mode: 'HTML' });
             await ctx.reply(formatProfessionalMessage('👑 ADMIN PANEL', '📋 Click any button below:'), { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
         } else {
@@ -921,9 +908,127 @@ bot.on('text', async (ctx) => {
         }
         return;
     }
+    
+    // 2. معالجة البحث عن مستخدم
+    if (adminSession?.searching && isAdmin(userId) && isAdminAuthenticated(userId)) {
+        const searchTerm = messageText.trim();
+        let userDoc = null;
+        
+        if (searchTerm.match(/^\d+$/)) {
+            userDoc = await db.collection('users').doc(searchTerm).get();
+        } else {
+            const snapshot = await db.collection('users').where('userName', '==', searchTerm).limit(1).get();
+            if (!snapshot.empty) userDoc = snapshot.docs[0];
+        }
+        
+        if (userDoc && userDoc.exists) {
+            const user = userDoc.data();
+            const userMsg = formatProfessionalMessage(
+                '👤 USER FOUND',
+                `🆔 <b>ID:</b> ${user.userId}\n👤 <b>Name:</b> ${escapeHtml(user.userName)}\n💰 <b>AXC:</b> ${formatAXC(user.balance || 0)}\n💵 <b>USDT:</b> ${formatUSD(user.usdtBalance || 0)}\n👥 <b>Referrals:</b> ${user.inviteCount || 0}\n✅ <b>Verified:</b> ${user.isVerified ? 'Yes' : 'No'}`
+            );
+            await ctx.reply(userMsg, { parse_mode: 'HTML' });
+        } else {
+            await ctx.reply(formatProfessionalMessage('❌ NOT FOUND', 'User not found.'), { parse_mode: 'HTML' });
+        }
+        adminSessions.delete(userId);
+        return;
+    }
+    
+    // 3. معالجة إضافة الرصيد
+    if (adminSession?.addingBalance && isAdmin(userId) && isAdminAuthenticated(userId)) {
+        const parts = messageText.trim().split(' ');
+        if (parts.length === 3) {
+            const targetUserId = parts[0];
+            const amount = parseFloat(parts[1]);
+            const currency = parts[2].toUpperCase();
+            
+            if (isNaN(amount) || amount <= 0) {
+                await ctx.reply('❌ Invalid amount.', { parse_mode: 'HTML' });
+            } else if (currency === 'AXC') {
+                await updateUser(targetUserId, {
+                    balance: admin.firestore.FieldValue.increment(amount),
+                    totalEarned: admin.firestore.FieldValue.increment(amount)
+                });
+                await ctx.reply(formatProfessionalMessage('✅ BALANCE ADDED', `Added ${formatAXC(amount)} to user ${targetUserId}`), { parse_mode: 'HTML' });
+            } else if (currency === 'USDT') {
+                await updateUser(targetUserId, {
+                    usdtBalance: admin.firestore.FieldValue.increment(amount)
+                });
+                await ctx.reply(formatProfessionalMessage('✅ BALANCE ADDED', `Added ${formatUSD(amount)} to user ${targetUserId}`), { parse_mode: 'HTML' });
+            } else {
+                await ctx.reply('❌ Invalid currency. Use AXC or USDT', { parse_mode: 'HTML' });
+            }
+        } else {
+            await ctx.reply('❌ Invalid format. Use: USER_ID AMOUNT CURRENCY\nExample: 123456789 100 AXC', { parse_mode: 'HTML' });
+        }
+        adminSessions.delete(userId);
+        return;
+    }
+    
+    // 4. معالجة البث الجماعي
+    if (adminSession?.broadcasting && isAdmin(userId) && isAdminAuthenticated(userId)) {
+        const broadcastMessage = messageText;
+        const usersSnapshot = await db.collection('users').get();
+        let sent = 0;
+        let failed = 0;
+        
+        await ctx.reply(`⏳ Sending broadcast to ${usersSnapshot.size} users...`, { parse_mode: 'HTML' });
+        
+        for (const doc of usersSnapshot.docs) {
+            try {
+                await bot.telegram.sendMessage(doc.id, formatProfessionalMessage('📢 ANNOUNCEMENT', broadcastMessage), { parse_mode: 'HTML' });
+                sent++;
+                await new Promise(r => setTimeout(r, 50));
+            } catch(e) {
+                failed++;
+            }
+        }
+        
+        await ctx.reply(formatProfessionalMessage('✅ BROADCAST COMPLETE', `📤 Sent: ${sent}\n❌ Failed: ${failed}`), { parse_mode: 'HTML' });
+        adminSessions.delete(userId);
+        return;
+    }
+    
+    // 5. تجاوز الأزرار والأوامر
+    const buttons = ['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW', '🔄 SWAP STATION', '⚙️ SETTINGS', '👑 ADMIN PANEL'];
+    if (buttons.includes(messageText)) return;
+    if (messageText.startsWith('/')) return;
+    
+    // 6. معالجة حفظ المحفظة (للمستخدمين العاديين)
+    const session = userSessions.get(userId);
+    
+    if (session?.waitingForWallet) {
+        if (isValidBEP20(messageText)) {
+            await updateUser(userId, { walletAddress: messageText });
+            userSessions.delete(userId);
+            const successMsg = formatProfessionalMessage('✅ WALLET SAVED!', `💳 <code>${messageText}</code>\n\n<i>You can now withdraw funds.</i>`);
+            await sendAndTrack(ctx, successMsg, getMainKeyboard(userId));
+        } else {
+            const errorMsg = formatProfessionalMessage('❌ INVALID ADDRESS', `Please send a valid BEP20 wallet address.\n\n<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>`, `📝 Try again or click CANCEL:`);
+            await sendAndTrack(ctx, errorMsg, getCancelKeyboard());
+        }
+        return;
+    }
+    
+    if (session?.waitingForWalletUpdate) {
+        if (isValidBEP20(messageText)) {
+            await updateUser(userId, { walletAddress: messageText });
+            userSessions.delete(userId);
+            const successMsg = formatProfessionalMessage('✅ WALLET UPDATED!', `💳 <code>${messageText}</code>`);
+            await sendAndTrack(ctx, successMsg, getMainKeyboard(userId));
+        } else {
+            const errorMsg = formatProfessionalMessage('❌ INVALID ADDRESS', `Please send a valid BEP20 wallet address.\n\n<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>`, `📝 Try again or click CANCEL:`);
+            await sendAndTrack(ctx, errorMsg, getCancelKeyboard());
+        }
+        return;
+    }
 });
 
-// إحصائيات
+// ============================================================================
+// 13. ADMIN ACTION HANDLERS
+// ============================================================================
+
 bot.action('admin_stats', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
@@ -946,13 +1051,12 @@ bot.action('admin_stats', async (ctx) => {
     
     const statsMsg = formatProfessionalMessage(
         '📊 STATISTICS',
-        `👥 <b>Total Users:</b> ${totalUsersCount || usersSnapshot.size}\n✅ <b>Verified:</b> ${verifiedSnapshot.size}\n💸 <b>Pending Withdrawals:</b> ${pendingSnapshot.size}\n\n💰 <b>Total AXC:</b> ${formatAXC(totalBalance)}\n💵 <b>Total USDT:</b> ${formatUSD(totalUsdt)}`
+        `👥 <b>Total Users:</b> ${totalUsersCount}\n✅ <b>Verified:</b> ${verifiedSnapshot.size}\n💸 <b>Pending Withdrawals:</b> ${pendingSnapshot.size}\n\n💰 <b>Total AXC:</b> ${formatAXC(totalBalance)}\n💵 <b>Total USDT:</b> ${formatUSD(totalUsdt)}`
     );
     
     await ctx.reply(statsMsg, { parse_mode: 'HTML' });
 });
 
-// المستخدمين
 bot.action('admin_users', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
@@ -960,11 +1064,9 @@ bot.action('admin_users', async (ctx) => {
         return;
     }
     await ctx.answerCbQuery();
-    
-    await ctx.reply(formatProfessionalMessage('👥 TOTAL USERS', `📊 <b>Total:</b> ${totalUsersCount}\n\n<i>Use /search [username] to find users</i>`), { parse_mode: 'HTML' });
+    await ctx.reply(formatProfessionalMessage('👥 TOTAL USERS', `📊 <b>Total:</b> ${totalUsersCount}\n\n<i>Use "SEARCH USER" button to find specific users</i>`), { parse_mode: 'HTML' });
 });
 
-// السحوبات المعلقة
 bot.action('admin_pending', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
@@ -989,7 +1091,6 @@ bot.action('admin_pending', async (ctx) => {
     await ctx.reply(formatProfessionalMessage('💸 PENDING WITHDRAWALS', msg), { parse_mode: 'HTML' });
 });
 
-// البحث عن مستخدم
 bot.action('admin_search', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
@@ -997,44 +1098,10 @@ bot.action('admin_search', async (ctx) => {
         return;
     }
     await ctx.answerCbQuery();
-    
-    await ctx.reply('🔍 <b>Send the user ID or username to search:</b>', { parse_mode: 'HTML' });
-    adminSessions.set(userId, { searching: true });
+    await ctx.reply('🔍 <b>SEARCH USER</b>\n\nSend the user ID or username to search:', { parse_mode: 'HTML' });
+    adminSessions.set(userId, { searching: true, createdAt: Date.now() });
 });
 
-// معالجة البحث
-bot.on('text', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const adminSession = adminSessions.get(userId);
-    
-    if (adminSession?.searching && isAdmin(userId) && isAdminAuthenticated(userId)) {
-        const searchTerm = ctx.message.text.trim();
-        let userDoc = null;
-        
-        if (searchTerm.match(/^\d+$/)) {
-            userDoc = await db.collection('users').doc(searchTerm).get();
-        } else {
-            const snapshot = await db.collection('users').where('userName', '==', searchTerm).limit(1).get();
-            if (!snapshot.empty) userDoc = snapshot.docs[0];
-        }
-        
-        if (userDoc && userDoc.exists) {
-            const user = userDoc.data();
-            const userMsg = formatProfessionalMessage(
-                '👤 USER FOUND',
-                `🆔 <b>ID:</b> ${user.userId}\n👤 <b>Name:</b> ${escapeHtml(user.userName)}\n💰 <b>AXC:</b> ${formatAXC(user.balance || 0)}\n💵 <b>USDT:</b> ${formatUSD(user.usdtBalance || 0)}\n👥 <b>Referrals:</b> ${user.inviteCount || 0}\n✅ <b>Verified:</b> ${user.isVerified ? 'Yes' : 'No'}\n💳 <b>Wallet:</b> ${user.walletAddress ? user.walletAddress.substring(0, 15) + '...' : 'Not set'}`
-            );
-            await ctx.reply(userMsg, { parse_mode: 'HTML' });
-        } else {
-            await ctx.reply(formatProfessionalMessage('❌ NOT FOUND', 'User not found.'), { parse_mode: 'HTML' });
-        }
-        
-        adminSessions.delete(userId);
-        return;
-    }
-});
-
-// إضافة رصيد
 bot.action('admin_add_balance', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
@@ -1042,53 +1109,10 @@ bot.action('admin_add_balance', async (ctx) => {
         return;
     }
     await ctx.answerCbQuery();
-    
     await ctx.reply('💰 <b>ADD BALANCE</b>\n\nSend: <code>USER_ID AMOUNT CURRENCY</code>\n\nExample: <code>123456789 100 AXC</code>\n<i>Currency: AXC or USDT</i>', { parse_mode: 'HTML' });
-    adminSessions.set(userId, { addingBalance: true });
+    adminSessions.set(userId, { addingBalance: true, createdAt: Date.now() });
 });
 
-// معالجة إضافة الرصيد
-bot.on('text', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const adminSession = adminSessions.get(userId);
-    
-    if (adminSession?.addingBalance && isAdmin(userId) && isAdminAuthenticated(userId)) {
-        const parts = ctx.message.text.trim().split(' ');
-        if (parts.length === 3) {
-            const targetUserId = parts[0];
-            const amount = parseFloat(parts[1]);
-            const currency = parts[2].toUpperCase();
-            
-            if (isNaN(amount) || amount <= 0) {
-                await ctx.reply('❌ Invalid amount.', { parse_mode: 'HTML' });
-                adminSessions.delete(userId);
-                return;
-            }
-            
-            if (currency === 'AXC') {
-                await updateUser(targetUserId, {
-                    balance: admin.firestore.FieldValue.increment(amount),
-                    totalEarned: admin.firestore.FieldValue.increment(amount)
-                });
-                await ctx.reply(formatProfessionalMessage('✅ BALANCE ADDED', `Added ${formatAXC(amount)} to user ${targetUserId}`), { parse_mode: 'HTML' });
-            } else if (currency === 'USDT') {
-                await updateUser(targetUserId, {
-                    usdtBalance: admin.firestore.FieldValue.increment(amount)
-                });
-                await ctx.reply(formatProfessionalMessage('✅ BALANCE ADDED', `Added ${formatUSD(amount)} to user ${targetUserId}`), { parse_mode: 'HTML' });
-            } else {
-                await ctx.reply('❌ Invalid currency. Use AXC or USDT', { parse_mode: 'HTML' });
-            }
-        } else {
-            await ctx.reply('❌ Invalid format. Use: USER_ID AMOUNT CURRENCY', { parse_mode: 'HTML' });
-        }
-        
-        adminSessions.delete(userId);
-        return;
-    }
-});
-
-// البث الجماعي
 bot.action('admin_broadcast', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
@@ -1096,107 +1120,15 @@ bot.action('admin_broadcast', async (ctx) => {
         return;
     }
     await ctx.answerCbQuery();
-    
     await ctx.reply('📢 <b>BROADCAST MESSAGE</b>\n\nSend the message you want to broadcast to all users:', { parse_mode: 'HTML' });
-    adminSessions.set(userId, { broadcasting: true });
+    adminSessions.set(userId, { broadcasting: true, createdAt: Date.now() });
 });
 
-// معالجة البث
-bot.on('text', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const adminSession = adminSessions.get(userId);
-    
-    if (adminSession?.broadcasting && isAdmin(userId) && isAdminAuthenticated(userId)) {
-        const message = ctx.message.text;
-        const usersSnapshot = await db.collection('users').get();
-        let sent = 0;
-        let failed = 0;
-        
-        await ctx.reply(`⏳ Sending broadcast to ${usersSnapshot.size} users...`, { parse_mode: 'HTML' });
-        
-        for (const doc of usersSnapshot.docs) {
-            try {
-                await bot.telegram.sendMessage(doc.id, formatProfessionalMessage('📢 ANNOUNCEMENT', message), { parse_mode: 'HTML' });
-                sent++;
-                await new Promise(r => setTimeout(r, 50));
-            } catch(e) {
-                failed++;
-            }
-        }
-        
-        await ctx.reply(formatProfessionalMessage('✅ BROADCAST COMPLETE', `📤 Sent: ${sent}\n❌ Failed: ${failed}`), { parse_mode: 'HTML' });
-        adminSessions.delete(userId);
-        return;
-    }
-});
-
-// تسجيل الخروج
 bot.action('admin_logout', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     adminSessions.delete(userId);
     await ctx.reply(formatProfessionalMessage('🔓 LOGGED OUT', 'You have been logged out of the admin panel.'), { parse_mode: 'HTML' });
-});
-
-// ============================================================================
-// 13. 📝 TEXT HANDLER FOR WALLET (يأتي بعد كل المعالجات الأخرى)
-// ============================================================================
-
-bot.on('text', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const text = ctx.message.text;
-
-    if (text.startsWith('/')) return;
-    
-    const buttons = ['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW', '🔄 SWAP STATION', '⚙️ SETTINGS', '👑 ADMIN PANEL'];
-    if (buttons.includes(text)) return;
-    
-    const adminSession = adminSessions.get(userId);
-    if (adminSession?.waitingForPassword || adminSession?.broadcasting || adminSession?.searching || adminSession?.addingBalance) return;
-    
-    const session = userSessions.get(userId);
-    
-    if (session?.waitingForWallet) {
-        if (isValidBEP20(text)) {
-            await updateUser(userId, { walletAddress: text });
-            userSessions.delete(userId);
-            
-            const successMsg = formatProfessionalMessage(
-                '✅ WALLET SAVED!',
-                `💳 <code>${text}</code>\n\n<i>You can now withdraw funds.</i>`
-            );
-            await sendAndTrack(ctx, successMsg, getMainKeyboard(userId));
-        } else {
-            const errorMsg = formatProfessionalMessage(
-                '❌ INVALID ADDRESS',
-                `Please send a valid BEP20 wallet address.\n\n<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>`,
-                `📝 Try again or click CANCEL:`
-            );
-            await sendAndTrack(ctx, errorMsg, getCancelKeyboard());
-        }
-        return;
-    }
-    
-    if (session?.waitingForWalletUpdate) {
-        if (isValidBEP20(text)) {
-            await updateUser(userId, { walletAddress: text });
-            userSessions.delete(userId);
-            
-            const successMsg = formatProfessionalMessage(
-                '✅ WALLET UPDATED!',
-                `💳 <code>${text}</code>`
-            );
-            await sendAndTrack(ctx, successMsg, getMainKeyboard(userId));
-        } else {
-            const errorMsg = formatProfessionalMessage(
-                '❌ INVALID ADDRESS',
-                `Please send a valid BEP20 wallet address.\n\n<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>`,
-                `📝 Try again or click CANCEL:`
-            );
-            await sendAndTrack(ctx, errorMsg, getCancelKeyboard());
-        }
-        return;
-    }
 });
 
 // ============================================================================
@@ -1217,7 +1149,7 @@ app.get('/tonconnect-manifest.json', (req, res) => { res.sendFile(path.join(__di
 // ============================================================================
 
 bot.launch({ dropPendingUpdates: true })
-    .then(() => console.log('🚀 Axion AI Bot v22.0 Started Successfully'))
+    .then(() => console.log('🚀 Axion AI Bot v23.0 Started Successfully'))
     .catch(err => console.error('❌ Bot error:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
@@ -1226,7 +1158,7 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════╗
-║     AXION AI v22.0 - COMPLETE EDITION           ║
+║     AXION AI v23.0 - COMPLETE EDITION           ║
 ╠══════════════════════════════════════════════════╣
 ║  📍 Port: ${PORT}                                       ║
 ║  🔥 Firebase: ${db && firebaseHealthy ? '✅ Connected' : '❌ Disconnected'}                    ║
@@ -1234,9 +1166,7 @@ app.listen(PORT, () => {
 ║  🔐 Admin Password: ${ADMIN_PASSWORD ? '✅ Loaded' : '❌ Missing'}                         ║
 ║  📊 Users: ${totalUsersCount}                                    ║
 ║  🤖 Bot: ${BOT_TOKEN ? '✅ Running' : '❌ Missing'}                                 ║
-║  💸 Withdrawals: AXC + USDT                           ║
-║  🔄 Swap: Mini App                                    ║
-╚══════════════════════════════════════════════════════╝
+╚══════════════════════════════════════════════════╝
     `);
 });
 
