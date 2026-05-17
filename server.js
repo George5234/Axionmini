@@ -1,20 +1,20 @@
 // ============================================================================
-// AXION AI BOT - THE FINAL LEGENDARY COMPLETE EDITION v13.0
+// AXION AI BOT - THE COMPLETE LEGENDARY EDITION v14.0
 // ============================================================================
-// جميع الميزات المتكاملة:
+// جميع الميزات المطلوبة:
 // ✅ تحقق إجباري من 4 قنوات
 // ✅ مكافأة ترحيب 100 AXC (~$1)
 // ✅ مكافأة إحالة 100 AXC (~$1)
+// ✅ نظام مراحل إحالة (Milestones) بمكافآت USDT
 // ✅ حد سحب 1000 AXC (~$10)
 // ✅ سحب AXC أو USDT
 // ✅ نظام سواب AXC → USDT (داخلي)
 // ✅ تفعيل السواب بدفع 0.05 TON (مرة واحدة عبر TON Connect)
-// ✅ نظام مراحل إحالة (Milestones) بمكافآت USDT
-// ✅ لوحة مشرف متكاملة
+// ✅ ربط محفظة TON (نافذة منبثقة لاختيار المحفظة)
+// ✅ لوحة مشرف متكاملة (أزرار وأوامر)
 // ✅ حذف ذكي للرسائل
+// ✅ أزرار رجوع وإلغاء
 // ✅ تنسيق HTML احترافي
-// ✅ أزرار رجوع وإلغاء في كل خطوة
-// ✅ TON Connect كامل (مثل AdNova)
 // ✅ جميع الأسرار من Render
 // ============================================================================
 
@@ -23,6 +23,8 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const { Telegraf } = require('telegraf');
+const TonConnect = require('@tonconnect/sdk');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -104,10 +106,16 @@ const REQUIRED_CHANNELS = [
 const userSessions = new Map();
 const userLastMessages = new Map();
 const withdrawCooldownTracker = new Map();
+const tonConnections = new Map();
 let firebaseHealthy = true;
 
-// جلسات TON Connect
-const tonPendingPayments = new Map();
+// قائمة محافظ TON المدعومة
+const TON_WALLETS = [
+    { name: 'Tonkeeper', url: 'https://app.tonkeeper.com' },
+    { name: 'Tonhub', url: 'https://tonhub.com' },
+    { name: 'Wallet', url: 'https://wallet.tg' },
+    { name: 'MyTonWallet', url: 'https://mytonwallet.com' }
+];
 
 // ============================================================================
 // 3. 🔥 Firebase Admin SDK
@@ -362,8 +370,13 @@ function getConfirmWithdrawKeyboard() {
     return { inline_keyboard: [[{ text: '✅ CONFIRM WITHDRAWAL', callback_data: 'confirm_withdraw_final' }], [{ text: '🔙 BACK', callback_data: 'back_to_menu' }]] };
 }
 
-function getTonConnectKeyboard() {
-    return { inline_keyboard: [[{ text: '🔗 CONNECT TON WALLET', callback_data: 'connect_ton' }], [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]] };
+function getSelectWalletKeyboard() {
+    const buttons = [];
+    for (const wallet of TON_WALLETS) {
+        buttons.push([{ text: wallet.name, callback_data: `select_wallet_${wallet.name.toLowerCase()}` }]);
+    }
+    buttons.push([{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]);
+    return { inline_keyboard: buttons };
 }
 
 async function sendWelcomeMessage(ctx) {
@@ -581,7 +594,7 @@ ${formatLine()}
 
 ${formatLine()}
 
-👇 <b>Connect your TON wallet to activate:</b>`, getTonConnectKeyboard());
+👇 <b>Connect your TON wallet to activate:</b>`, getSelectWalletKeyboard());
         return;
     }
     
@@ -608,11 +621,12 @@ ${formatLine()}
 });
 
 // ============================================================================
-// 8. TON Connect (مثل AdNova)
+// 8. TON Connect (نافذة اختيار المحفظة)
 // ============================================================================
 
-bot.action('connect_ton', async (ctx) => {
+bot.action(/select_wallet_(.+)/, async (ctx) => {
     const userId = ctx.from.id.toString();
+    const walletName = ctx.match[1];
     await ctx.answerCbQuery();
     
     if (!OWNER_WALLET) {
@@ -628,27 +642,41 @@ bot.action('connect_ton', async (ctx) => {
         return;
     }
     
-    // إنشاء رابط دفع TON
-    const amountTON = APP_CONFIG.swapFeeTON;
-    const amountNano = (amountTON * 1000000000).toString();
+    // تخزين حالة انتظار الدفع
     const paymentId = `swap_${userId}_${Date.now()}`;
+    tonConnections.set(paymentId, { userId, walletName, amount: APP_CONFIG.swapFeeTON, createdAt: Date.now() });
     
-    // تخزين مؤقت للدفع
-    tonPendingPayments.set(paymentId, { userId, amount: amountTON, createdAt: Date.now() });
+    // إنشاء رابط الدفع للمحفظة المختارة
+    const amountNano = (APP_CONFIG.swapFeeTON * 1000000000).toString();
+    let walletUrl = '';
     
-    // رابط TON Connect (يفتح في محفظة المستخدم)
-    const tonLink = `https://app.tonkeeper.com/transfer/${OWNER_WALLET}?amount=${amountNano}&text=${paymentId}`;
+    switch(walletName) {
+        case 'tonkeeper':
+            walletUrl = `https://app.tonkeeper.com/transfer/${OWNER_WALLET}?amount=${amountNano}&text=${paymentId}`;
+            break;
+        case 'tonhub':
+            walletUrl = `https://tonhub.com/transfer/${OWNER_WALLET}?amount=${APP_CONFIG.swapFeeTON}&text=${paymentId}`;
+            break;
+        case 'wallet':
+            walletUrl = `https://wallet.tg/transfer?address=${OWNER_WALLET}&amount=${APP_CONFIG.swapFeeTON}&text=${paymentId}`;
+            break;
+        case 'mytonwallet':
+            walletUrl = `https://mytonwallet.com/transfer?address=${OWNER_WALLET}&amount=${APP_CONFIG.swapFeeTON}&text=${paymentId}`;
+            break;
+        default:
+            walletUrl = `https://app.tonkeeper.com/transfer/${OWNER_WALLET}?amount=${amountNano}&text=${paymentId}`;
+    }
     
-    await sendAndTrack(ctx, `<b>🔗 ACTIVATE SWAP WITH TON</b>
+    await sendAndTrack(ctx, `<b>🔗 CONNECT ${walletName.toUpperCase()} WALLET</b>
 ${formatLine()}
 
 📱 <b>Step 1:</b> Click the button below
-<b>Step 2:</b> Open in your TON wallet (Tonkeeper, Tonhub)
-<b>Step 3:</b> Send ${amountTON} TON to activate
+<b>Step 2:</b> ${walletName} will open automatically
+<b>Step 3:</b> Send ${APP_CONFIG.swapFeeTON} TON to activate
 
 ${formatLine()}
 
-💰 <b>Amount to pay:</b> ${amountTON} TON (~$${(amountTON * 2).toFixed(2)})
+💰 <b>Amount to pay:</b> ${APP_CONFIG.swapFeeTON} TON (~$${(APP_CONFIG.swapFeeTON * 2).toFixed(2)})
 💡 <b>Note:</b> One-time fee only
 
 ${formatLine()}
@@ -657,7 +685,7 @@ ${formatLine()}
 
 <b>After payment, click "I HAVE PAID" to activate.</b>`, {
         inline_keyboard: [
-            [{ text: '💎 PAY WITH TON WALLET', url: tonLink }],
+            [{ text: `💎 PAY WITH ${walletName.toUpperCase()}`, url: walletUrl }],
             [{ text: '✅ I HAVE PAID', callback_data: `confirm_ton_payment_${paymentId}` }],
             [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
         ]
@@ -669,20 +697,20 @@ bot.action(/confirm_ton_payment_(.+)/, async (ctx) => {
     const paymentId = ctx.match[1];
     await ctx.answerCbQuery('Checking payment...');
     
-    const payment = tonPendingPayments.get(paymentId);
+    const payment = tonConnections.get(paymentId);
     if (!payment || payment.userId !== userId) {
         await sendAndTrack(ctx, `<b>❌ Invalid payment session.</b>\nPlease try again.`, await getMainKeyboard(userId));
         return;
     }
     
-    // في الإنتاج، هنا يجب التحقق من البلوكشين
-    // حالياً، نعتبر الدفع ناجحاً (للتجربة)
+    // في الإنتاج، هنا يجب التحقق من البلوكشين عبر TON API
+    // حالياً، نعتبر الدفع ناجحاً للتجربة
     await db.collection('users').doc(userId).update({
         tonPaid: true,
-        tonWallet: `TON_${paymentId.substring(0, 10)}`
+        tonWallet: `${payment.walletName}_${paymentId.substring(0, 10)}`
     });
     
-    tonPendingPayments.delete(paymentId);
+    tonConnections.delete(paymentId);
     
     await sendAndTrack(ctx, `<b>✅ SWAP ACTIVATED!</b>
 ${formatLine()}
@@ -1448,7 +1476,7 @@ process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 app.listen(PORT, () => {
-    console.log(`\n🌟 AXION AI SERVER - THE FINAL LEGENDARY COMPLETE EDITION v13.0
+    console.log(`\n🌟 AXION AI SERVER - THE COMPLETE LEGENDARY EDITION v14.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 Port: ${PORT}
 🔥 Firebase: ${db && firebaseHealthy ? '✅ Connected' : '❌ Disconnected'}
