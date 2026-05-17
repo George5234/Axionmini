@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Axion AI • Swap Station</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- TON Connect UI -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            background: radial-gradient(ellipse at 20% 30%, #0a2e1c, #051408);
+            min-height: 100vh;
+            color: #ffffff;
+            padding: 20px;
+        }
+
+        /* Glassmorphism Container */
+        .glass-card {
+            background: rgba(10, 30, 20, 0.55);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 32px;
+            border: 1px solid rgba(46, 204, 113, 0.25);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .swap-header {
+            text-align: center;
+            padding: 24px 0 16px;
+        }
+        .swap-header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+        .swap-header p {
+            color: #8bc34a;
+            font-size: 13px;
+            margin-top: 6px;
+            opacity: 0.8;
+        }
+
+        /* Wallet Section */
+        .wallet-card {
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .wallet-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .wallet-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+        .wallet-text h4 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .wallet-text p {
+            font-size: 11px;
+            color: #8bc34a;
+            margin-top: 2px;
+        }
+        #ton-connect {
+            min-width: 140px;
+        }
+
+        /* Balance Row */
+        .balance-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .balance-card {
+            padding: 18px;
+            text-align: center;
+        }
+        .balance-card .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .balance-card .label {
+            font-size: 12px;
+            color: #8bc34a;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .balance-card .value {
+            font-size: 28px;
+            font-weight: 800;
+            margin-top: 6px;
+            word-break: break-word;
+        }
+        .balance-card.axc .value { color: #f1c40f; }
+        .balance-card.usdt .value { color: #2ecc71; }
+
+        /* Activation Box */
+        .activation-card {
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(46, 204, 113, 0.4);
+        }
+        .activation-card i {
+            font-size: 44px;
+            color: #f39c12;
+            margin-bottom: 12px;
+        }
+        .activation-card h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .activation-card p {
+            font-size: 13px;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+        }
+        .btn-gold {
+            background: linear-gradient(145deg, #f1c40f, #d4ac0d);
+            border: none;
+            border-radius: 40px;
+            padding: 12px 24px;
+            font-weight: 700;
+            font-size: 14px;
+            color: #1a2a1a;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 5px 15px rgba(241, 196, 15, 0.3);
+        }
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(241, 196, 15, 0.4);
+        }
+
+        /* Swap Box */
+        .swap-card {
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .swap-input-group {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 20px;
+            padding: 16px;
+            margin: 10px 0;
+            border: 1px solid rgba(46, 204, 113, 0.2);
+        }
+        .swap-label {
+            display: flex;
+            justify-content: space-between;
+            color: #8bc34a;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .swap-input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .swap-input-row input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+            outline: none;
+        }
+        .swap-input-row input::placeholder {
+            color: #4a5a4a;
+        }
+        .token-badge {
+            background: rgba(46, 204, 113, 0.2);
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .swap-arrow {
+            text-align: center;
+            font-size: 24px;
+            color: #2ecc71;
+            margin: 5px 0;
+        }
+        .swap-rate {
+            text-align: center;
+            color: #8bc34a;
+            font-size: 12px;
+            margin: 15px 0 10px;
+        }
+        .btn-swap {
+            width: 100%;
+            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
+            border: none;
+            border-radius: 40px;
+            padding: 16px;
+            font-weight: 700;
+            font-size: 15px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+        .btn-swap:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-swap:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        /* Withdraw Box */
+        .withdraw-card {
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .withdraw-card h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .withdraw-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            border-radius: 20px;
+            padding: 14px 16px;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        .withdraw-input:focus {
+            border-color: #2ecc71;
+        }
+        .btn-withdraw {
+            width: 100%;
+            background: linear-gradient(145deg, #e67e22, #d35400);
+            border: none;
+            border-radius: 40px;
+            padding: 14px;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* Status Messages */
+        .status-msg {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            padding: 12px;
+            font-size: 13px;
+            text-align: center;
+            margin: 10px 0;
+            display: none;
+        }
+        .status-msg.success {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border: 1px solid #2ecc71;
+        }
+        .status-msg.error {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Hide/Show */
+        .hidden { display: none; }
+
+        /* Responsive */
+        @media (max-width: 450px) {
+            body { padding: 12px; }
+            .balance-card .value { font-size: 24px; }
+            .swap-input-row input { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- Header -->
+        <div class="swap-header">
+            <h1>⚡ AXION SWAP</h1>
+            <p>Convert AXC → USDT • Instant • Secure</p>
+        </div>
+
+        <!-- Wallet Card -->
+        <div class="glass-card wallet-card" id="walletCard">
+            <div class="wallet-info">
+                <div class="wallet-icon"><i class="fab fa-telegram-plane"></i></div>
+                <div class="wallet-text">
+                    <h4>TON Wallet</h4>
+                    <p id="walletStatus">Not connected</p>
+                </div>
+            </div>
+            <div id="ton-connect"></div>
+        </div>
+
+        <!-- Balance Row -->
+        <div class="balance-row">
+            <div class="glass-card balance-card axc">
+                <div class="icon"><i class="fas fa-coins"></i></div>
+                <div class="label">AXC BALANCE</div>
+                <div class="value" id="axcBalance">0</div>
+            </div>
+            <div class="glass-card balance-card usdt">
+                <div class="icon"><i class="fas fa-dollar-sign"></i></div>
+                <div class="label">USDT BALANCE</div>
+                <div class="value" id="usdtBalance">$0.00</div>
+            </div>
+        </div>
+
+        <!-- Activation Box (hidden if already activated) -->
+        <div class="glass-card activation-card" id="activationBox">
+            <i class="fas fa-lock"></i>
+            <h3>🔒 Swap Locked</h3>
+            <p>Pay <strong>0.05 TON</strong> one‑time fee to activate swap feature forever</p>
+            <button class="btn-gold" id="activateBtn">
+                <i class="fas fa-gem"></i> Activate for 0.05 TON
+            </button>
+        </div>
+
+        <!-- Swap Interface (hidden until activated) -->
+        <div class="glass-card swap-card" id="swapBox">
+            <!-- From AXC -->
+            <div class="swap-input-group">
+                <div class="swap-label">
+                    <span><i class="fas fa-arrow-up-from-bracket"></i> From</span>
+                    <span>Balance: <span id="fromBalance">0</span> AXC</span>
+                </div>
+                <div class="swap-input-row">
+                    <input type="number" id="swapFrom" placeholder="0.00" step="1">
+                    <div class="token-badge"><i class="fas fa-coins"></i> AXC</div>
+                </div>
+            </div>
+
+            <div class="swap-arrow"><i class="fas fa-arrow-down"></i></div>
+
+            <!-- To USDT -->
+            <div class="swap-input-group">
+                <div class="swap-label">
+                    <span><i class="fas fa-arrow-down-to-bracket"></i> To</span>
+                    <span>Balance: <span id="toBalance">$0.00</span> USDT</span>
+                </div>
+                <div class="swap-input-row">
+                    <input type="text" id="swapTo" placeholder="0.00" readonly>
+                    <div class="token-badge" style="background: rgba(46,204,113,0.2);"><i class="fas fa-dollar-sign"></i> USDT</div>
+                </div>
+            </div>
+
+            <div class="swap-rate">
+                1 AXC = $0.0099 USDT • Fee: 0.05 TON (paid once)
+            </div>
+
+            <button class="btn-swap" id="swapBtn" disabled>
+                <i class="fas fa-exchange-alt"></i> CONFIRM SWAP
+            </button>
+
+            <div id="swapStatus" class="status-msg"></div>
+        </div>
+
+        <!-- Withdraw USDT -->
+        <div class="glass-card withdraw-card" id="withdrawBox">
+            <h3><i class="fas fa-money-bill-wave"></i> Withdraw USDT</h3>
+            <input type="text" id="withdrawAddress" class="withdraw-input" placeholder="BEP20 Address (0x...)" autocomplete="off">
+            <input type="number" id="withdrawAmount" class="withdraw-input" placeholder="Amount in USDT" step="0.01">
+            <button class="btn-withdraw" id="withdrawBtn">
+                <i class="fas fa-paper-plane"></i> Submit Withdrawal
+            </button>
+            <div id="withdrawStatus" class="status-msg"></div>
+        </div>
+
+    </div>
+
+    <script src="swap.js"></script>
+</body>
+</html>
