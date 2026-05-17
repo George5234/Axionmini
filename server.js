@@ -1,12 +1,20 @@
 // ============================================================================
-// AXION AI BOT - FINAL COMPLETE EDITION v11.0
+// AXION AI BOT - ULTIMATE FINAL COMPLETE EDITION v12.0
 // ============================================================================
-// نظام سواب بسيط:
-// 1. المستخدم يضغط SWAP
-// 2. إذا لم يدفع 0.05 TON من قبل → يطلب ربط محفظة Telegram ودفع
-// 3. بعد الدفع (يضغط "لقد دفعت") → يتاح له السواب
-// 4. السواب داخلي (تحديث Firebase)
-// 5. سحب USDT
+// جميع الميزات المطلوبة:
+// ✅ تحقق إجباري من 4 قنوات
+// ✅ مكافأة ترحيب 100 AXC (~$1)
+// ✅ مكافأة إحالة 100 AXC (~$1)
+// ✅ حد سحب 1000 AXC (~$10)
+// ✅ سحب AXC أو USDT
+// ✅ نظام سواب AXC → USDT (داخلي)
+// ✅ تفعيل السواب بدفع 5 Telegram Stars (مرة واحدة)
+// ✅ نظام مراحل إحالة (Milestones) بمكافآت USDT
+// ✅ لوحة مشرف متكاملة
+// ✅ حذف ذكي للرسائل
+// ✅ تنسيق HTML احترافي
+// ✅ أزرار رجوع وإلغاء في كل خطوة
+// ✅ جميع الأسرار من Render
 // ============================================================================
 
 const express = require('express');
@@ -27,7 +35,6 @@ let firebaseWebConfig = {};
 let ADMIN_ID = null;
 let BOT_TOKEN = null;
 let WITHDRAWAL_GROUP_ID = null;
-let OWNER_WALLET = null;
 let BOT_USERNAME = null;
 
 try {
@@ -57,7 +64,6 @@ try {
 
 BOT_TOKEN = process.env.BOT_TOKEN;
 WITHDRAWAL_GROUP_ID = process.env.WITHDRAWAL_GROUP_ID;
-OWNER_WALLET = process.env.OWNER_WALLET;
 
 // ============================================================================
 // 2. ⚙️ إعدادات Axion
@@ -68,7 +74,7 @@ const APP_CONFIG = {
     referralBonus: 100,
     minWithdraw: 1000,
     axcPrice: 0.0099,
-    swapFee: 0.05, // TON
+    swapFeeStars: 5, // 5 Stars = ~$0.10
     minSwap: 100,
     maxNotifications: 50,
     sessionTTL: 3600000,
@@ -229,7 +235,7 @@ function createNewUser(userId, userName, userUsername, refCode) {
         userId, userName: userName || 'Axion User', userUsername: userUsername || '',
         balance: 0, usdtBalance: 0, totalEarned: 0, inviteCount: 0,
         referredBy: refCode || null, referrals: [], walletAddress: null,
-        tonWallet: null, tonPaid: false, // tonPaid = دفع 0.05 TON؟
+        tonPaid: false, swapActivated: false,
         withdrawBlocked: false, isVerified: false, verifiedAt: null,
         claimedMilestones: [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -542,16 +548,14 @@ bot.hears('🔄 SWAP', async (ctx) => {
     if (!userDoc.exists) return;
     const userData = userDoc.data();
     
-    // إذا لم يدفع 0.05 TON من قبل
+    // إذا لم يدفع الرسوم من قبل
     if (!userData.tonPaid) {
-        const tonLink = `https://t.me/wallet?startattach=transfer&address=${OWNER_WALLET}&amount=${APP_CONFIG.swapFee}&text=Axion%20AI%20Swap%20Activation`;
-        
-        await sendAndTrack(ctx, `<b>🔄 ACTIVATE SWAP</b>
+        await sendAndTrack(ctx, `<b>🔄 ACTIVATE SWAP FEATURE</b>
 ${formatLine()}
 
 ⚠️ <b>One-time activation required</b>
 
-To use the SWAP feature (AXC → USDT), you need to pay a one-time fee of <b>${APP_CONFIG.swapFee} TON</b>.
+To use the SWAP feature (AXC → USDT), you need to pay a one-time fee of <b>${APP_CONFIG.swapFeeStars} Telegram Stars</b>.
 
 ${formatLine()}
 
@@ -562,15 +566,14 @@ ${formatLine()}
 
 ${formatLine()}
 
-💰 <b>Amount:</b> ${APP_CONFIG.swapFee} TON (~$${(APP_CONFIG.swapFee * 2).toFixed(2)})
+💰 <b>Amount:</b> ${APP_CONFIG.swapFeeStars} Stars (~$${(APP_CONFIG.swapFeeStars * 0.02).toFixed(2)})
 💡 <b>Note:</b> This prevents fake accounts
 
-👇 <b>Click to pay with Telegram Wallet:</b>
+${formatLine()}
 
-<i>After payment, click "I HAVE PAID" to activate.</i>`, {
+👇 <b>Click below to activate:</b>`, {
             inline_keyboard: [
-                [{ text: '💎 PAY WITH TELEGRAM WALLET', url: tonLink }],
-                [{ text: '✅ I HAVE PAID', callback_data: 'confirm_ton_payment' }],
+                [{ text: '💎 ACTIVATE SWAP (5 Stars)', callback_data: 'activate_swap' }],
                 [{ text: '🔙 BACK TO MENU', callback_data: 'back_to_menu' }]
             ]
         });
@@ -600,7 +603,91 @@ ${formatLine()}
 });
 
 // ============================================================================
-// 8. معالج النصوص
+// 8. معالج الدفع عبر Telegram Stars
+// ============================================================================
+
+bot.action('activate_swap', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    await ctx.answerCbQuery();
+    
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) return;
+    
+    if (userDoc.data().tonPaid) {
+        await sendAndTrack(ctx, `<b>✅ Swap already activated!</b>\n${formatLine()}\nYou can already use the SWAP feature.`, await getMainKeyboard(userId));
+        return;
+    }
+    
+    try {
+        // إرسال فاتورة Telegram Stars
+        await ctx.telegram.sendInvoice(
+            userId,
+            'Axion AI - Activate Swap Feature',
+            `One-time payment to enable AXC → USDT swap feature.\n\nAfter activation, you can swap AXC to USDT anytime with zero fees.`,
+            `swap_activation_${userId}_${Date.now()}`,
+            '', // provider_token فارغ لـ Stars
+            'XTR', // عملة Telegram Stars
+            [{ label: 'Activate Swap Feature', amount: APP_CONFIG.swapFeeStars }],
+            {
+                is_flexible: false,
+                start_parameter: 'swap_activation',
+                photo_url: 'https://axionmini.onrender.com/icon.png',
+                photo_size: 100,
+                photo_width: 100,
+                photo_height: 100
+            }
+        );
+    } catch (error) {
+        console.error('Send invoice error:', error);
+        await sendAndTrack(ctx, `<b>❌ Payment error</b>\n${formatLine()}\nCould not create invoice. Please try again later.`, await getMainKeyboard(userId));
+    }
+});
+
+// معالج ما قبل الدفع (التحقق من صحة الفاتورة)
+bot.on('pre_checkout_query', async (ctx) => {
+    const payload = ctx.preCheckoutQuery.invoice_payload;
+    const userId = ctx.preCheckoutQuery.from.id.toString();
+    
+    console.log(`💰 Pre-checkout query from ${userId}, payload: ${payload}`);
+    
+    if (payload.startsWith('swap_activation_')) {
+        await ctx.telegram.answerPreCheckoutQuery(ctx.preCheckoutQuery.id, true);
+    } else {
+        await ctx.telegram.answerPreCheckoutQuery(ctx.preCheckoutQuery.id, false, 'Invalid payment');
+    }
+});
+
+// معالج الدفع الناجح (تلقائي)
+bot.on('successful_payment', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    const payload = ctx.message.successful_payment.invoice_payload;
+    const amount = ctx.message.successful_payment.total_amount / 100; // Telegram Stars
+    
+    console.log(`✅ Successful payment from ${userId}: ${amount} Stars, payload: ${payload}`);
+    
+    if (payload.startsWith('swap_activation_')) {
+        await db.collection('users').doc(userId).update({
+            tonPaid: true,
+            swapActivated: true
+        });
+        
+        await sendAndTrack(ctx, `<b>✅ SWAP ACTIVATED!</b>
+${formatLine()}
+
+🎉 Your swap feature has been successfully activated!
+
+You can now use the <b>🔄 SWAP</b> feature to convert AXC to USDT.
+
+${formatLine()}
+
+<i>👇 Click SWAP to continue:</i>`, await getMainKeyboard(userId));
+        
+        await addNotification(userId, '✅ Swap Activated', `You can now swap AXC to USDT anytime!`, 'success');
+    }
+});
+
+// ============================================================================
+// 9. معالج النصوص
 // ============================================================================
 
 bot.on('text', async (ctx) => {
@@ -730,7 +817,7 @@ ${formatLine()}
 });
 
 // ============================================================================
-// 9. معالج أزرار الـ Callback Query
+// 10. معالج أزرار الـ Callback Query
 // ============================================================================
 
 bot.action('verify_membership', async (ctx) => {
@@ -768,35 +855,6 @@ ${formatLine()}
 💰 <b>Balance:</b> ${formatAXC(APP_CONFIG.welcomeBonus)}
 
 <i>You can now invite friends and withdraw funds.</i>`, await getMainKeyboard(userId));
-});
-
-bot.action('confirm_ton_payment', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    await ctx.answerCbQuery('Activating swap...');
-    
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (userDoc.exists && !userDoc.data().tonPaid) {
-        await db.collection('users').doc(userId).update({
-            tonPaid: true,
-            tonWallet: `TON_${Math.random().toString(36).substring(2, 15)}`
-        });
-        await sendAndTrack(ctx, `<b>✅ SWAP ACTIVATED!</b>
-${formatLine()}
-
-🎉 Your swap feature has been successfully activated!
-
-You can now use the <b>🔄 SWAP</b> feature to convert AXC to USDT.
-
-${formatLine()}
-
-<i>👇 Click SWAP to continue:</i>`, await getMainKeyboard(userId));
-    } else {
-        await sendAndTrack(ctx, `<b>⚠️ Already activated!</b>
-${formatLine()}
-You can already use the SWAP feature.
-
-<i>👇 Click SWAP to continue:</i>`, await getMainKeyboard(userId));
-    }
 });
 
 bot.action('swap_menu', async (ctx) => {
@@ -987,7 +1045,7 @@ ${formatLine()}
 });
 
 // ============================================================================
-// 10. أوامر المشرف
+// 11. أوامر المشرف
 // ============================================================================
 
 bot.command('admin', async (ctx) => {
@@ -1146,7 +1204,7 @@ bot.action('admin_broadcast', async (ctx) => {
 });
 
 // ============================================================================
-// 11. أوامر المشرف النصية
+// 12. أوامر المشرف النصية
 // ============================================================================
 
 bot.command('pending', async (ctx) => {
@@ -1262,7 +1320,7 @@ ${formatLine()}
 });
 
 // ============================================================================
-// 12. أوامر الموافقة والرفض
+// 13. أوامر الموافقة والرفض
 // ============================================================================
 
 bot.on('text', async (ctx) => {
@@ -1305,7 +1363,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================================
-// 13. دالة البث
+// 14. دالة البث
 // ============================================================================
 
 async function broadcastToAllUsers(message) {
@@ -1354,7 +1412,7 @@ ${formatLine()}
 }
 
 // ============================================================================
-// 14. إعدادات Express
+// 15. إعدادات Express
 // ============================================================================
 
 app.use(cors());
@@ -1366,7 +1424,7 @@ app.get('/health', (req, res) => { res.json({ status: 'alive', timestamp: Date.n
 app.get('/api/config', (req, res) => { res.json({ firebaseConfig: firebaseWebConfig, status: 'ok' }); });
 
 // ============================================================================
-// 15. تشغيل البوت والسيرفر
+// 16. تشغيل البوت والسيرفر
 // ============================================================================
 
 bot.launch({ dropPendingUpdates: true })
@@ -1377,14 +1435,14 @@ process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 app.listen(PORT, () => {
-    console.log(`\n🌟 AXION AI SERVER - FINAL COMPLETE EDITION v11.0
+    console.log(`\n🌟 AXION AI SERVER - ULTIMATE FINAL COMPLETE EDITION v12.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 Port: ${PORT}
 🔥 Firebase: ${db && firebaseHealthy ? '✅ Connected' : '❌ Disconnected'}
 👑 Admin ID: ${ADMIN_ID || 'Not configured'}
 🤖 Bot: ${BOT_TOKEN ? '✅ Configured' : 'Missing'}
 💸 Withdrawals: AXC + USDT
-🔄 Swap: AXC ↔ USDT (one-time TON fee)
+🔄 Swap: AXC ↔ USDT (5 Stars one-time fee)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🎉 Axion AI is READY for battle!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
