@@ -17,6 +17,7 @@
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+            max-width: 100%;
         }
 
         body {
@@ -26,6 +27,9 @@
             color: #ffffff;
             padding: 20px 16px;
             position: relative;
+            overflow-x: hidden;
+            overflow-y: auto;
+            width: 100%;
         }
 
         /* Animated Gradient Background */
@@ -55,6 +59,8 @@
         .container {
             max-width: 500px;
             margin: 0 auto;
+            overflow-x: hidden;
+            width: 100%;
         }
 
         /* Header */
@@ -155,6 +161,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 16px;
+            flex-wrap: nowrap;
         }
         .swap-input-row input {
             flex: 1;
@@ -165,6 +172,7 @@
             font-weight: 700;
             outline: none;
             font-family: monospace;
+            min-width: 0;
         }
         .swap-input-row input[type="number"] {
             -moz-appearance: textfield;
@@ -187,6 +195,7 @@
             align-items: center;
             gap: 10px;
             border: 1px solid rgba(46, 204, 113, 0.3);
+            flex-shrink: 0;
         }
         .swap-arrow {
             text-align: center;
@@ -473,10 +482,13 @@
             z-index: 1000;
         }
 
+        /* Responsive */
         @media (max-width: 450px) {
             body { padding: 12px; }
             .swap-input-row input { font-size: 26px; }
             .token-badge { padding: 8px 16px; font-size: 13px; }
+            .wallet-section { padding: 16px 20px; }
+            .swap-box { padding: 20px; }
         }
     </style>
 </head>
