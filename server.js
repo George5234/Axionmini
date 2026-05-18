@@ -1,7 +1,7 @@
 // ============================================================================
-// AXION AI BOT - COMPLETE PROFESSIONAL EDITION v8.0
+// AXION AI BOT - LEGENDARY EDITION v9.0 (COMPLETE FIXED)
 // ============================================================================
-// جميع الميزات والوظائف تعمل بكفاءة 100%
+// جميع الميزات تعمل بكفاءة 100% - تم إصلاح مشكلة Unauthorized
 // ============================================================================
 
 const express = require('express');
@@ -26,6 +26,7 @@ let WITHDRAWAL_GROUP_ID = null;
 let OWNER_WALLET = null;
 let APP_URL = null;
 let BOT_USERNAME = null;
+let TON_API_KEY = null;
 
 // تحميل Firebase Admin Key
 try {
@@ -62,6 +63,17 @@ try {
     console.error('❌ Admin config error:', error.message);
 }
 
+// تحميل TON API Key
+try {
+    const tonPath = '/etc/secrets/ton-api-key.txt';
+    if (fs.existsSync(tonPath)) {
+        TON_API_KEY = fs.readFileSync(tonPath, 'utf8').trim();
+        console.log('✅ TON API Key loaded');
+    }
+} catch (error) {
+    console.error('❌ TON API Key error:', error.message);
+}
+
 // متغيرات البيئة
 BOT_TOKEN = process.env.BOT_TOKEN;
 WITHDRAWAL_GROUP_ID = process.env.WITHDRAWAL_GROUP_ID;
@@ -82,7 +94,8 @@ const APP_CONFIG = {
     minSwap: 100,
     maxNotifications: 50,
     withdrawCooldown: 86400000,
-    sessionTTL: 3600000
+    sessionTTL: 86400000, // 24 ساعة للجلسات
+    adminSessionTTL: 86400000 // 24 ساعة لجلسة المشرف
 };
 
 const REFERRAL_MILESTONES = [
@@ -100,12 +113,9 @@ const REQUIRED_CHANNELS = [
     { name: 'Daily Airdrop X', username: '@Daily_AirdropX' }
 ];
 
-// الجلسات والمتغيرات العامة
-const userSessions = new Map();
+// الجلسات والمتغيرات العامة (للـ Cache فقط، التخزين الحقيقي في Firebase)
 const userLastMessages = new Map();
-const withdrawCooldownTracker = new Map();
-const adminSessions = new Map();
-let firebaseHealthy = true;
+const withdrawCooldownTracker = new Map(); // مؤقت للسحب
 let totalUsersCount = 0;
 
 // التنسيقات الاحترافية
@@ -146,32 +156,12 @@ function isAdmin(userId) {
     return userId === ADMIN_ID;
 }
 
-function isAdminAuthenticated(userId) {
-    const session = adminSessions.get(userId);
-    return session && session.authenticated === true;
-}
-
 function getProgressBar(current, target, length = 10) {
     const percent = Math.min(100, (current / target) * 100);
     const filled = Math.floor((percent / 100) * length);
     const empty = length - filled;
     return `▰`.repeat(filled) + `▱`.repeat(empty) + ` ${Math.floor(percent)}%`;
 }
-
-// تنظيف الجلسات
-setInterval(() => {
-    const now = Date.now();
-    for (const [userId, session] of userSessions.entries()) {
-        if (session.createdAt && (now - session.createdAt) > APP_CONFIG.sessionTTL) {
-            userSessions.delete(userId);
-        }
-    }
-    for (const [userId, session] of adminSessions.entries()) {
-        if (session.createdAt && (now - session.createdAt) > 3600000) {
-            adminSessions.delete(userId);
-        }
-    }
-}, 3600000);
 
 // ============================================================================
 // 3. 🔥 Firebase Setup
@@ -187,17 +177,20 @@ if (serviceAccount) {
         }
         db = admin.firestore();
         console.log('🔥 Firebase Admin SDK initialized');
-
-        // تحميل عداد المستخدمين
+        
+        // إنشاء المجموعات إذا لم توجد
+        setupFirebaseCollections();
+        
         loadUserCounterFromDB();
-
+        
+        // تنظيف الجلسات المنتهية كل ساعة
+        setInterval(() => cleanupExpiredSessions(), 3600000);
+        
         // فحص صحة Firebase
         setInterval(async () => {
             try {
                 await db.collection('system').doc('health').set({ lastCheck: Date.now() }, { merge: true });
-                firebaseHealthy = true;
             } catch (error) {
-                firebaseHealthy = false;
                 console.error('Firebase health check failed:', error.message);
             }
         }, 300000);
@@ -206,12 +199,108 @@ if (serviceAccount) {
     }
 }
 
+async function setupFirebaseCollections() {
+    if (!db) return;
+    try {
+        // التأكد من وجود المجموعات
+        const collections = ['users', 'sessions', 'withdrawals', 'system'];
+        for (const col of collections) {
+            const snapshot = await db.collection(col).limit(1).get();
+            console.log(`📁 Collection ${col}: ${snapshot.empty ? 'empty' : 'has data'}`);
+        }
+    } catch (error) {
+        console.error('Setup collections error:', error.message);
+    }
+}
+
 function checkDb() {
-    return db && firebaseHealthy;
+    return db !== null;
 }
 
 // ============================================================================
-// 4. 📊 نظام عداد المستخدمين
+// 4. 📊 نظام الجلسات المتطور (في Firebase)
+// ============================================================================
+
+async function getUserSession(userId) {
+    if (!checkDb()) return null;
+    try {
+        const sessionRef = db.collection('sessions').doc(userId);
+        const sessionDoc = await sessionRef.get();
+        
+        if (!sessionDoc.exists) return null;
+        
+        const session = sessionDoc.data();
+        
+        // التحقق من انتهاء الجلسة
+        const sessionTTL = session.isAdmin ? APP_CONFIG.adminSessionTTL : APP_CONFIG.sessionTTL;
+        if (session.createdAt && (Date.now() - session.createdAt) > sessionTTL) {
+            await clearUserSession(userId);
+            return null;
+        }
+        
+        return session;
+    } catch (error) {
+        console.error('Get session error:', error);
+        return null;
+    }
+}
+
+async function setUserSession(userId, data) {
+    if (!checkDb()) return;
+    try {
+        await db.collection('sessions').doc(userId).set({
+            ...data,
+            userId: userId,
+            updatedAt: Date.now(),
+            createdAt: data.createdAt || Date.now()
+        }, { merge: true });
+        console.log(`📝 Session saved for ${userId}:`, data.step || 'no step');
+    } catch (error) {
+        console.error('Set session error:', error);
+    }
+}
+
+async function clearUserSession(userId) {
+    if (!checkDb()) return;
+    try {
+        await db.collection('sessions').doc(userId).delete();
+        console.log(`🗑️ Session cleared for ${userId}`);
+    } catch (error) {
+        console.error('Clear session error:', error);
+    }
+}
+
+async function cleanupExpiredSessions() {
+    if (!checkDb()) return;
+    try {
+        const now = Date.now();
+        const snapshot = await db.collection('sessions').get();
+        
+        let deleted = 0;
+        for (const doc of snapshot.docs) {
+            const session = doc.data();
+            const sessionTTL = session.isAdmin ? APP_CONFIG.adminSessionTTL : APP_CONFIG.sessionTTL;
+            if (session.createdAt && (now - session.createdAt) > sessionTTL) {
+                await doc.ref.delete();
+                deleted++;
+            }
+        }
+        
+        if (deleted > 0) console.log(`🧹 Cleaned up ${deleted} expired sessions`);
+    } catch (error) {
+        console.error('Cleanup sessions error:', error);
+    }
+}
+
+// دوال مساعدة لفحص حالة المشرف
+async function isAdminAuthenticated(userId) {
+    if (!isAdmin(userId)) return false;
+    const session = await getUserSession(userId);
+    return session && session.authenticated === true;
+}
+
+// ============================================================================
+// 5. 📊 نظام عداد المستخدمين
 // ============================================================================
 
 async function loadUserCounterFromDB() {
@@ -266,7 +355,7 @@ async function incrementUserCounter(userId, userName) {
 }
 
 // ============================================================================
-// 5. 🛠️ دوال مساعدة عامة
+// 6. 🛠️ دوال مساعدة عامة
 // ============================================================================
 
 async function deleteLastMessage(ctx) {
@@ -365,7 +454,7 @@ async function updateUser(userId, data) {
 }
 
 // ============================================================================
-// 6. 🔗 نظام الإحالة
+// 7. 🔗 نظام الإحالة
 // ============================================================================
 
 async function processReferralFromBot(referrerId, newUserId, newUserName) {
@@ -452,7 +541,7 @@ async function checkMilestoneAchievement(userId) {
 }
 
 // ============================================================================
-// 7. 🔒 التحقق من القنوات (المهام الثابتة)
+// 8. 🔒 التحقق من القنوات
 // ============================================================================
 
 async function verifyChannelMembership(userId, channelUsername) {
@@ -491,7 +580,7 @@ async function requireChannelVerification(ctx, userId) {
 }
 
 // ============================================================================
-// 8. 💸 نظام السحب
+// 9. 💸 نظام السحب
 // ============================================================================
 
 async function createWithdrawalRequest(userId, amount, currency, walletAddress) {
@@ -699,7 +788,7 @@ async function rejectWithdrawal(withdrawalId, adminId, reason) {
 }
 
 // ============================================================================
-// 9. 📊 إحصائيات البوت للمشرف
+// 10. 📊 إحصائيات البوت للمشرف
 // ============================================================================
 
 async function getBotStatsForAdmin() {
@@ -734,7 +823,7 @@ async function getBotStatsForAdmin() {
 }
 
 // ============================================================================
-// 10. 📢 البث الجماعي
+// 11. 📢 البث الجماعي
 // ============================================================================
 
 async function broadcastToAllUsers(message) {
@@ -784,7 +873,7 @@ async function broadcastToAllUsers(message) {
 }
 
 // ============================================================================
-// 11. 🎨 لوحات المفاتيح
+// 12. 🎨 لوحات المفاتيح
 // ============================================================================
 
 function getMainKeyboard(userId) {
@@ -868,7 +957,7 @@ function getAdminKeyboard() {
 }
 
 // ============================================================================
-// 12. 🤖 أوامر البوت الأساسية
+// 13. 🤖 أوامر البوت الأساسية
 // ============================================================================
 
 const bot = new Telegraf(BOT_TOKEN);
@@ -992,7 +1081,7 @@ bot.hears('💸 WITHDRAW', async (ctx) => {
             `📝 Send your address now:`
         );
         await sendAndTrack(ctx, walletMsg, getCancelKeyboard());
-        userSessions.set(userId, { waitingForWallet: true, createdAt: Date.now() });
+        await setUserSession(userId, { waitingForWallet: true, step: 'waitingForWallet', createdAt: Date.now() });
         return;
     }
 
@@ -1053,7 +1142,7 @@ bot.hears('⚙️ SETTINGS', async (ctx) => {
 });
 
 // ============================================================================
-// 13. 🔘 معالجات الأزرار (Callback Actions)
+// 14. 🔘 معالجات الأزرار (Callback Actions)
 // ============================================================================
 
 bot.action('change_wallet', async (ctx) => {
@@ -1067,7 +1156,7 @@ bot.action('change_wallet', async (ctx) => {
     );
 
     await sendAndTrack(ctx, changeWalletMsg, getCancelKeyboard());
-    userSessions.set(userId, { waitingForWalletUpdate: true, createdAt: Date.now() });
+    await setUserSession(userId, { waitingForWalletUpdate: true, step: 'waitingForWalletUpdate', createdAt: Date.now() });
 });
 
 bot.action('verify_membership', async (ctx) => {
@@ -1129,7 +1218,7 @@ bot.action('withdraw_axc', async (ctx) => {
     const amount = user.balance;
     await sendAndTrack(ctx, formatProfessionalMessage('💸 WITHDRAWAL REQUEST', `💰 <b>Amount:</b> ${formatAXC(amount)}\n💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>`, `Click CONFIRM to submit.`), getConfirmWithdrawKeyboard());
 
-    userSessions.set(userId, { withdrawAmount: amount, withdrawCurrency: 'AXC', createdAt: Date.now() });
+    await setUserSession(userId, { withdrawAmount: amount, withdrawCurrency: 'AXC', step: 'confirmWithdraw', createdAt: Date.now() });
 });
 
 bot.action('withdraw_usdt', async (ctx) => {
@@ -1150,12 +1239,12 @@ bot.action('withdraw_usdt', async (ctx) => {
 
     await sendAndTrack(ctx, formatProfessionalMessage('💸 USDT WITHDRAWAL REQUEST', `💵 <b>Amount:</b> ${formatUSD(usdtAmount)}\n💳 <b>Wallet:</b> <code>${user.walletAddress.substring(0, 10)}...</code>`, `Click CONFIRM to submit.`), getConfirmWithdrawKeyboard());
 
-    userSessions.set(userId, { withdrawAmount: usdtAmount, withdrawCurrency: 'USDT', createdAt: Date.now() });
+    await setUserSession(userId, { withdrawAmount: usdtAmount, withdrawCurrency: 'USDT', step: 'confirmWithdraw', createdAt: Date.now() });
 });
 
 bot.action('confirm_withdraw_final', async (ctx) => {
     const userId = ctx.from.id.toString();
-    const session = userSessions.get(userId);
+    const session = await getUserSession(userId);
     await ctx.answerCbQuery();
 
     if (!session?.withdrawAmount) {
@@ -1181,26 +1270,26 @@ bot.action('confirm_withdraw_final', async (ctx) => {
         await sendAndTrack(ctx, formatProfessionalMessage('❌ WITHDRAWAL FAILED', `${result.error}`), getMainKeyboard(userId));
     }
 
-    userSessions.delete(userId);
+    await clearUserSession(userId);
 });
 
 bot.action('cancel_action', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
-    userSessions.delete(userId);
+    await clearUserSession(userId);
     await sendAndTrack(ctx, formatProfessionalMessage('❌ ACTION CANCELLED', 'Returning to main menu.'), getMainKeyboard(userId));
 });
 
 bot.action('back_to_menu', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
-    userSessions.delete(userId);
+    await clearUserSession(userId);
     const user = await getOrCreateUser(userId, '', '');
     await sendAndTrack(ctx, formatProfessionalMessage('🎯 MAIN MENU', `💰 <b>Balance:</b> ${formatAXC(user?.balance || 0)}`), getMainKeyboard(userId));
 });
 
 // ============================================================================
-// 14. 👑 لوحة المشرف
+// 15. 👑 لوحة المشرف
 // ============================================================================
 
 bot.hears('👑 ADMIN PANEL', async (ctx) => {
@@ -1211,7 +1300,9 @@ bot.hears('👑 ADMIN PANEL', async (ctx) => {
         return;
     }
 
-    if (isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (isAuth) {
         const stats = await getBotStatsForAdmin();
         const msg = formatProfessionalMessage(
             '👑 ADMIN PANEL',
@@ -1223,12 +1314,18 @@ bot.hears('👑 ADMIN PANEL', async (ctx) => {
     }
 
     await ctx.reply(formatProfessionalMessage('🔐 ADMIN LOGIN', 'Please enter your admin password.'), { parse_mode: 'HTML' });
-    adminSessions.set(userId, { waitingForPassword: true, createdAt: Date.now() });
+    await setUserSession(userId, { waitingForPassword: true, step: 'waitingForPassword', isAdmin: true, createdAt: Date.now() });
 });
+
+// ============================================================================
+// 16. أوامر المشرف (Action Handlers)
+// ============================================================================
 
 bot.action('admin_stats', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
@@ -1246,7 +1343,9 @@ bot.action('admin_stats', async (ctx) => {
 
 bot.action('admin_pending', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
@@ -1260,7 +1359,7 @@ bot.action('admin_pending', async (ctx) => {
     }
 
     let msg = '';
-    for (let i = 0; i < withdrawals.length; i++) {
+    for (let i = 0; i < Math.min(withdrawals.length, 10); i++) {
         const w = withdrawals[i];
         const date = new Date(w.createdAt).toLocaleString();
         msg += `${i + 1}. 👤 ${w.userName}\n`;
@@ -1277,8 +1376,8 @@ bot.action('admin_pending', async (ctx) => {
     for (let i = 0; i < Math.min(withdrawals.length, 5); i++) {
         const w = withdrawals[i];
         keyboard.inline_keyboard.push([
-            { text: `✅ Approve ${w.userName}`, callback_data: `approve_wd_${w.id}` },
-            { text: `❌ Reject ${w.userName}`, callback_data: `reject_wd_${w.id}` }
+            { text: `✅ Approve ${w.userName.substring(0, 15)}`, callback_data: `approve_wd_${w.id}` },
+            { text: `❌ Reject ${w.userName.substring(0, 15)}`, callback_data: `reject_wd_${w.id}` }
         ]);
     }
 
@@ -1293,8 +1392,9 @@ bot.action('admin_pending', async (ctx) => {
 bot.action(/approve_wd_(.+)/, async (ctx) => {
     const userId = ctx.from.id.toString();
     const withdrawalId = ctx.match[1];
+    const isAuth = await isAdminAuthenticated(userId);
 
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
@@ -1312,20 +1412,23 @@ bot.action(/approve_wd_(.+)/, async (ctx) => {
 bot.action(/reject_wd_(.+)/, async (ctx) => {
     const userId = ctx.from.id.toString();
     const withdrawalId = ctx.match[1];
+    const isAuth = await isAdminAuthenticated(userId);
 
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
 
     await ctx.answerCbQuery();
-    adminSessions.set(userId, { step: 'awaiting_reject_reason', withdrawalId: withdrawalId });
+    await setUserSession(userId, { step: 'awaiting_reject_reason', withdrawalId: withdrawalId, isAdmin: true, createdAt: Date.now() });
     await ctx.reply(`📝 Please send the reason for rejecting withdrawal #${withdrawalId}:`);
 });
 
 bot.action('admin_users', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
@@ -1345,58 +1448,73 @@ bot.action('admin_users', async (ctx) => {
 
 bot.action('admin_search', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
     await ctx.reply('🔍 <b>SEARCH USER</b>\n\nSend user ID or username:', { parse_mode: 'HTML' });
-    adminSessions.set(userId, { searching: true, createdAt: Date.now() });
+    await setUserSession(userId, { step: 'searching_user', isAdmin: true, createdAt: Date.now() });
 });
 
 bot.action('admin_add_balance', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
     await ctx.reply('💰 <b>ADD BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\n\nExample: <code>123456789 100 AXC</code>\n<i>Currency: AXC or USDT</i>', { parse_mode: 'HTML' });
-    adminSessions.set(userId, { addingBalance: true, createdAt: Date.now() });
+    await setUserSession(userId, { step: 'adding_balance', isAdmin: true, createdAt: Date.now() });
 });
 
 bot.action('admin_remove_balance', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
     await ctx.reply('➖ <b>REMOVE BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\n\nExample: <code>123456789 50 AXC</code>\n<i>Currency: AXC or USDT</i>', { parse_mode: 'HTML' });
-    adminSessions.set(userId, { removingBalance: true, createdAt: Date.now() });
+    await setUserSession(userId, { step: 'removing_balance', isAdmin: true, createdAt: Date.now() });
 });
 
 bot.action('admin_broadcast', async (ctx) => {
     const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
         await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
     await ctx.reply('📢 <b>BROADCAST</b>\n\nSend your message to all users:', { parse_mode: 'HTML' });
-    adminSessions.set(userId, { broadcasting: true, createdAt: Date.now() });
+    await setUserSession(userId, { step: 'broadcasting', isAdmin: true, createdAt: Date.now() });
 });
 
 bot.action('admin_logout', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
-    adminSessions.delete(userId);
+    await clearUserSession(userId);
     await ctx.reply(formatProfessionalMessage('🔓 LOGGED OUT', 'Admin session ended.'), { parse_mode: 'HTML' });
 });
 
 bot.action('admin_back', async (ctx) => {
     const userId = ctx.from.id.toString();
+    const isAuth = await isAdminAuthenticated(userId);
+    
+    if (!isAdmin(userId) || !isAuth) {
+        await ctx.answerCbQuery('⛔ Unauthorized');
+        return;
+    }
     await ctx.answerCbQuery();
+    
     const stats = await getBotStatsForAdmin();
     const msg = formatProfessionalMessage(
         '👑 ADMIN PANEL',
@@ -1404,11 +1522,11 @@ bot.action('admin_back', async (ctx) => {
         `📋 Click any button below:`
     );
     await ctx.reply(msg, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
-    await ctx.deleteMessage();
+    try { await ctx.deleteMessage(); } catch(e) {}
 });
 
 // ============================================================================
-// 15. 📝 معالج الرسائل النصية (للمشرف والمستخدم)
+// 17. 📝 معالج الرسائل النصية (للمشرف والمستخدم)
 // ============================================================================
 
 bot.on('text', async (ctx) => {
@@ -1422,16 +1540,23 @@ bot.on('text', async (ctx) => {
     if (buttons.includes(messageText)) return;
     if (messageText.startsWith('/')) return;
 
-    const adminSession = adminSessions.get(userId);
+    // جلب الجلسة الحالية
+    const session = await getUserSession(userId);
+    console.log(`📋 Session for ${userId}:`, session ? session.step : 'no session');
 
     // ========== 1. معالجة كلمة سر المشرف ==========
-    if (adminSession?.waitingForPassword && isAdmin(userId)) {
+    if (session?.step === 'waitingForPassword' && isAdmin(userId)) {
         console.log(`🔐 Admin password attempt from ${userId}`);
         
         if (messageText === ADMIN_PASSWORD) {
-            adminSessions.set(userId, { authenticated: true, createdAt: Date.now() });
-            delete adminSessions.get(userId).waitingForPassword;
-
+            await setUserSession(userId, { 
+                authenticated: true, 
+                isAdmin: true,
+                step: null,
+                waitingForPassword: null,
+                createdAt: Date.now()
+            });
+            
             const stats = await getBotStatsForAdmin();
             const msg = formatProfessionalMessage(
                 '✅ LOGIN SUCCESSFUL',
@@ -1441,16 +1566,16 @@ bot.on('text', async (ctx) => {
             await ctx.reply(msg, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
         } else {
             await ctx.reply(formatProfessionalMessage('❌ LOGIN FAILED', 'Invalid password.'), { parse_mode: 'HTML' });
-            adminSessions.delete(userId);
+            await clearUserSession(userId);
         }
         return;
     }
 
     // ========== 2. معالجة سبب رفض السحب ==========
-    if (adminSession?.step === 'awaiting_reject_reason' && isAdmin(userId) && isAdminAuthenticated(userId)) {
-        console.log(`📝 Reject reason from ${userId} for withdrawal ${adminSession.withdrawalId}`);
+    if (session?.step === 'awaiting_reject_reason' && isAdmin(userId)) {
+        console.log(`📝 Reject reason from ${userId} for withdrawal ${session.withdrawalId}`);
         
-        const withdrawalId = adminSession.withdrawalId;
+        const withdrawalId = session.withdrawalId;
         const reason = messageText;
 
         const result = await rejectWithdrawal(withdrawalId, userId, reason);
@@ -1461,12 +1586,12 @@ bot.on('text', async (ctx) => {
             await ctx.reply(`❌ Error: ${result.error}`);
         }
 
-        adminSessions.delete(userId);
+        await clearUserSession(userId);
         return;
     }
 
     // ========== 3. معالجة البث الجماعي ==========
-    if (adminSession?.broadcasting && isAdmin(userId) && isAdminAuthenticated(userId)) {
+    if (session?.step === 'broadcasting' && isAdmin(userId)) {
         console.log(`📢 Broadcasting from ${userId}: "${messageText.substring(0, 50)}..."`);
         
         await ctx.reply(`⏳ Sending broadcast to all users...`);
@@ -1474,17 +1599,17 @@ bot.on('text', async (ctx) => {
         const result = await broadcastToAllUsers(messageText);
         
         if (result.success) {
-            await ctx.reply(`✅ Broadcast sent successfully to ${result.sent} users`);
+            await ctx.reply(`✅ Broadcast sent successfully to ${result.sent} users${result.failed > 0 ? ` (${result.failed} failed)` : ''}`);
         } else {
             await ctx.reply(`❌ Broadcast failed: ${result.error}`);
         }
         
-        adminSessions.delete(userId);
+        await clearUserSession(userId);
         return;
     }
 
     // ========== 4. معالجة إضافة رصيد ==========
-    if (adminSession?.addingBalance && isAdmin(userId) && isAdminAuthenticated(userId)) {
+    if (session?.step === 'adding_balance' && isAdmin(userId)) {
         console.log(`💰 Adding balance from ${userId}: "${messageText}"`);
         
         const parts = messageText.trim().split(' ');
@@ -1516,12 +1641,12 @@ bot.on('text', async (ctx) => {
             await ctx.reply('❌ Format: USER_ID AMOUNT CURRENCY\nExample: 123456789 100 AXC');
         }
         
-        adminSessions.delete(userId);
+        await clearUserSession(userId);
         return;
     }
 
     // ========== 5. معالجة خصم رصيد ==========
-    if (adminSession?.removingBalance && isAdmin(userId) && isAdminAuthenticated(userId)) {
+    if (session?.step === 'removing_balance' && isAdmin(userId)) {
         console.log(`➖ Removing balance from ${userId}: "${messageText}"`);
         
         const parts = messageText.trim().split(' ');
@@ -1562,12 +1687,12 @@ bot.on('text', async (ctx) => {
             await ctx.reply('❌ Format: USER_ID AMOUNT CURRENCY\nExample: 123456789 50 AXC');
         }
         
-        adminSessions.delete(userId);
+        await clearUserSession(userId);
         return;
     }
 
     // ========== 6. معالجة البحث عن مستخدم ==========
-    if (adminSession?.searching && isAdmin(userId) && isAdminAuthenticated(userId)) {
+    if (session?.step === 'searching_user' && isAdmin(userId)) {
         console.log(`🔍 Searching from ${userId}: "${messageText}"`);
         
         const searchTerm = messageText.trim();
@@ -1596,19 +1721,17 @@ bot.on('text', async (ctx) => {
             await ctx.reply(formatProfessionalMessage('❌ NOT FOUND', 'User not found.'), { parse_mode: 'HTML' });
         }
         
-        adminSessions.delete(userId);
+        await clearUserSession(userId);
         return;
     }
 
     // ========== 7. معالجة المستخدم العادي ==========
-    const session = userSessions.get(userId);
-
     if (session?.waitingForWallet) {
         console.log(`💳 Saving wallet for ${userId}`);
         
         if (isValidBEP20(messageText)) {
             await updateUser(userId, { walletAddress: messageText });
-            userSessions.delete(userId);
+            await clearUserSession(userId);
             await sendAndTrack(ctx, formatProfessionalMessage('✅ WALLET SAVED!', `💳 <code>${messageText}</code>\n\n<i>You can now withdraw funds.</i>`), getMainKeyboard(userId));
         } else {
             await sendAndTrack(ctx, formatProfessionalMessage('❌ INVALID ADDRESS', `Please send a valid BEP20 wallet address.\n\n<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>`), getCancelKeyboard());
@@ -1621,7 +1744,7 @@ bot.on('text', async (ctx) => {
         
         if (isValidBEP20(messageText)) {
             await updateUser(userId, { walletAddress: messageText });
-            userSessions.delete(userId);
+            await clearUserSession(userId);
             await sendAndTrack(ctx, formatProfessionalMessage('✅ WALLET UPDATED!', `💳 <code>${messageText}</code>`), getMainKeyboard(userId));
         } else {
             await sendAndTrack(ctx, formatProfessionalMessage('❌ INVALID ADDRESS', `Please send a valid BEP20 wallet address.\n\n<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>`), getCancelKeyboard());
@@ -1631,7 +1754,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================================
-// 16. 🌐 APIs للتطبيق (Mini App)
+// 18. 🌐 APIs للتطبيق (Mini App)
 // ============================================================================
 
 app.use(cors());
@@ -1701,7 +1824,7 @@ app.get('/tonconnect-manifest.json', (req, res) => {
 });
 
 // ============================================================================
-// 17. 🚀 تشغيل الخادم والبوت
+// 19. 🚀 تشغيل الخادم والبوت
 // ============================================================================
 
 bot.launch({ dropPendingUpdates: true })
@@ -1714,7 +1837,7 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║          AXION AI BOT - PROFESSIONAL v8.0 (COMPLETE)         ║
+║       AXION AI BOT - LEGENDARY EDITION v9.0 (FIXED)         ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  📍 Port: ${PORT}                                             ║
 ║  🔥 Firebase: ${db ? '✅ Connected' : '❌ Disconnected'}                        ║
