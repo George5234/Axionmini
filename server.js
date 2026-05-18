@@ -1,15 +1,7 @@
 // ============================================================================
-// AXION AI BOT - ULTIMATE PROFESSIONAL EDITION v5.0 (FULLY COMPLETE)
+// AXION AI BOT - COMPLETE PROFESSIONAL EDITION v8.0
 // ============================================================================
 // جميع الميزات والوظائف تعمل بكفاءة 100%
-// ✅ نظام إحالة محمي ضد التكرار
-// ✅ مهام ثابتة (التحقق من الانضمام للقنوات)
-// ✅ سحب AXC و USDT مع تبريد 24 ساعة
-// ✅ إرسال طلبات السحب إلى مجموعة محددة مع أزرار قبول/رفض
-// ✅ لوحة مشرف متكاملة (إحصائيات، سحوبات، بحث، إضافة/خصم رصيد، بث)
-// ✅ معالجة الردود النصية للمستخدمين والمشرف
-// ✅ جميع الأزرار تستجيب بشكل فوري
-// ✅ عداد مستخدمين دقيق (يقرأ ثم يكتب +1 عند إنشاء مستخدم جديد)
 // ============================================================================
 
 const express = require('express');
@@ -65,7 +57,6 @@ try {
         ADMIN_ID = adminConfig.admin_id;
         ADMIN_PASSWORD = adminConfig.admin_password;
         console.log('✅ Admin config loaded | ID:', ADMIN_ID);
-        console.log('🔐 Admin password:', ADMIN_PASSWORD ? '✅ Loaded' : '❌ Missing');
     }
 } catch (error) {
     console.error('❌ Admin config error:', error.message);
@@ -197,7 +188,7 @@ if (serviceAccount) {
         db = admin.firestore();
         console.log('🔥 Firebase Admin SDK initialized');
 
-        // تحميل عداد المستخدمين من قاعدة البيانات
+        // تحميل عداد المستخدمين
         loadUserCounterFromDB();
 
         // فحص صحة Firebase
@@ -891,6 +882,7 @@ bot.telegram.getMe().then((botInfo) => {
     console.log(`📢 Bot username: @${BOT_USERNAME}`);
 }).catch(err => console.error('Failed to get bot info:', err.message));
 
+// بدء البوت
 bot.start(async (ctx) => {
     const refCode = ctx.startPayload;
     const userId = ctx.from.id.toString();
@@ -920,6 +912,7 @@ bot.start(async (ctx) => {
     await sendAndTrack(ctx, welcomeMsg, getChannelsKeyboard());
 });
 
+// الرصيد
 bot.hears('💰 BALANCE', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
@@ -938,6 +931,7 @@ bot.hears('💰 BALANCE', async (ctx) => {
     await sendAndTrack(ctx, balanceMsg, getMainKeyboard(userId));
 });
 
+// نظام الإحالة
 bot.hears('🔗 REFERRAL', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
@@ -964,6 +958,7 @@ bot.hears('🔗 REFERRAL', async (ctx) => {
     await sendAndTrack(ctx, referralMsg, getShareKeyboard(link));
 });
 
+// سحب
 bot.hears('💸 WITHDRAW', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
@@ -1010,6 +1005,7 @@ bot.hears('💸 WITHDRAW', async (ctx) => {
     await sendAndTrack(ctx, withdrawMsg, getWithdrawCurrencyKeyboard());
 });
 
+// SWAP STATION
 bot.hears('🔄 SWAP STATION', async (ctx) => {
     const userId = ctx.from.id.toString();
 
@@ -1039,6 +1035,7 @@ bot.hears('🔄 SWAP STATION', async (ctx) => {
     });
 });
 
+// الإعدادات
 bot.hears('⚙️ SETTINGS', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!checkDb()) return;
@@ -1232,7 +1229,7 @@ bot.hears('👑 ADMIN PANEL', async (ctx) => {
 bot.action('admin_stats', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
@@ -1250,7 +1247,7 @@ bot.action('admin_stats', async (ctx) => {
 bot.action('admin_pending', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
@@ -1298,7 +1295,7 @@ bot.action(/approve_wd_(.+)/, async (ctx) => {
     const withdrawalId = ctx.match[1];
 
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery(`✅ Approving...`);
@@ -1317,7 +1314,7 @@ bot.action(/reject_wd_(.+)/, async (ctx) => {
     const withdrawalId = ctx.match[1];
 
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
 
@@ -1329,7 +1326,7 @@ bot.action(/reject_wd_(.+)/, async (ctx) => {
 bot.action('admin_users', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
@@ -1349,7 +1346,7 @@ bot.action('admin_users', async (ctx) => {
 bot.action('admin_search', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
@@ -1360,7 +1357,7 @@ bot.action('admin_search', async (ctx) => {
 bot.action('admin_add_balance', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
@@ -1371,7 +1368,7 @@ bot.action('admin_add_balance', async (ctx) => {
 bot.action('admin_remove_balance', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
@@ -1382,7 +1379,7 @@ bot.action('admin_remove_balance', async (ctx) => {
 bot.action('admin_broadcast', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !isAdminAuthenticated(userId)) {
-        await ctx.answerCbQuery('Unauthorized');
+        await ctx.answerCbQuery('⛔ Unauthorized');
         return;
     }
     await ctx.answerCbQuery();
@@ -1420,6 +1417,7 @@ bot.on('text', async (ctx) => {
 
     console.log(`📩 [RECEIVED] from ${userId}: "${messageText.substring(0, 50)}"`);
 
+    // تجاهل الأزرار والأوامر
     const buttons = ['💰 BALANCE', '🔗 REFERRAL', '💸 WITHDRAW', '🔄 SWAP STATION', '⚙️ SETTINGS', '👑 ADMIN PANEL'];
     if (buttons.includes(messageText)) return;
     if (messageText.startsWith('/')) return;
@@ -1716,7 +1714,7 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║          AXION AI BOT - PROFESSIONAL v5.0 (COMPLETE)         ║
+║          AXION AI BOT - PROFESSIONAL v8.0 (COMPLETE)         ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  📍 Port: ${PORT}                                             ║
 ║  🔥 Firebase: ${db ? '✅ Connected' : '❌ Disconnected'}                        ║
