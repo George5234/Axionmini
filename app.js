@@ -1,8 +1,7 @@
 // ============================================================================
-// AXION AI - SWAP MINI APP LOGIC v4.0 (PROFESSIONAL)
+// AXION AI - SWAP MINI APP v5.0 (PROFESSIONAL)
 // ============================================================================
 
-// Telegram WebApp
 const tg = window.Telegram?.WebApp;
 if (tg) {
     tg.ready();
@@ -34,6 +33,7 @@ let tonConnected = false;
 let tonWalletAddress = null;
 let isActivating = false;
 let isSwapping = false;
+let isWithdrawing = false;
 
 // ============================================================================
 // DOM ELEMENTS
@@ -50,8 +50,12 @@ const elements = {
     activateBtn: document.getElementById('activateBtn'),
     activationBox: document.getElementById('activationBox'),
     swapBox: document.getElementById('swapBox'),
+    withdrawBox: document.getElementById('withdrawBox'),
     walletStatus: document.getElementById('walletStatus'),
-    axcPrice: document.getElementById('axcPrice')
+    axcPrice: document.getElementById('axcPrice'),
+    withdrawAddress: document.getElementById('withdrawAddress'),
+    withdrawAmount: document.getElementById('withdrawAmount'),
+    withdrawBtn: document.getElementById('withdrawBtn')
 };
 
 // ============================================================================
@@ -67,16 +71,16 @@ function showConfetti() {
     const particles = [];
     const colors = ['#2ecc71', '#f1c40f', '#e74c3c', '#3498db', '#9b59b6'];
     
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 200; i++) {
         particles.push({
             x: Math.random() * canvas.width,
             y: Math.random() * canvas.height - canvas.height,
-            size: Math.random() * 8 + 4,
-            speedY: Math.random() * 8 + 4,
-            speedX: (Math.random() - 0.5) * 4,
+            size: Math.random() * 10 + 4,
+            speedY: Math.random() * 10 + 5,
+            speedX: (Math.random() - 0.5) * 6,
             color: colors[Math.floor(Math.random() * colors.length)],
             rotation: Math.random() * 360,
-            rotationSpeed: (Math.random() - 0.5) * 10
+            rotationSpeed: (Math.random() - 0.5) * 15
         });
     }
     
@@ -88,7 +92,7 @@ function showConfetti() {
         
         let allFinished = true;
         for (let p of particles) {
-            if (p.y < canvas.height + 50) {
+            if (p.y < canvas.height + 100) {
                 allFinished = false;
                 p.y += p.speedY;
                 p.x += p.speedX;
@@ -103,7 +107,7 @@ function showConfetti() {
             }
         }
         
-        if (allFinished || Date.now() - startTime > 3000) {
+        if (allFinished || Date.now() - startTime > 3500) {
             cancelAnimationFrame(animationId);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         } else {
@@ -121,19 +125,16 @@ function showConfetti() {
 async function init() {
     console.log('[Swap] Initializing...');
     
-    // Get user from URL params (from bot)
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
     
     if (!userId) {
-        // Try from Telegram
         const initData = tg?.initDataUnsafe;
         userId = initData?.user?.id?.toString();
     }
     
     if (!userId) {
         showStatus('swapStatus', '❌ Please open from Telegram Bot', 'error');
-        console.error('[Swap] No userId found');
         return;
     }
     
@@ -148,7 +149,6 @@ async function init() {
 async function loadConfig() {
     try {
         const res = await fetch('/api/config');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         CONFIG.ownerWallet = data.ownerWallet;
         if (data.config) {
@@ -159,7 +159,6 @@ async function loadConfig() {
         if (elements.axcPrice) {
             elements.axcPrice.textContent = CONFIG.axcPrice;
         }
-        console.log('[Swap] Config loaded');
     } catch(e) {
         console.error('[Swap] Config error:', e);
     }
@@ -189,7 +188,6 @@ function initTonConnect() {
     if (!container) return;
     
     if (typeof TON_CONNECT_UI === 'undefined') {
-        console.error('[Swap] TON Connect UI not loaded');
         container.innerHTML = '<span style="color:#e74c3c">⚠️ TON Connect unavailable</span>';
         return;
     }
@@ -234,7 +232,6 @@ async function loadUserData() {
             currentUser = userDoc.data();
             updateUI();
         } else {
-            // Try via API
             const res = await fetch(`/api/user/${userId}`);
             const data = await res.json();
             if (data.success) {
@@ -258,7 +255,6 @@ function updateUI() {
     if (elements.fromBalance) elements.fromBalance.innerHTML = balance;
     if (elements.toBalance) elements.toBalance.innerHTML = `$${usdtBalance.toFixed(2)}`;
     
-    // Update swap button based on activation
     if (currentUser.tonPaid) {
         unlockSwap();
     } else {
@@ -268,13 +264,11 @@ function updateUI() {
 
 async function checkActivation() {
     if (!currentUser || !tonWalletAddress) return;
-    
-    // Refresh user data
     await loadUserData();
 }
 
 // ============================================================================
-// SWAP LOCK/UNLOCK SYSTEM
+// SWAP LOCK/UNLOCK
 // ============================================================================
 
 function lockSwap() {
@@ -294,21 +288,20 @@ function unlockSwap() {
     if (elements.activationBox) {
         elements.activationBox.classList.remove('locked');
         elements.activationBox.classList.add('unlocked');
-        const icon = elements.activationBox.querySelector('i');
+        const icon = elements.activationBox.querySelector('.lock-icon i');
         if (icon) {
             icon.className = 'fas fa-unlock-alt';
         }
         const title = elements.activationBox.querySelector('h3');
-        if (title) title.innerHTML = '🔓 Swap Unlocked';
+        if (title) title.innerHTML = '🔓 SWAP UNLOCKED';
         const desc = elements.activationBox.querySelector('p');
-        if (desc) desc.innerHTML = 'Swap feature is permanently activated for your account!';
+        if (desc) desc.innerHTML = 'Swap feature is <strong style="color:#2ecc71">permanently activated</strong> for your account!';
         const btn = elements.activationBox.querySelector('button');
         if (btn) btn.style.display = 'none';
     }
     if (elements.swapBox) {
         elements.swapBox.classList.remove('disabled');
     }
-    // Enable swap button if amount is valid
     validateSwapAmount();
 }
 
@@ -364,7 +357,7 @@ if (elements.activateBtn) {
             
             if (verifyData.success) {
                 await loadUserData();
-                showStatus('activationStatus', '✅ Swap activated! You can now swap.', 'success');
+                showStatus('activationStatus', '✅ Swap unlocked! You can now swap.', 'success');
                 showConfetti();
                 unlockSwap();
             } else {
@@ -378,7 +371,7 @@ if (elements.activateBtn) {
             isActivating = false;
             if (elements.activateBtn) {
                 elements.activateBtn.disabled = false;
-                elements.activateBtn.innerHTML = '<i class="fas fa-gem"></i> Activate for 0.05 TON';
+                elements.activateBtn.innerHTML = '<i class="fas fa-key"></i> UNLOCK SWAP';
             }
         }
     });
@@ -418,7 +411,7 @@ if (elements.swapFrom) {
         }
         
         const usdtAmount = amount * CONFIG.axcPrice;
-        if (elements.swapTo) elements.swapTo.value = `$${usdtAmount.toFixed(2)}`;
+        if (elements.swapTo) elements.swapTo.value = usdtAmount.toFixed(2);
         validateSwapAmount();
     });
 }
@@ -462,10 +455,9 @@ if (elements.swapBtn) {
                 await loadUserData();
                 if (elements.swapFrom) elements.swapFrom.value = '';
                 if (elements.swapTo) elements.swapTo.value = '';
-                showStatus('swapStatus', `✅ Swapped ${amount.toLocaleString()} AXC → $${data.usdtAmount?.toFixed(2) || (amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
+                showStatus('swapStatus', `✅ Swapped ${amount.toLocaleString()} AXC → $${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
                 showConfetti();
                 
-                // Close Mini App after successful swap
                 setTimeout(() => {
                     if (tg) tg.close();
                 }, 2500);
@@ -481,6 +473,72 @@ if (elements.swapBtn) {
             elements.swapBtn.disabled = false;
             elements.swapBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
             validateSwapAmount();
+        }
+    });
+}
+
+// ============================================================================
+// WITHDRAW USDT
+// ============================================================================
+
+if (elements.withdrawBtn) {
+    elements.withdrawBtn.addEventListener('click', async () => {
+        const address = elements.withdrawAddress?.value.trim();
+        const amount = parseFloat(elements.withdrawAmount?.value || '0');
+        
+        const isValidBEP20 = /^0x[a-fA-F0-9]{40}$/i.test(address);
+        
+        if (!address || !isValidBEP20) {
+            showStatus('withdrawStatus', '❌ Invalid BEP20 address', 'error');
+            return;
+        }
+        
+        if (isNaN(amount) || amount <= 0) {
+            showStatus('withdrawStatus', '❌ Invalid amount', 'error');
+            return;
+        }
+        
+        const usdtBalance = currentUser?.usdtBalance || 0;
+        if (amount > usdtBalance) {
+            showStatus('withdrawStatus', '❌ Insufficient USDT balance', 'error');
+            return;
+        }
+        
+        if (isWithdrawing) return;
+        isWithdrawing = true;
+        
+        if (elements.withdrawBtn) {
+            elements.withdrawBtn.disabled = true;
+            elements.withdrawBtn.innerHTML = '<span class="spinner"></span> Processing...';
+        }
+        
+        try {
+            const res = await fetch('/api/withdraw-usdt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, amount, address })
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+                await loadUserData();
+                if (elements.withdrawAmount) elements.withdrawAmount.value = '';
+                showStatus('withdrawStatus', '✅ Withdrawal submitted! Pending admin approval.', 'success');
+                if (elements.withdrawAddress) elements.withdrawAddress.value = '';
+            } else {
+                showStatus('withdrawStatus', '❌ ' + (data.error || 'Withdrawal failed'), 'error');
+            }
+            
+        } catch(error) {
+            console.error('Withdraw error:', error);
+            showStatus('withdrawStatus', '❌ Network error', 'error');
+        } finally {
+            isWithdrawing = false;
+            if (elements.withdrawBtn) {
+                elements.withdrawBtn.disabled = false;
+                elements.withdrawBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Withdrawal';
+            }
         }
     });
 }
