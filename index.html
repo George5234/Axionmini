@@ -3,15 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Axion AI • DEX Swap</title>
-    
+    <title>Axion AI • Neural DEX</title>
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        :root {
+            --ai-green: #39ff14;
+            --ai-green-dim: rgba(57, 255, 20, 0.12);
+            --ai-green-glow: rgba(57, 255, 20, 0.25);
+            --ai-dark: #050805;
+            --ai-card: rgba(8, 16, 8, 0.92);
+            --ai-border: rgba(57, 255, 20, 0.2);
+            --ai-text: #ffffff;
+            --ai-text-dim: #c0e0c0;
+            --ai-muted: #7a9e7a;
+            --ai-accent: #00ff88;
+            --ai-warning: #ffaa33;
+            --ai-danger: #ff5555;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -21,312 +38,582 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
-            background: #0a0c0f;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--ai-dark);
             min-height: 100vh;
-            color: #ffffff;
-            padding: 20px 16px;
-            position: relative;
+            color: var(--ai-text);
             overflow-x: hidden;
-            overflow-y: auto;
-            width: 100%;
+            position: relative;
         }
 
-        /* Animated Gradient Background */
-        body::before {
-            content: '';
+        /* Subtle Neural Background */
+        .neural-bg {
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(ellipse at 30% 20%, rgba(46, 204, 113, 0.12), transparent 50%),
-                        radial-gradient(ellipse at 80% 70%, rgba(241, 196, 15, 0.08), transparent 50%);
+            width: 100%;
+            height: 100%;
             pointer-events: none;
-            z-index: -1;
+            z-index: 0;
+            overflow: hidden;
+            opacity: 0.5;
         }
 
-        /* Glass Card */
-        .glass-card {
-            background: rgba(18, 25, 22, 0.75);
-            backdrop-filter: blur(20px);
-            border-radius: 40px;
-            border: 1px solid rgba(46, 204, 113, 0.2);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(46, 204, 113, 0.05) inset;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .neural-node {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--ai-green);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        /* Subtle Scanline */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--ai-green), transparent);
+            opacity: 0.15;
+            animation: scan 8s linear infinite;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        @keyframes scan {
+            0% { top: -2px; }
+            100% { top: 100vh; }
         }
 
         .container {
-            max-width: 500px;
+            position: relative;
+            z-index: 2;
+            max-width: 480px;
             margin: 0 auto;
+            padding: 16px 14px 32px;
             overflow-x: hidden;
-            width: 100%;
         }
 
-        /* Header */
-        .header {
+        /* AI Header - Cleaner */
+        .ai-header {
             text-align: center;
-            padding: 8px 0 24px;
+            padding: 16px 0 24px;
+            position: relative;
         }
-        .header h1 {
-            font-size: 34px;
+
+        .logo-ring {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            border: 1.5px solid var(--ai-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            animation: rotate 20s linear infinite;
+        }
+
+        .logo-ring::before {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border: 1px solid var(--ai-green);
+            border-radius: 50%;
+            opacity: 0.2;
+            animation: rotate 15s linear infinite reverse;
+        }
+
+        .logo-ring i {
+            font-size: 28px;
+            color: var(--ai-green);
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .ai-header h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 26px;
             font-weight: 800;
-            background: linear-gradient(135deg, #2ecc71 0%, #f1c40f 50%, #2ecc71 100%);
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, var(--ai-green) 0%, var(--ai-accent) 50%, var(--ai-green) 100%);
             background-size: 200% 200%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             animation: gradientShift 4s ease infinite;
-            letter-spacing: -0.5px;
         }
+
+        .ai-header .subtitle {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: var(--ai-muted);
+            letter-spacing: 4px;
+            margin-top: 6px;
+            text-transform: uppercase;
+        }
+
+        .ai-header .tagline {
+            font-size: 11px;
+            color: var(--ai-green);
+            margin-top: 10px;
+            opacity: 0.7;
+        }
+
         @keyframes gradientShift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-        .header p {
-            color: #6c8b7a;
-            font-size: 13px;
-            margin-top: 8px;
+
+        /* Neural Card */
+        .neural-card {
+            background: var(--ai-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--ai-border);
+            border-radius: 24px;
+            padding: 18px;
+            margin-bottom: 16px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .neural-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--ai-green), transparent);
+            opacity: 0.4;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(57, 255, 20, 0.08);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--ai-green);
+            border-radius: 50%;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .gas-price {
+            font-size: 11px;
+            color: var(--ai-muted);
+            font-family: 'Orbitron', monospace;
         }
 
         /* Wallet Section */
         .wallet-section {
-            padding: 20px 24px;
-            margin-bottom: 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
             flex-wrap: wrap;
-            gap: 16px;
-            border-radius: 32px;
         }
-        .wallet-info {
+
+        .wallet-badge {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
+            flex: 1;
         }
-        .wallet-icon {
-            width: 52px;
-            height: 52px;
-            background: linear-gradient(145deg, #2ecc71, #1a6e3a);
-            border-radius: 28px;
+
+        .wallet-avatar {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(145deg, var(--ai-green), #1a6e2a);
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 26px;
-            box-shadow: 0 8px 20px rgba(46, 204, 113, 0.3);
-        }
-        .wallet-text h4 {
-            font-size: 15px;
-            font-weight: 700;
-            color: #f1c40f;
-        }
-        .wallet-text p {
-            font-size: 12px;
-            color: #8bc34a;
-            margin-top: 4px;
-        }
-        #ton-connect {
-            min-width: 150px;
+            font-size: 18px;
         }
 
-        /* Swap Box */
-        .swap-box {
-            padding: 24px;
-            margin-bottom: 24px;
-            border-radius: 40px;
+        .wallet-info h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ai-text);
         }
-        .swap-input-group {
-            background: rgba(0, 0, 0, 0.45);
-            border-radius: 28px;
-            padding: 18px 20px;
-            margin: 12px 0;
-            border: 1px solid rgba(46, 204, 113, 0.2);
-            transition: all 0.25s;
+
+        .wallet-info p {
+            font-size: 11px;
+            color: var(--ai-muted);
+            margin-top: 2px;
+            font-family: 'Orbitron', monospace;
         }
-        .swap-input-group:focus-within {
-            border-color: #2ecc71;
-            box-shadow: 0 0 20px rgba(46, 204, 113, 0.15);
-        }
-        .swap-label {
-            display: flex;
-            justify-content: space-between;
-            color: #8bc34a;
-            font-size: 13px;
-            margin-bottom: 12px;
-            font-weight: 500;
-        }
-        .swap-input-row {
+
+        /* Swap Header */
+        .swap-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .swap-header h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            letter-spacing: 2px;
+            color: var(--ai-green);
+        }
+
+        .ai-chip {
+            background: rgba(57, 255, 20, 0.08);
+            border: 1px solid var(--ai-border);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 10px;
+            color: var(--ai-green);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Input Containers */
+        .swap-input-container {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(57, 255, 20, 0.12);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .swap-input-container:focus-within {
+            border-color: var(--ai-green);
+        }
+
+        .input-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .input-label .label-text {
+            color: var(--ai-muted);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .input-label .balance-text {
+            color: var(--ai-green);
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
             flex-wrap: nowrap;
         }
-        .swap-input-row input {
+
+        .input-row input {
             flex: 1;
             background: transparent;
             border: none;
-            color: white;
-            font-size: 32px;
+            color: var(--ai-text);
+            font-size: 28px;
             font-weight: 700;
             outline: none;
-            font-family: monospace;
+            font-family: 'Orbitron', monospace;
             min-width: 0;
+            letter-spacing: 1px;
         }
-        .swap-input-row input[type="number"] {
+
+        .input-row input::placeholder {
+            color: rgba(107, 143, 107, 0.3);
+        }
+
+        .input-row input[type="number"] {
             -moz-appearance: textfield;
         }
-        .swap-input-row input[type="number"]::-webkit-inner-spin-button,
-        .swap-input-row input[type="number"]::-webkit-outer-spin-button {
+
+        .input-row input[type="number"]::-webkit-inner-spin-button,
+        .input-row input[type="number"]::-webkit-outer-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
-        .swap-input-row input::placeholder {
-            color: #3a5a4a;
-        }
-        .token-badge {
-            background: rgba(46, 204, 113, 0.15);
-            padding: 10px 20px;
-            border-radius: 60px;
-            font-size: 15px;
-            font-weight: 700;
+
+        .token-selector {
             display: flex;
             align-items: center;
-            gap: 10px;
-            border: 1px solid rgba(46, 204, 113, 0.3);
+            gap: 8px;
+            background: rgba(57, 255, 20, 0.08);
+            border: 1px solid var(--ai-border);
+            border-radius: 40px;
+            padding: 6px 14px;
             flex-shrink: 0;
         }
-        .swap-arrow {
-            text-align: center;
-            font-size: 28px;
-            color: #2ecc71;
-            margin: 8px 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-        }
-        .swap-arrow .line {
-            width: 60px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #2ecc71, transparent);
-        }
-        .swap-rate {
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 14px;
-            border-radius: 28px;
-            color: #f1c40f;
+
+        .token-selector span {
+            font-weight: 600;
             font-size: 13px;
-            margin: 20px 0 16px;
+            color: var(--ai-text);
         }
 
-        /* Premium SWAP Button */
-        .btn-swap {
-            width: 100%;
-            border: none;
-            border-radius: 60px;
-            padding: 18px;
-            font-weight: 800;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.25s;
+        .token-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            font-size: 11px;
+            font-weight: 700;
         }
-        .btn-swap.active {
+
+        .token-icon.axc {
             background: linear-gradient(145deg, #f1c40f, #d4ac0d);
             color: #1a2a1a;
         }
-        .btn-swap.active i {
-            color: #2ecc71;
+
+        .token-icon.usdt {
+            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
+            color: white;
         }
-        .btn-swap.locked {
-            background: linear-gradient(145deg, #2c3e50, #1a2a3a);
-            color: #8a9a8a;
-            border: 1px solid rgba(241, 196, 15, 0.3);
+
+        /* Swap Divider */
+        .swap-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 6px 0;
         }
-        .btn-swap.locked i {
-            color: #f1c40f;
+
+        .swap-divider .line {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--ai-green-dim), transparent);
         }
-        .btn-swap:active {
-            transform: scale(0.97);
+
+        .swap-arrow-btn {
+            width: 36px;
+            height: 36px;
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid var(--ai-border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ai-green);
+            font-size: 12px;
+            margin: 0 12px;
+        }
+
+        /* Rate Panel */
+        .rate-panel {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 16px;
+            padding: 12px;
+            margin: 14px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rate-item {
+            text-align: center;
+        }
+
+        .rate-item .value {
+            font-family: 'Orbitron', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ai-green);
+        }
+
+        .rate-item .label {
+            font-size: 9px;
+            color: var(--ai-muted);
+            margin-top: 3px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .rate-divider {
+            width: 1px;
+            height: 24px;
+            background: linear-gradient(180deg, transparent, var(--ai-border), transparent);
+        }
+
+        /* Swap Button */
+        .btn-ai-swap {
+            width: 100%;
+            border: none;
+            border-radius: 20px;
+            padding: 16px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-ai-swap::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.4s;
+        }
+
+        .btn-ai-swap:hover::before {
+            left: 100%;
+        }
+
+        .btn-ai-swap.active {
+            background: linear-gradient(145deg, var(--ai-green), #1a7a2a);
+            color: #000;
+            font-weight: 800;
+        }
+
+        .btn-ai-swap.locked {
+            background: rgba(30, 40, 30, 0.9);
+            color: var(--ai-muted);
+            border: 1px solid rgba(57, 255, 20, 0.2);
+        }
+
+        .btn-ai-swap.locked i {
+            color: var(--ai-warning);
+        }
+
+        .btn-ai-swap:active {
+            transform: scale(0.98);
         }
 
         /* Status Messages */
-        .status-msg {
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 24px;
-            padding: 14px;
-            font-size: 13px;
+        .ai-status {
+            border-radius: 16px;
+            padding: 12px;
+            font-size: 12px;
             text-align: center;
-            margin: 16px 0 0;
+            margin-top: 14px;
             display: none;
-            animation: slideIn 0.3s ease;
+            animation: slideUp 0.25s ease;
+            border: 1px solid;
+            font-weight: 500;
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .status-msg.success {
-            background: rgba(46, 204, 113, 0.15);
-            color: #2ecc71;
-            border: 1px solid rgba(46, 204, 113, 0.4);
+
+        .ai-status.success {
+            background: rgba(57, 255, 20, 0.08);
+            color: var(--ai-green);
+            border-color: var(--ai-border);
         }
-        .status-msg.error {
-            background: rgba(231, 76, 60, 0.15);
-            color: #e74c3c;
-            border: 1px solid rgba(231, 76, 60, 0.4);
+
+        .ai-status.error {
+            background: rgba(255, 68, 68, 0.08);
+            color: var(--ai-danger);
+            border-color: rgba(255, 68, 68, 0.2);
         }
-        .status-msg.info {
-            background: rgba(52, 152, 219, 0.15);
-            color: #3498db;
-            border: 1px solid rgba(52, 152, 219, 0.4);
+
+        .ai-status.info {
+            background: rgba(0, 136, 255, 0.08);
+            color: #44aaff;
+            border-color: rgba(0, 136, 255, 0.2);
         }
 
         /* Withdraw Section */
-        .withdraw-box {
-            padding: 24px;
-            margin-top: 8px;
-            margin-bottom: 20px;
-            border-radius: 40px;
-            border-top: 2px solid rgba(46, 204, 113, 0.2);
-        }
-        .withdraw-box h3 {
-            font-size: 17px;
-            margin-bottom: 18px;
+        .withdraw-card h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            letter-spacing: 2px;
+            color: var(--ai-green);
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            color: #f1c40f;
-            font-weight: 700;
+            gap: 10px;
         }
-        .withdraw-input {
+
+        .ai-input {
             width: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(46, 204, 113, 0.25);
-            border-radius: 28px;
-            padding: 16px 20px;
-            color: white;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(57, 255, 20, 0.12);
+            border-radius: 16px;
+            padding: 14px 16px;
+            color: var(--ai-text);
             font-size: 14px;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             outline: none;
+            transition: all 0.2s;
         }
-        .withdraw-input:focus {
-            border-color: #2ecc71;
-            box-shadow: 0 0 15px rgba(46, 204, 113, 0.1);
+
+        .ai-input:focus {
+            border-color: var(--ai-green);
         }
-        .btn-withdraw {
+
+        .ai-input::placeholder {
+            color: var(--ai-muted);
+        }
+
+        .btn-ai-withdraw {
             width: 100%;
             background: linear-gradient(145deg, #e67e22, #d35400);
             border: none;
-            border-radius: 60px;
-            padding: 16px;
+            border-radius: 20px;
+            padding: 15px;
+            font-family: 'Orbitron', sans-serif;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13px;
+            letter-spacing: 1.5px;
             color: white;
             cursor: pointer;
             transition: all 0.2s;
@@ -334,20 +621,25 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-        }
-        .btn-withdraw:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(230, 126, 34, 0.25);
+            text-transform: uppercase;
         }
 
-        /* Modal Popup */
-        .modal-overlay {
+        .btn-ai-withdraw:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-ai-withdraw:active {
+            transform: scale(0.98);
+        }
+
+        /* AI Modal */
+        .ai-modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.95);
             backdrop-filter: blur(8px);
             display: flex;
             align-items: center;
@@ -357,117 +649,152 @@
             visibility: hidden;
             transition: all 0.3s ease;
         }
-        .modal-overlay.active {
+
+        .ai-modal-overlay.active {
             opacity: 1;
             visibility: visible;
         }
-        .modal {
-            background: linear-gradient(145deg, #1a2a22, #0f1a15);
-            border-radius: 48px;
-            padding: 28px 24px;
+
+        .ai-modal {
+            background: linear-gradient(145deg, #0a180a, #051005);
+            border: 1px solid var(--ai-border);
+            border-radius: 28px;
+            padding: 28px 22px;
             max-width: 340px;
-            width: 85%;
+            width: 90%;
             text-align: center;
-            border: 1px solid rgba(46, 204, 113, 0.3);
-            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.5);
-            transform: scale(0.9);
+            transform: scale(0.95);
             transition: transform 0.3s ease;
         }
-        .modal-overlay.active .modal {
+
+        .ai-modal-overlay.active .ai-modal {
             transform: scale(1);
         }
-        .modal-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-        }
-        .modal h2 {
-            font-size: 24px;
-            font-weight: 800;
-            margin-bottom: 12px;
-            color: #f1c40f;
-        }
-        .modal .fee-amount {
+
+        .modal-ai-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 16px;
+            background: rgba(57, 255, 20, 0.08);
+            border: 1.5px solid var(--ai-border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 28px;
+            color: var(--ai-green);
+        }
+
+        .ai-modal h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--ai-green);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .ai-modal .fee-display {
+            font-family: 'Orbitron', monospace;
+            font-size: 30px;
             font-weight: 800;
-            color: #2ecc71;
-            margin: 16px 0 8px;
+            color: var(--ai-green);
+            margin: 12px 0 4px;
         }
-        .modal .fee-usd {
-            color: #8bc34a;
-            font-size: 13px;
-            margin-bottom: 24px;
+
+        .ai-modal .fee-sub {
+            color: var(--ai-muted);
+            font-size: 12px;
+            margin-bottom: 20px;
         }
-        .modal .reason-box {
+
+        .ai-features {
             background: rgba(0, 0, 0, 0.3);
-            border-radius: 24px;
-            padding: 16px;
+            border-radius: 18px;
+            padding: 14px;
             text-align: left;
             margin: 16px 0;
         }
-        .modal .reason-box p {
-            color: #bdc3c7;
-            font-size: 13px;
+
+        .ai-features p {
+            color: var(--ai-muted);
+            font-size: 12px;
             margin: 8px 0;
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        .modal .reason-box i {
-            width: 24px;
-            color: #2ecc71;
-        }
-        .modal .note {
+
+        .ai-features i {
+            width: 20px;
+            color: var(--ai-green);
             font-size: 12px;
-            color: #f1c40f;
-            margin: 16px 0;
-            padding: 8px;
-            background: rgba(241, 196, 15, 0.1);
-            border-radius: 16px;
         }
-        .modal-buttons {
+
+        .ai-note {
+            font-size: 11px;
+            color: var(--ai-warning);
+            margin: 14px 0;
+            padding: 10px;
+            background: rgba(255, 170, 0, 0.05);
+            border-radius: 12px;
+        }
+
+        .ai-modal-buttons {
             display: flex;
             gap: 12px;
-            margin-top: 20px;
+            margin-top: 18px;
         }
-        .modal-btn {
+
+        .ai-modal-btn {
             flex: 1;
-            padding: 14px;
-            border-radius: 40px;
+            padding: 12px;
+            border-radius: 14px;
+            font-family: 'Orbitron', sans-serif;
             font-weight: 700;
-            font-size: 14px;
+            font-size: 11px;
+            letter-spacing: 1px;
             cursor: pointer;
             transition: all 0.2s;
             border: none;
+            text-transform: uppercase;
         }
-        .modal-btn-primary {
-            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
-            color: white;
+
+        .ai-modal-btn.primary {
+            background: linear-gradient(145deg, var(--ai-green), #1a7a2a);
+            color: #000;
         }
-        .modal-btn-secondary {
-            background: rgba(231, 76, 60, 0.2);
-            color: #e74c3c;
-            border: 1px solid rgba(231, 76, 60, 0.3);
+
+        .ai-modal-btn.secondary {
+            background: rgba(255, 68, 68, 0.08);
+            color: var(--ai-danger);
+            border: 1px solid rgba(255, 68, 68, 0.2);
         }
-        .modal-btn-primary:active {
-            transform: scale(0.97);
-        }
-        .modal-btn-secondary:active {
-            transform: scale(0.97);
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 16px 0;
+            color: var(--ai-muted);
+            font-size: 9px;
+            font-family: 'Orbitron', monospace;
+            letter-spacing: 1.5px;
         }
 
         /* Utilities */
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         .spinner {
             display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             border-top-color: white;
-            animation: spin 0.8s linear infinite;
+            animation: spin 0.6s linear infinite;
             margin-right: 8px;
             vertical-align: middle;
         }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -484,118 +811,214 @@
 
         /* Responsive */
         @media (max-width: 450px) {
-            body { padding: 12px; }
-            .swap-input-row input { font-size: 26px; }
-            .token-badge { padding: 8px 16px; font-size: 13px; }
-            .wallet-section { padding: 16px 20px; }
-            .swap-box { padding: 20px; }
+            .ai-header h1 { font-size: 22px; letter-spacing: 2px; }
+            .input-row input { font-size: 24px; }
+            .neural-card { padding: 14px; }
+            .logo-ring { width: 55px; height: 55px; }
+            .logo-ring i { font-size: 24px; }
+            .token-selector { padding: 5px 12px; }
+            .token-selector span { font-size: 12px; }
         }
     </style>
 </head>
 <body>
     <canvas id="confetti-canvas"></canvas>
     
+    <!-- Neural Background -->
+    <div class="neural-bg" id="neuralBg"></div>
+    <div class="scanline"></div>
+
     <div class="container">
-        
-        <!-- Header -->
-        <div class="header">
-            <h1>⚡ AXION DEX</h1>
-            <p>Swap AXC ↔ USDT • Instant • Secure</p>
+        <!-- AI Header -->
+        <div class="ai-header">
+            <div class="logo-ring">
+                <i class="fas fa-brain"></i>
+            </div>
+            <h1>AXION AI</h1>
+            <div class="subtitle">Neural DEX Protocol</div>
+            <div class="tagline">
+                <i class="fas fa-microchip" style="margin-right: 4px;"></i>
+                AI-Powered • Instant • Low Fee
+            </div>
         </div>
 
-        <!-- Wallet Connection -->
-        <div class="glass-card wallet-section">
-            <div class="wallet-info">
-                <div class="wallet-icon"><i class="fab fa-telegram-plane"></i></div>
-                <div class="wallet-text">
-                    <h4>TON Wallet</h4>
-                    <p id="walletStatus">Not connected</p>
+        <!-- Status & Wallet Card -->
+        <div class="neural-card">
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="gas-price">
+                    <i class="fas fa-bolt" style="margin-right: 4px;"></i>
+                    TON Network
                 </div>
             </div>
-            <div id="ton-connect"></div>
+
+            <div class="wallet-section">
+                <div class="wallet-badge">
+                    <div class="wallet-avatar">
+                        <i class="fab fa-telegram-plane"></i>
+                    </div>
+                    <div class="wallet-info">
+                        <h4>Neural Wallet</h4>
+                        <p id="walletStatus">Not connected</p>
+                    </div>
+                </div>
+                <div id="ton-connect"></div>
+            </div>
         </div>
 
         <!-- Swap Interface -->
-        <div class="glass-card swap-box">
-            <div class="swap-input-group">
-                <div class="swap-label">
-                    <span><i class="fas fa-arrow-up"></i> You Pay</span>
-                    <span>Balance: <span id="fromBalance">0</span> AXC</span>
+        <div class="neural-card">
+            <div class="swap-header">
+                <h3><i class="fas fa-exchange-alt" style="margin-right: 6px;"></i>Swap</h3>
+                <div class="ai-chip">
+                    <i class="fas fa-brain"></i>
+                    AI Route
                 </div>
-                <div class="swap-input-row">
+            </div>
+
+            <!-- From Input -->
+            <div class="swap-input-container">
+                <div class="input-label">
+                    <span class="label-text">
+                        <i class="fas fa-arrow-up"></i>
+                        You Pay
+                    </span>
+                    <span class="balance-text">
+                        <i class="fas fa-wallet"></i>
+                        Balance: <span id="fromBalance">0</span> AXC
+                    </span>
+                </div>
+                <div class="input-row">
                     <input type="number" id="swapFrom" placeholder="0" step="1">
-                    <div class="token-badge"><i class="fas fa-gem"></i> AXC</div>
+                    <div class="token-selector">
+                        <div class="token-icon axc">A</div>
+                        <span>AXC</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="swap-arrow">
-                <span class="line"></span>
-                <i class="fas fa-arrow-down"></i>
-                <span class="line"></span>
+            <!-- Swap Arrow -->
+            <div class="swap-divider">
+                <div class="line"></div>
+                <div class="swap-arrow-btn">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="line"></div>
             </div>
 
-            <div class="swap-input-group">
-                <div class="swap-label">
-                    <span><i class="fas fa-arrow-down"></i> You Receive</span>
-                    <span>Balance: <span id="toBalance">$0.00</span> USDT</span>
+            <!-- To Input -->
+            <div class="swap-input-container">
+                <div class="input-label">
+                    <span class="label-text">
+                        <i class="fas fa-arrow-down"></i>
+                        You Receive
+                    </span>
+                    <span class="balance-text">
+                        <i class="fas fa-wallet"></i>
+                        Balance: <span id="toBalance">$0.00</span> USDT
+                    </span>
                 </div>
-                <div class="swap-input-row">
+                <div class="input-row">
                     <input type="text" id="swapTo" placeholder="0.00" readonly>
-                    <div class="token-badge"><i class="fas fa-dollar-sign"></i> USDT</div>
+                    <div class="token-selector">
+                        <div class="token-icon usdt">₮</div>
+                        <span>USDT</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="swap-rate">
-                <i class="fas fa-chart-line"></i> 1 AXC = $<span id="axcPrice">0.0099</span> USDT
-                <i class="fas fa-coins" style="margin-left: 12px;"></i> Fee: 0.05 TON (one‑time)
+            <!-- Rate Panel -->
+            <div class="rate-panel">
+                <div class="rate-item">
+                    <div class="value" id="axcPrice">0.0099</div>
+                    <div class="label">AXC/USDT</div>
+                </div>
+                <div class="rate-divider"></div>
+                <div class="rate-item">
+                    <div class="value">0.05</div>
+                    <div class="label">TON Fee</div>
+                </div>
+                <div class="rate-divider"></div>
+                <div class="rate-item">
+                    <div class="value" style="color: var(--ai-accent);">∞</div>
+                    <div class="label">Unlimited</div>
+                </div>
             </div>
 
-            <button class="btn-swap locked" id="swapBtn">
-                <i class="fas fa-lock"></i> 🔒 SWAP LOCKED
+            <!-- Swap Button -->
+            <button class="btn-ai-swap locked" id="swapBtn">
+                <i class="fas fa-lock"></i>
+                <span>Unlock Neural Swap</span>
             </button>
 
-            <div id="swapStatus" class="status-msg"></div>
+            <div id="swapStatus" class="ai-status"></div>
         </div>
 
-        <!-- Withdraw USDT Section -->
-        <div class="glass-card withdraw-box">
+        <!-- Withdraw Section -->
+        <div class="neural-card withdraw-card">
             <h3><i class="fas fa-money-bill-wave"></i> Withdraw USDT</h3>
-            <input type="text" id="withdrawAddress" class="withdraw-input" placeholder="BEP20 Address (0x...)" autocomplete="off">
-            <input type="number" id="withdrawAmount" class="withdraw-input" placeholder="Amount in USDT" step="0.01">
-            <button class="btn-withdraw" id="withdrawBtn">
-                <i class="fas fa-paper-plane"></i> Submit Withdrawal
+            <input type="text" id="withdrawAddress" class="ai-input" placeholder="BEP20 Address (0x...)" autocomplete="off">
+            <input type="number" id="withdrawAmount" class="ai-input" placeholder="Amount in USDT" step="0.01">
+            <button class="btn-ai-withdraw" id="withdrawBtn">
+                <i class="fas fa-paper-plane"></i>
+                <span>Withdraw</span>
             </button>
-            <div id="withdrawStatus" class="status-msg"></div>
+            <div id="withdrawStatus" class="ai-status"></div>
         </div>
 
+        <!-- Footer -->
+        <div class="footer">
+            <i class="fas fa-shield-alt" style="margin-right: 4px;"></i>
+            Secured by AI Protocol
+        </div>
     </div>
 
-    <!-- Modal Popup for Verification Fee Explanation -->
-    <div class="modal-overlay" id="verificationModal">
-        <div class="modal">
-            <div class="modal-icon"><i class="fas fa-shield-alt"></i></div>
-            <h2>🔒 Verification Required</h2>
-            <div class="fee-amount">0.05 TON</div>
-            <div class="fee-usd">≈ $0.01 USD</div>
-            
-            <div class="reason-box">
-                <p><i class="fas fa-robot"></i> Prevent bot farms & fake accounts</p>
-                <p><i class="fas fa-user-check"></i> Verify real human users only</p>
-                <p><i class="fas fa-network-wired"></i> Covers TON network transaction fee</p>
-                <p><i class="fas fa-infinity"></i> Paid once — unlocked forever</p>
+    <!-- AI Verification Modal -->
+    <div class="ai-modal-overlay" id="verificationModal">
+        <div class="ai-modal">
+            <div class="modal-ai-icon">
+                <i class="fas fa-brain"></i>
             </div>
-            
-            <div class="note">
-                <i class="fas fa-info-circle"></i> This is a one-time verification fee. After payment, you can swap unlimited times with zero additional fees.
+            <h2>Neural Link</h2>
+            <div class="fee-display">0.05 TON</div>
+            <div class="fee-sub">≈ $0.01 • One-time</div>
+
+            <div class="ai-features">
+                <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
+                <p><i class="fas fa-user-check"></i> Human-only access</p>
+                <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
             </div>
-            
-            <div class="modal-buttons">
-                <button class="modal-btn modal-btn-secondary" id="modalCancelBtn">Cancel</button>
-                <button class="modal-btn modal-btn-primary" id="modalProceedBtn">Proceed</button>
+
+            <div class="ai-note">
+                <i class="fas fa-info-circle"></i>
+                One-time fee to activate neural swap
+            </div>
+
+            <div class="ai-modal-buttons">
+                <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
+                <button class="ai-modal-btn primary" id="modalProceedBtn">
+                    <i class="fas fa-bolt"></i> Activate
+                </button>
             </div>
         </div>
     </div>
 
     <script src="app.js"></script>
+    <script>
+        // Generate subtle neural background (reduced count for performance)
+        const neuralBg = document.getElementById('neuralBg');
+        for (let i = 0; i < 25; i++) {
+            const node = document.createElement('div');
+            node.className = 'neural-node';
+            node.style.left = Math.random() * 100 + '%';
+            node.style.top = Math.random() * 100 + '%';
+            node.style.animationDelay = Math.random() * 4 + 's';
+            node.style.animationDuration = (3 + Math.random() * 4) + 's';
+            neuralBg.appendChild(node);
+        }
+    </script>
 </body>
 </html>
