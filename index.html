@@ -28,32 +28,39 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(145deg, #0a0f1a 0%, #0a2e1c 50%, #0a0f1a 100%);
+            background: radial-gradient(ellipse at 30% 20%, #0a2e1c, #051408);
             min-height: 100vh;
             color: #ffffff;
-            padding: 20px;
+            padding: 16px;
             position: relative;
         }
 
+        /* Electric Green Glow Effect */
         body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 20% 30%, rgba(46, 204, 113, 0.15), transparent 70%);
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(46, 204, 113, 0.15), transparent 60%);
             pointer-events: none;
             z-index: -1;
+            animation: pulse 4s ease-in-out infinite;
         }
 
-        /* Glassmorphism Card */
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Glassmorphism Card - Neon Green */
         .card {
-            background: rgba(10, 30, 20, 0.55);
-            backdrop-filter: blur(12px);
+            background: rgba(10, 30, 20, 0.65);
+            backdrop-filter: blur(16px);
             border-radius: 32px;
-            border: 1px solid rgba(46, 204, 113, 0.25);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(46, 204, 113, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(46, 204, 113, 0.1);
             transition: all 0.3s ease;
         }
 
@@ -62,19 +69,20 @@
             margin: 0 auto;
         }
 
-        /* Header */
+        /* Header with Gradient Animation */
         .header {
             text-align: center;
-            padding: 24px 0 16px;
+            padding: 20px 0 16px;
         }
         .header h1 {
             font-size: 32px;
             font-weight: 800;
-            background: linear-gradient(135deg, #2ecc71, #f1c40f, #2ecc71);
-            background-size: 200% 200%;
+            background: linear-gradient(135deg, #2ecc71, #f1c40f, #2ecc71, #27ae60);
+            background-size: 300% 300%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            animation: gradientShift 3s ease infinite;
+            animation: gradientShift 4s ease infinite;
+            letter-spacing: -0.5px;
         }
         @keyframes gradientShift {
             0% { background-position: 0% 50%; }
@@ -83,13 +91,14 @@
         }
         .header p {
             color: #8bc34a;
-            font-size: 13px;
+            font-size: 12px;
             margin-top: 6px;
+            letter-spacing: 1px;
         }
 
         /* Wallet Section */
         .wallet-section {
-            padding: 20px;
+            padding: 16px 20px;
             margin-bottom: 20px;
             display: flex;
             align-items: center;
@@ -103,29 +112,31 @@
             gap: 12px;
         }
         .wallet-icon {
-            width: 44px;
-            height: 44px;
+            width: 48px;
+            height: 48px;
             background: linear-gradient(145deg, #2ecc71, #1e8a3e);
             border-radius: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 24px;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.4);
         }
         .wallet-text h4 {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
+            color: #f1c40f;
         }
         .wallet-text p {
             font-size: 11px;
-            color: #8bc34a;
+            color: #2ecc71;
             margin-top: 2px;
         }
         #ton-connect {
             min-width: 140px;
         }
 
-        /* Balance Row */
+        /* Balance Cards */
         .balance-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -133,49 +144,59 @@
             margin-bottom: 20px;
         }
         .balance-card {
-            padding: 18px;
+            padding: 20px 12px;
             text-align: center;
             position: relative;
             overflow: hidden;
+            transition: transform 0.2s;
         }
-        .balance-card::before {
+        .balance-card:active {
+            transform: scale(0.98);
+        }
+        .balance-card::after {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(46,204,113,0.1), transparent);
-            opacity: 0;
-            transition: opacity 0.5s;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(46, 204, 113, 0.2), transparent);
+            transition: left 0.5s;
         }
-        .balance-card:hover::before {
-            opacity: 1;
+        .balance-card:hover::after {
+            left: 100%;
         }
         .balance-card .icon {
-            font-size: 32px;
+            font-size: 36px;
             margin-bottom: 8px;
         }
         .balance-card .label {
-            font-size: 12px;
+            font-size: 11px;
             color: #8bc34a;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
+            font-weight: 600;
         }
         .balance-card .value {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 800;
             margin-top: 6px;
         }
-        .balance-card.axc .value { color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.3); }
-        .balance-card.usdt .value { color: #2ecc71; text-shadow: 0 0 10px rgba(46,204,113,0.3); }
+        .balance-card.axc .value { 
+            color: #f1c40f; 
+            text-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
+        }
+        .balance-card.usdt .value { 
+            color: #2ecc71; 
+            text-shadow: 0 0 15px rgba(46, 204, 113, 0.3);
+        }
 
-        /* Lock/Unlock Animation */
+        /* Activation Lock Box */
         .activation-box {
             padding: 24px;
             text-align: center;
             margin-bottom: 20px;
-            border: 1px solid rgba(46, 204, 113, 0.4);
+            border: 1px solid rgba(241, 196, 15, 0.4);
             transition: all 0.5s ease;
         }
         .activation-box.locked {
@@ -183,24 +204,25 @@
         }
         .activation-box.unlocked {
             border-color: rgba(46, 204, 113, 0.6);
-            box-shadow: 0 0 20px rgba(46, 204, 113, 0.2);
+            box-shadow: 0 0 30px rgba(46, 204, 113, 0.2);
         }
-        .activation-box i {
-            font-size: 48px;
+        .activation-box .lock-icon {
+            font-size: 56px;
             margin-bottom: 12px;
             transition: all 0.3s;
         }
-        .activation-box.locked i {
+        .activation-box.locked .lock-icon {
             color: #e74c3c;
             animation: shake 0.5s ease;
         }
-        .activation-box.unlocked i {
+        .activation-box.unlocked .lock-icon {
             color: #2ecc71;
+            animation: none;
         }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
         }
         .activation-box h3 {
             font-size: 18px;
@@ -215,16 +237,18 @@
             background: linear-gradient(145deg, #f1c40f, #d4ac0d);
             border: none;
             border-radius: 40px;
-            padding: 12px 24px;
+            padding: 14px 28px;
             font-weight: 700;
             font-size: 14px;
             color: #1a2a1a;
             cursor: pointer;
             transition: all 0.2s;
+            width: 100%;
+            max-width: 220px;
         }
         .btn-gold:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(241, 196, 15, 0.3);
+            box-shadow: 0 10px 25px rgba(241, 196, 15, 0.4);
         }
         .btn-gold:disabled {
             opacity: 0.5;
@@ -244,37 +268,37 @@
             pointer-events: none;
         }
         .swap-input-group {
-            background: rgba(0, 0, 0, 0.35);
-            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 24px;
             padding: 16px;
-            margin: 10px 0;
-            border: 1px solid rgba(46, 204, 113, 0.2);
+            margin: 12px 0;
+            border: 1px solid rgba(46, 204, 113, 0.25);
             transition: all 0.2s;
         }
         .swap-input-group:focus-within {
             border-color: #2ecc71;
-            box-shadow: 0 0 10px rgba(46, 204, 113, 0.2);
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.2);
         }
         .swap-label {
             display: flex;
             justify-content: space-between;
             color: #8bc34a;
             font-size: 12px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         .swap-input-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
+            gap: 12px;
         }
         .swap-input-row input {
             flex: 1;
             background: transparent;
             border: none;
             color: white;
-            font-size: 24px;
-            font-weight: 600;
+            font-size: 28px;
+            font-weight: 700;
             outline: none;
         }
         .swap-input-row input[type="number"] {
@@ -286,48 +310,55 @@
             margin: 0;
         }
         .swap-input-row input::placeholder {
-            color: #4a5a4a;
+            color: #3a5a3a;
         }
         .token-badge {
             background: rgba(46, 204, 113, 0.2);
-            padding: 6px 14px;
+            padding: 8px 16px;
             border-radius: 40px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+        }
+        .token-badge i {
+            font-size: 18px;
         }
         .swap-arrow {
             text-align: center;
-            font-size: 24px;
+            font-size: 28px;
             color: #2ecc71;
-            margin: 5px 0;
-            animation: bounce 2s infinite;
+            margin: 8px 0;
+            animation: bounceVertical 2s ease-in-out infinite;
         }
-        @keyframes bounce {
+        @keyframes bounceVertical {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(5px); }
+            50% { transform: translateY(6px); }
         }
         .swap-rate {
             text-align: center;
-            color: #8bc34a;
-            font-size: 12px;
-            margin: 15px 0 10px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            border-radius: 20px;
+            color: #f1c40f;
+            font-size: 13px;
+            margin: 16px 0 12px;
         }
         .btn-swap {
             width: 100%;
-            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
+            background: linear-gradient(145deg, #f1c40f, #d4ac0d);
             border: none;
-            border-radius: 40px;
-            padding: 16px;
-            font-weight: 700;
-            font-size: 15px;
-            color: white;
+            border-radius: 44px;
+            padding: 18px;
+            font-weight: 800;
+            font-size: 16px;
+            color: #1a2a1a;
             cursor: pointer;
             transition: all 0.2s;
             position: relative;
             overflow: hidden;
+            letter-spacing: 1px;
         }
         .btn-swap::before {
             content: '';
@@ -336,8 +367,8 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.4s;
         }
         .btn-swap:hover::before {
             left: 100%;
@@ -345,26 +376,27 @@
         .btn-swap:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            background: linear-gradient(145deg, #7f8c8d, #6c7a7a);
         }
         .btn-swap:active:not(:disabled) {
-            transform: scale(0.98);
+            transform: scale(0.97);
         }
 
         /* Status Messages */
         .status-msg {
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 16px;
-            padding: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 20px;
+            padding: 14px;
             font-size: 13px;
             text-align: center;
-            margin: 10px 0;
+            margin: 12px 0;
             display: none;
             animation: slideIn 0.3s ease;
         }
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(-10px);
+                transform: translateY(-12px);
             }
             to {
                 opacity: 1;
@@ -385,6 +417,57 @@
             background: rgba(52, 152, 219, 0.2);
             color: #3498db;
             border: 1px solid #3498db;
+        }
+
+        /* Withdraw Section at Bottom */
+        .withdraw-box {
+            padding: 20px;
+            margin-top: 8px;
+            margin-bottom: 20px;
+            border-top: 2px solid rgba(46, 204, 113, 0.3);
+        }
+        .withdraw-box h3 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #f1c40f;
+        }
+        .withdraw-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            border-radius: 24px;
+            padding: 14px 18px;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 12px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .withdraw-input:focus {
+            border-color: #2ecc71;
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.2);
+        }
+        .btn-withdraw {
+            width: 100%;
+            background: linear-gradient(145deg, #e67e22, #d35400);
+            border: none;
+            border-radius: 44px;
+            padding: 14px;
+            font-weight: 700;
+            font-size: 14px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-withdraw:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(230, 126, 34, 0.3);
+        }
+        .btn-withdraw:active {
+            transform: scale(0.98);
         }
 
         /* Utilities */
@@ -417,8 +500,9 @@
 
         @media (max-width: 450px) {
             body { padding: 12px; }
-            .balance-card .value { font-size: 24px; }
-            .swap-input-row input { font-size: 20px; }
+            .balance-card .value { font-size: 22px; }
+            .swap-input-row input { font-size: 24px; }
+            .token-badge { padding: 6px 12px; font-size: 12px; }
         }
     </style>
 </head>
@@ -430,7 +514,7 @@
         <!-- Header -->
         <div class="header">
             <h1>⚡ AXION SWAP</h1>
-            <p>Convert AXC → USDT • Instant • Secure</p>
+            <p>Instant • Secure • Zero Slippage</p>
         </div>
 
         <!-- Wallet Connection -->
@@ -448,7 +532,7 @@
         <!-- Balances -->
         <div class="balance-row">
             <div class="card balance-card axc">
-                <div class="icon"><i class="fas fa-coins"></i></div>
+                <div class="icon"><i class="fas fa-gem"></i></div>
                 <div class="label">AXC BALANCE</div>
                 <div class="value" id="axcBalance">0</div>
             </div>
@@ -461,11 +545,11 @@
 
         <!-- Activation Box (Locked/Unlocked) -->
         <div class="card activation-box locked" id="activationBox">
-            <i class="fas fa-lock"></i>
-            <h3 id="activationTitle">🔒 Swap Locked</h3>
-            <p id="activationDesc">Pay <strong>0.05 TON</strong> one‑time fee to activate swap feature forever</p>
+            <div class="lock-icon"><i class="fas fa-lock"></i></div>
+            <h3 id="activationTitle">🔒 SWAP LOCKED</h3>
+            <p id="activationDesc">Pay <strong style="color:#f1c40f">0.05 TON</strong> one‑time fee to unlock Swap forever</p>
             <button class="btn-gold" id="activateBtn">
-                <i class="fas fa-gem"></i> Activate for 0.05 TON
+                <i class="fas fa-key"></i> UNLOCK SWAP
             </button>
             <div id="activationStatus" class="status-msg"></div>
         </div>
@@ -474,12 +558,12 @@
         <div class="card swap-box disabled" id="swapBox">
             <div class="swap-input-group">
                 <div class="swap-label">
-                    <span><i class="fas fa-arrow-up-from-bracket"></i> From</span>
+                    <span><i class="fas fa-arrow-up"></i> You send</span>
                     <span>Balance: <span id="fromBalance">0</span> AXC</span>
                 </div>
                 <div class="swap-input-row">
-                    <input type="number" id="swapFrom" placeholder="0.00" step="1">
-                    <div class="token-badge"><i class="fas fa-coins"></i> AXC</div>
+                    <input type="number" id="swapFrom" placeholder="0" step="1">
+                    <div class="token-badge"><i class="fas fa-gem"></i> AXC</div>
                 </div>
             </div>
 
@@ -487,17 +571,18 @@
 
             <div class="swap-input-group">
                 <div class="swap-label">
-                    <span><i class="fas fa-arrow-down-to-bracket"></i> To</span>
+                    <span><i class="fas fa-arrow-down"></i> You receive</span>
                     <span>Balance: <span id="toBalance">$0.00</span> USDT</span>
                 </div>
                 <div class="swap-input-row">
                     <input type="text" id="swapTo" placeholder="0.00" readonly>
-                    <div class="token-badge" style="background: rgba(46,204,113,0.2);"><i class="fas fa-dollar-sign"></i> USDT</div>
+                    <div class="token-badge"><i class="fas fa-dollar-sign"></i> USDT</div>
                 </div>
             </div>
 
             <div class="swap-rate">
-                1 AXC = $<span id="axcPrice">0.0099</span> USDT • Fee: 0.05 TON (paid once)
+                <i class="fas fa-chart-line"></i> 1 AXC = $<span id="axcPrice">0.0099</span> USDT &nbsp;|&nbsp; 
+                <i class="fas fa-coins"></i> Fee: 0.05 TON (one‑time)
             </div>
 
             <button class="btn-swap" id="swapBtn" disabled>
@@ -505,6 +590,17 @@
             </button>
 
             <div id="swapStatus" class="status-msg"></div>
+        </div>
+
+        <!-- Withdraw USDT Section (Bottom) -->
+        <div class="card withdraw-box" id="withdrawBox">
+            <h3><i class="fas fa-money-bill-wave"></i> Withdraw USDT</h3>
+            <input type="text" id="withdrawAddress" class="withdraw-input" placeholder="BEP20 Address (0x...)" autocomplete="off">
+            <input type="number" id="withdrawAmount" class="withdraw-input" placeholder="Amount in USDT" step="0.01">
+            <button class="btn-withdraw" id="withdrawBtn">
+                <i class="fas fa-paper-plane"></i> Submit Withdrawal
+            </button>
+            <div id="withdrawStatus" class="status-msg"></div>
         </div>
 
     </div>
