@@ -4,10 +4,14 @@
   "description": "Axion AI - Professional Airdrop Bot with AI-Powered Trading Signals. Earn AXC tokens, referral rewards, and withdraw via BEP20 wallet.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server.js & node mod-bot.js",
+    "start:main": "node server.js",
+    "start:mod": "node mod-bot.js",
     "server": "node server.js",
     "bot": "node bot.js",
-    "dev": "nodemon server.js"
+    "mod": "node mod-bot.js",
+    "dev": "nodemon server.js",
+    "dev:all": "concurrently \"nodemon server.js\" \"nodemon mod-bot.js\""
   },
   "engines": {
     "node": "20.x"
@@ -20,7 +24,8 @@
     "dotenv": "^16.3.1",
     "node-fetch": "^2.7.0",
     "axios": "^1.6.2",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "concurrently": "^8.2.2"
   },
   "keywords": [
     "telegram-bot",
