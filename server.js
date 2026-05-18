@@ -1,5 +1,5 @@
 // ============================================================================
-// AXION AI BOT - LEGENDARY EDITION v10.1 (COMPLETE FINAL)
+// AXION AI BOT - LEGENDARY EDITION v10.2 (COMPLETE FINAL)
 // ============================================================================
 // Professional Design | Rate Limiting | Transaction History | Cache Warmup
 // ============================================================================
@@ -82,15 +82,16 @@ const APP_CONFIG = {
     axcPrice: 0.0099,
     swapFeeTON: 0.05,
     minSwap: 100,
+    maxSwap: 100000,
     maxNotifications: 50,
     withdrawCooldown: 86400000,
-    sessionTTL: 3600000,          // 1 hour for sessions
-    adminSessionTTL: 86400000,    // 24 hours for admin
-    syncInterval: 21600000,       // 6 hours
-    cacheTTL: 3600000,            // 1 hour
-    rateLimitWindow: 60000,       // 1 minute
-    rateLimitMax: 30,             // 30 requests per minute
-    sessionCleanupInterval: 3600000 // 1 hour
+    sessionTTL: 3600000,
+    adminSessionTTL: 86400000,
+    syncInterval: 21600000,
+    cacheTTL: 3600000,
+    rateLimitWindow: 60000,
+    rateLimitMax: 30,
+    sessionCleanupInterval: 3600000
 };
 
 const REFERRAL_MILESTONES = [
@@ -109,7 +110,7 @@ const REQUIRED_CHANNELS = [
 ];
 
 // ============================================================================
-// 3. 🎨 PROFESSIONAL FORMATTING (RESTORED)
+// 3. 🎨 PROFESSIONAL FORMATTING
 // ============================================================================
 
 const DIVIDER = '═'.repeat(35);
@@ -146,11 +147,9 @@ function formatTransactionHistory(transactions) {
     for (let i = 0; i < Math.min(transactions.length, 20); i++) {
         const tx = transactions[i];
         const date = new Date(tx.timestamp).toLocaleString();
-        const sign = tx.type === 'withdrawal' ? '-' : '+';
-        const color = tx.type === 'withdrawal' ? '📤' : '📥';
         
         history += `
-${color} <b>${tx.type.toUpperCase()}</b>
+📌 <b>${tx.type.toUpperCase()}</b>
    Amount: ${tx.currency === 'AXC' ? formatAXC(tx.amount) : formatUSD(tx.amount)}
    Status: ${tx.status === 'approved' ? '✅ Approved' : tx.status === 'pending' ? '⏳ Pending' : '❌ Rejected'}
    ${tx.status === 'rejected' ? `Reason: ${tx.reason || 'N/A'}\n` : ''}
@@ -194,8 +193,6 @@ class RateLimiter {
     isRateLimited(userId) {
         const now = Date.now();
         const userRequests = this.requests.get(userId) || [];
-        
-        // Clean old requests
         const validRequests = userRequests.filter(timestamp => now - timestamp < this.windowMs);
         
         if (validRequests.length >= this.maxRequests) {
@@ -228,8 +225,6 @@ class RateLimiter {
 }
 
 const rateLimiter = new RateLimiter(APP_CONFIG.rateLimitWindow, APP_CONFIG.rateLimitMax);
-
-// Cleanup rate limiter every hour
 setInterval(() => rateLimiter.cleanup(), 3600000);
 
 // ============================================================================
@@ -351,10 +346,7 @@ if (serviceAccount) {
         db = admin.firestore();
         console.log('🔥 Firebase initialized');
         
-        // Warmup cache
         setTimeout(() => userCache.warmup(db, 500), 5000);
-        
-        // Periodic sync
         setInterval(async () => {
             await userCache.syncAllToFirebase(db);
         }, APP_CONFIG.syncInterval);
@@ -460,7 +452,6 @@ async function addTransaction(userId, transaction) {
         timestamp: new Date().toISOString()
     });
     
-    // Keep last 100 transactions
     const limited = transactions.slice(0, 100);
     await updateUser(userId, { transactions: limited }, true);
 }
@@ -531,7 +522,6 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
             lastReferralAt: new Date().toISOString()
         }, true);
         
-        // Add transaction record
         await addTransaction(referrerId, {
             type: 'referral',
             amount: APP_CONFIG.referralBonus,
@@ -573,7 +563,6 @@ async function checkMilestoneAchievement(userId) {
                     claimedMilestones: [...claimed, milestone.count]
                 }, true);
                 
-                // Add transaction record
                 await addTransaction(userId, {
                     type: 'milestone',
                     amount: milestone.reward,
@@ -602,7 +591,6 @@ async function checkMilestoneAchievement(userId) {
 const withdrawCooldownTracker = new Map();
 const withdrawSessions = new Map();
 
-// Session cleanup every hour
 setInterval(() => {
     const now = Date.now();
     for (const [userId, session] of withdrawSessions.entries()) {
@@ -622,17 +610,17 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
         const lastWithdraw = withdrawCooldownTracker.get(userId);
         if (lastWithdraw && (Date.now() - lastWithdraw) < APP_CONFIG.withdrawCooldown) {
             const hours = Math.ceil((APP_CONFIG.withdrawCooldown - (Date.now() - lastWithdraw)) / 3600000);
-            return { success: false, error: `Please wait ${hours} hour(s) before next withdrawal` };
+            return { success: false, error: `⏳ Please wait ${hours} hour(s) before next withdrawal` };
         }
 
         if (currency === 'AXC') {
-            if (amount < APP_CONFIG.minWithdrawAXC) return { success: false, error: `Minimum: ${APP_CONFIG.minWithdrawAXC} AXC` };
-            if (amount > APP_CONFIG.maxWithdrawAXC) return { success: false, error: `Maximum: ${APP_CONFIG.maxWithdrawAXC} AXC` };
-            if (amount > (user.balance || 0)) return { success: false, error: 'Insufficient AXC balance' };
+            if (amount < APP_CONFIG.minWithdrawAXC) return { success: false, error: `📌 You need at least ${APP_CONFIG.minWithdrawAXC} AXC to withdraw` };
+            if (amount > APP_CONFIG.maxWithdrawAXC) return { success: false, error: `📌 Maximum withdrawal is ${APP_CONFIG.maxWithdrawAXC} AXC` };
+            if (amount > (user.balance || 0)) return { success: false, error: `💡 Your AXC balance is ${formatAXC(user.balance || 0)}. Keep inviting friends to earn more!` };
         } else {
-            if (amount < APP_CONFIG.minWithdrawUSDT) return { success: false, error: `Minimum: $${APP_CONFIG.minWithdrawUSDT}` };
-            if (amount > APP_CONFIG.maxWithdrawUSDT) return { success: false, error: `Maximum: $${APP_CONFIG.maxWithdrawUSDT}` };
-            if (amount > (user.usdtBalance || 0)) return { success: false, error: 'Insufficient USDT balance' };
+            if (amount < APP_CONFIG.minWithdrawUSDT) return { success: false, error: `📌 You need at least $${APP_CONFIG.minWithdrawUSDT} USDT to withdraw` };
+            if (amount > APP_CONFIG.maxWithdrawUSDT) return { success: false, error: `📌 Maximum withdrawal is $${APP_CONFIG.maxWithdrawUSDT}` };
+            if (amount > (user.usdtBalance || 0)) return { success: false, error: `💡 Your USDT balance is ${formatUSD(user.usdtBalance || 0)}. Swap AXC to USDT first!` };
         }
 
         if (currency === 'AXC') {
@@ -657,7 +645,6 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
             createdAt: new Date().toISOString()
         });
 
-        // Add transaction record
         await addTransaction(userId, {
             type: 'withdrawal',
             amount: amount,
@@ -765,7 +752,6 @@ function getCancelKeyboard() {
 const userLastMessages = new Map();
 
 async function sendAndTrack(ctx, message, keyboard = null) {
-    // Rate limiting check
     if (rateLimiter.isRateLimited(ctx.from.id.toString())) {
         const remaining = rateLimiter.getRemainingRequests(ctx.from.id.toString());
         await ctx.reply(`⚠️ <b>Rate limit exceeded!</b>\n\nPlease slow down. You have ${remaining} requests remaining this minute.`, { parse_mode: 'HTML' });
@@ -822,8 +808,6 @@ bot.start(async (ctx) => {
         
         if (user.balance === 0) {
             await updateUser(userId, { balance: APP_CONFIG.welcomeBonus, totalEarned: APP_CONFIG.welcomeBonus }, true);
-            
-            // Add welcome bonus transaction
             await addTransaction(userId, {
                 type: 'welcome_bonus',
                 amount: APP_CONFIG.welcomeBonus,
@@ -871,7 +855,6 @@ bot.hears('💰 BALANCE', async (ctx) => {
     const user = await getUser(userId);
     if (!user) return;
     
-    const progress = Math.min(100, ((user.balance || 0) / APP_CONFIG.minWithdrawAXC) * 100);
     const progressBar = getProgressBar(user.balance || 0, APP_CONFIG.minWithdrawAXC);
     
     const message = formatProfessionalMessage(
@@ -1009,7 +992,7 @@ bot.action('withdraw_axc', async (ctx) => {
     const balance = user?.balance || 0;
     
     if (balance < APP_CONFIG.minWithdrawAXC) {
-        await ctx.reply(formatProfessionalMessage('❌ INSUFFICIENT BALANCE', `Minimum withdrawal: ${APP_CONFIG.minWithdrawAXC} AXC\nYour balance: ${formatAXC(balance)}`));
+        await ctx.reply(formatProfessionalMessage('💡 LOW BALANCE', `You need ${APP_CONFIG.minWithdrawAXC} AXC to withdraw.\nYour balance: ${formatAXC(balance)}\n\nInvite friends to earn more!`));
         return;
     }
     
@@ -1031,7 +1014,7 @@ bot.action('withdraw_usdt', async (ctx) => {
     const balance = user?.usdtBalance || 0;
     
     if (balance < APP_CONFIG.minWithdrawUSDT) {
-        await ctx.reply(formatProfessionalMessage('❌ INSUFFICIENT BALANCE', `Minimum withdrawal: $${APP_CONFIG.minWithdrawUSDT}\nYour balance: ${formatUSD(balance)}`));
+        await ctx.reply(formatProfessionalMessage('💡 LOW BALANCE', `You need $${APP_CONFIG.minWithdrawUSDT} USDT to withdraw.\nYour balance: ${formatUSD(balance)}\n\nSwap AXC to USDT first!`));
         return;
     }
     
@@ -1293,7 +1276,6 @@ bot.action('back_to_menu', async (ctx) => {
 
 const adminSessions = new Map();
 
-// Cleanup admin sessions
 setInterval(() => {
     const now = Date.now();
     for (const [userId, session] of adminSessions.entries()) {
@@ -1342,7 +1324,6 @@ async function approveWithdrawal(withdrawalId, adminId) {
         
         await withdrawalRef.update({ status: 'approved', approvedAt: new Date().toISOString(), approvedBy: adminId });
         
-        // Update transaction status
         const user = await getUser(withdrawal.userId);
         const transactions = user?.transactions || [];
         const updatedTransactions = transactions.map(tx => 
@@ -1382,7 +1363,6 @@ async function rejectWithdrawal(withdrawalId, adminId, reason) {
         
         await withdrawalRef.update({ status: 'rejected', rejectReason: reason, rejectedAt: new Date().toISOString(), rejectedBy: adminId });
         
-        // Update transaction status
         const user = await getUser(withdrawal.userId);
         const transactions = user?.transactions || [];
         const updatedTransactions = transactions.map(tx => 
@@ -1611,7 +1591,6 @@ bot.on('text', async (ctx) => {
     if (buttons.includes(messageText)) return;
     if (messageText.startsWith('/')) return;
     
-    // Admin session handling
     const adminSession = adminSessions.get(userId);
     
     if (adminSession?.waitingForPassword && isAdmin(userId)) {
@@ -1757,7 +1736,6 @@ bot.on('text', async (ctx) => {
         return;
     }
     
-    // User sessions
     const session = withdrawSessions.get(userId);
     
     if (session?.step === 'waitingForWallet') {
@@ -1833,7 +1811,10 @@ app.get('/api/config', (req, res) => {
             minWithdrawUSDT: APP_CONFIG.minWithdrawUSDT,
             maxWithdrawAXC: APP_CONFIG.maxWithdrawAXC,
             maxWithdrawUSDT: APP_CONFIG.maxWithdrawUSDT,
-            axcPrice: APP_CONFIG.axcPrice
+            axcPrice: APP_CONFIG.axcPrice,
+            minSwap: APP_CONFIG.minSwap,
+            maxSwap: APP_CONFIG.maxSwap,
+            swapFeeTON: APP_CONFIG.swapFeeTON
         }
     });
 });
@@ -1865,6 +1846,154 @@ app.get('/tonconnect-manifest.json', (req, res) => {
 });
 
 // ============================================================================
+// 15.5. 🚀 SWAP & WITHDRAW APIs (FOR MINI APP)
+// ============================================================================
+
+// API: SWAP AXC to USDT
+app.post('/api/swap', async (req, res) => {
+    try {
+        const { userId, amount } = req.body;
+        
+        if (!userId || !amount || amount <= 0) {
+            return res.json({ success: false, error: 'Invalid request' });
+        }
+        
+        const user = await getUser(userId);
+        if (!user) {
+            return res.json({ success: false, error: 'User not found' });
+        }
+        
+        if (!user.tonPaid) {
+            return res.json({ success: false, error: 'Swap not activated. Pay 0.05 TON first.' });
+        }
+        
+        if (amount < APP_CONFIG.minSwap) {
+            return res.json({ success: false, error: `Minimum swap is ${APP_CONFIG.minSwap} AXC` });
+        }
+        
+        if (amount > APP_CONFIG.maxSwap) {
+            return res.json({ success: false, error: `Maximum swap is ${APP_CONFIG.maxSwap} AXC` });
+        }
+        
+        if ((user.balance || 0) < amount) {
+            return res.json({ success: false, error: `Your AXC balance is ${formatAXC(user.balance || 0)}. Invite friends to earn more!` });
+        }
+        
+        const usdtAmount = amount * APP_CONFIG.axcPrice;
+        
+        await updateUser(userId, {
+            balance: (user.balance || 0) - amount,
+            usdtBalance: (user.usdtBalance || 0) + usdtAmount
+        }, true);
+        
+        await addTransaction(userId, {
+            type: 'swap',
+            amount: amount,
+            currency: 'AXC',
+            received: usdtAmount,
+            receivedCurrency: 'USDT',
+            status: 'completed',
+            description: `Swapped ${amount} AXC → ${usdtAmount.toFixed(2)} USDT`
+        });
+        
+        console.log(`✅ Swap: ${userId} swapped ${amount} AXC → ${usdtAmount.toFixed(2)} USDT`);
+        
+        res.json({ success: true, usdtAmount: usdtAmount });
+        
+    } catch (error) {
+        console.error('Swap API error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// API: WITHDRAW USDT
+app.post('/api/withdraw-usdt', async (req, res) => {
+    try {
+        const { userId, amount, address } = req.body;
+        
+        if (!userId || !amount || !address) {
+            return res.json({ success: false, error: 'Invalid request' });
+        }
+        
+        const isValidBEP20 = /^0x[a-fA-F0-9]{40}$/i.test(address);
+        if (!isValidBEP20) {
+            return res.json({ success: false, error: 'Invalid BEP20 address' });
+        }
+        
+        const user = await getUser(userId);
+        if (!user) {
+            return res.json({ success: false, error: 'User not found' });
+        }
+        
+        if ((user.usdtBalance || 0) < amount) {
+            return res.json({ success: false, error: `Your USDT balance is ${formatUSD(user.usdtBalance || 0)}. Swap AXC to USDT first!` });
+        }
+        
+        if (amount < APP_CONFIG.minWithdrawUSDT) {
+            return res.json({ success: false, error: `You need at least $${APP_CONFIG.minWithdrawUSDT} USDT to withdraw` });
+        }
+        
+        if (amount > APP_CONFIG.maxWithdrawUSDT) {
+            return res.json({ success: false, error: `Maximum withdrawal is $${APP_CONFIG.maxWithdrawUSDT}` });
+        }
+        
+        const result = await createWithdrawalRequest(userId, amount, 'USDT', address);
+        
+        if (result.success) {
+            res.json({ success: true, requestId: result.requestId });
+        } else {
+            res.json({ success: false, error: result.error });
+        }
+        
+    } catch (error) {
+        console.error('Withdraw USDT API error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// API: VERIFY TON PAYMENT
+app.post('/api/ton-verify', async (req, res) => {
+    try {
+        const { userId, txHash, walletAddress } = req.body;
+        
+        if (!userId || !txHash) {
+            return res.json({ success: false, error: 'Invalid request' });
+        }
+        
+        const user = await getUser(userId);
+        if (!user) {
+            return res.json({ success: false, error: 'User not found' });
+        }
+        
+        if (user.tonPaid) {
+            return res.json({ success: true, message: 'Already activated' });
+        }
+        
+        await updateUser(userId, {
+            tonPaid: true,
+            tonWallet: walletAddress,
+            tonPaidAt: new Date().toISOString()
+        }, true);
+        
+        await addTransaction(userId, {
+            type: 'activation',
+            amount: APP_CONFIG.swapFeeTON,
+            currency: 'TON',
+            status: 'completed',
+            description: 'Swap feature activation fee'
+        });
+        
+        console.log(`✅ TON activation: ${userId} activated swap feature`);
+        
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('TON verify error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
 // 16. 🚀 GRACEFUL SHUTDOWN
 // ============================================================================
 
@@ -1883,13 +2012,13 @@ process.once('SIGTERM', gracefulShutdown);
 // ============================================================================
 
 bot.launch({ dropPendingUpdates: true })
-    .then(() => console.log('🚀 Axion AI Bot v10.1 Started'))
+    .then(() => console.log('🚀 Axion AI Bot v10.2 Started'))
     .catch(err => console.error('❌ Bot error:', err));
 
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                  AXION AI BOT - LEGENDARY EDITION v10.1                      ║
+║                  AXION AI BOT - LEGENDARY EDITION v10.2                      ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  📍 Port: ${PORT}                                                              ║
 ║  🔥 Firebase: ${db ? '✅ Connected' : '❌ Disconnected'}                                             ║
@@ -1901,6 +2030,7 @@ app.listen(PORT, () => {
 ║  👥 Referral: ${APP_CONFIG.referralBonus} AXC (~$${(APP_CONFIG.referralBonus * APP_CONFIG.axcPrice).toFixed(2)})                    ║
 ║  💎 Withdraw AXC: ${APP_CONFIG.minWithdrawAXC} - ${APP_CONFIG.maxWithdrawAXC} AXC                               ║
 ║  💵 Withdraw USDT: $${APP_CONFIG.minWithdrawUSDT} - $${APP_CONFIG.maxWithdrawUSDT}                              ║
+║  🔄 Swap: Min ${APP_CONFIG.minSwap} AXC - Max ${APP_CONFIG.maxSwap} AXC                                        ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     `);
 });
