@@ -1220,7 +1220,7 @@ bot.hears('🔄 SWAP STATION', async (ctx) => {
         return;
     }
     
-    const swapUrl = `${APP_URL}/swap.html?userId=${userId}`;
+    const swapUrl = `${APP_URL}/index.html?userId=${userId}`;
     const message = formatProfessionalMessage(
         '⚡ AXION SWAP STATION',
         `💰 AXC: ${formatAXC(user.balance || 0)}\n💵 USDT: ${formatUSD(user.usdtBalance || 0)}\n\n${user.tonPaid ? '✅ Swap Active' : '🔒 Activate with 0.05 TON'}`,
