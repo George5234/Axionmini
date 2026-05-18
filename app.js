@@ -1,13 +1,13 @@
 // ============================================================================
-// AXION AI - SWAP MINI APP v5.0 (PROFESSIONAL)
+// AXION AI - DEX SWAP v6.0 (PREMIUM)
 // ============================================================================
 
 const tg = window.Telegram?.WebApp;
 if (tg) {
     tg.ready();
     tg.expand();
-    tg.setHeaderColor('#0a2e1c');
-    tg.setBackgroundColor('#0a2e1c');
+    tg.setHeaderColor('#0a0c0f');
+    tg.setBackgroundColor('#0a0c0f');
 }
 
 // ============================================================================
@@ -47,10 +47,6 @@ const elements = {
     swapFrom: document.getElementById('swapFrom'),
     swapTo: document.getElementById('swapTo'),
     swapBtn: document.getElementById('swapBtn'),
-    activateBtn: document.getElementById('activateBtn'),
-    activationBox: document.getElementById('activationBox'),
-    swapBox: document.getElementById('swapBox'),
-    withdrawBox: document.getElementById('withdrawBox'),
     walletStatus: document.getElementById('walletStatus'),
     axcPrice: document.getElementById('axcPrice'),
     withdrawAddress: document.getElementById('withdrawAddress'),
@@ -119,11 +115,32 @@ function showConfetti() {
 }
 
 // ============================================================================
+// BUTTON LOCK/UNLOCK VISUALS
+// ============================================================================
+
+function updateSwapButtonLockState(isLocked) {
+    const btn = elements.swapBtn;
+    if (!btn) return;
+    
+    if (isLocked) {
+        btn.disabled = true;
+        btn.classList.add('locked');
+        btn.classList.remove('unlocked');
+        btn.innerHTML = '<i class="fas fa-lock"></i> CONFIRM SWAP';
+    } else {
+        btn.disabled = false;
+        btn.classList.add('unlocked');
+        btn.classList.remove('locked');
+        btn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
+    }
+}
+
+// ============================================================================
 // INITIALIZATION
 // ============================================================================
 
 async function init() {
-    console.log('[Swap] Initializing...');
+    console.log('[DEX] Initializing...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -138,7 +155,7 @@ async function init() {
         return;
     }
     
-    console.log('[Swap] User ID:', userId);
+    console.log('[DEX] User ID:', userId);
     
     await loadConfig();
     await initFirebase();
@@ -160,7 +177,7 @@ async function loadConfig() {
             elements.axcPrice.textContent = CONFIG.axcPrice;
         }
     } catch(e) {
-        console.error('[Swap] Config error:', e);
+        console.error('[DEX] Config error:', e);
     }
 }
 
@@ -173,9 +190,9 @@ async function initFirebase() {
             firebase.initializeApp(config.firebaseConfig);
         }
         db = firebase.firestore();
-        console.log('[Swap] Firebase initialized');
+        console.log('[DEX] Firebase initialized');
     } catch(e) {
-        console.error('[Swap] Firebase init error:', e);
+        console.error('[DEX] Firebase init error:', e);
     }
 }
 
@@ -215,7 +232,7 @@ function initTonConnect() {
             }
         });
     } catch(e) {
-        console.error('[Swap] TON Connect error:', e);
+        console.error('[DEX] TON Connect error:', e);
     }
 }
 
@@ -240,7 +257,7 @@ async function loadUserData() {
             }
         }
     } catch(e) {
-        console.error('[Swap] Load user error:', e);
+        console.error('[DEX] Load user error:', e);
     }
 }
 
@@ -255,10 +272,11 @@ function updateUI() {
     if (elements.fromBalance) elements.fromBalance.innerHTML = balance;
     if (elements.toBalance) elements.toBalance.innerHTML = `$${usdtBalance.toFixed(2)}`;
     
+    // Update button lock state based on tonPaid
     if (currentUser.tonPaid) {
-        unlockSwap();
+        updateSwapButtonLockState(false);
     } else {
-        lockSwap();
+        updateSwapButtonLockState(true);
     }
 }
 
@@ -268,113 +286,71 @@ async function checkActivation() {
 }
 
 // ============================================================================
-// SWAP LOCK/UNLOCK
-// ============================================================================
-
-function lockSwap() {
-    if (elements.activationBox) {
-        elements.activationBox.classList.remove('unlocked');
-        elements.activationBox.classList.add('locked');
-    }
-    if (elements.swapBox) {
-        elements.swapBox.classList.add('disabled');
-    }
-    if (elements.swapBtn) {
-        elements.swapBtn.disabled = true;
-    }
-}
-
-function unlockSwap() {
-    if (elements.activationBox) {
-        elements.activationBox.classList.remove('locked');
-        elements.activationBox.classList.add('unlocked');
-        const icon = elements.activationBox.querySelector('.lock-icon i');
-        if (icon) {
-            icon.className = 'fas fa-unlock-alt';
-        }
-        const title = elements.activationBox.querySelector('h3');
-        if (title) title.innerHTML = '🔓 SWAP UNLOCKED';
-        const desc = elements.activationBox.querySelector('p');
-        if (desc) desc.innerHTML = 'Swap feature is <strong style="color:#2ecc71">permanently activated</strong> for your account!';
-        const btn = elements.activationBox.querySelector('button');
-        if (btn) btn.style.display = 'none';
-    }
-    if (elements.swapBox) {
-        elements.swapBox.classList.remove('disabled');
-    }
-    validateSwapAmount();
-}
-
-// ============================================================================
 // ACTIVATION (PAY 0.05 TON)
 // ============================================================================
 
-if (elements.activateBtn) {
-    elements.activateBtn.addEventListener('click', async () => {
-        if (!tonConnected || !tonWalletAddress) {
-            showStatus('activationStatus', '❌ Please connect TON wallet first', 'error');
-            return;
+async function handleActivation() {
+    if (!tonConnected || !tonWalletAddress) {
+        showStatus('swapStatus', '❌ Please connect TON wallet first', 'error');
+        return false;
+    }
+    
+    if (!CONFIG.ownerWallet) {
+        showStatus('swapStatus', '❌ Owner wallet not configured', 'error');
+        return false;
+    }
+    
+    if (isActivating) return false;
+    isActivating = true;
+    
+    const amountNano = (CONFIG.swapFeeTON * 1000000000).toString();
+    
+    const transaction = {
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        messages: [{
+            address: CONFIG.ownerWallet,
+            amount: amountNano
+        }]
+    };
+    
+    try {
+        showStatus('swapStatus', '⏳ Waiting for payment confirmation...', 'info');
+        updateSwapButtonLockState(true);
+        
+        const result = await window.tonConnectUI.sendTransaction(transaction);
+        
+        const verifyRes = await fetch('/api/ton-verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: userId,
+                txHash: result.boc,
+                walletAddress: tonWalletAddress
+            })
+        });
+        
+        const verifyData = await verifyRes.json();
+        
+        if (verifyData.success) {
+            await loadUserData();
+            showStatus('swapStatus', '✅ Swap unlocked! You can now swap.', 'success');
+            showConfetti();
+            updateSwapButtonLockState(false);
+            return true;
+        } else {
+            showStatus('swapStatus', '❌ ' + (verifyData.error || 'Verification failed'), 'error');
+            updateSwapButtonLockState(true);
+            return false;
         }
         
-        if (!CONFIG.ownerWallet) {
-            showStatus('activationStatus', '❌ Owner wallet not configured', 'error');
-            return;
-        }
-        
-        if (isActivating) return;
-        isActivating = true;
-        
-        const amountNano = (CONFIG.swapFeeTON * 1000000000).toString();
-        
-        const transaction = {
-            validUntil: Math.floor(Date.now() / 1000) + 600,
-            messages: [{
-                address: CONFIG.ownerWallet,
-                amount: amountNano
-            }]
-        };
-        
-        try {
-            showStatus('activationStatus', '⏳ Waiting for payment confirmation...', 'info');
-            if (elements.activateBtn) {
-                elements.activateBtn.disabled = true;
-                elements.activateBtn.innerHTML = '<span class="spinner"></span> Processing...';
-            }
-            
-            const result = await window.tonConnectUI.sendTransaction(transaction);
-            
-            const verifyRes = await fetch('/api/ton-verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userId,
-                    txHash: result.boc,
-                    walletAddress: tonWalletAddress
-                })
-            });
-            
-            const verifyData = await verifyRes.json();
-            
-            if (verifyData.success) {
-                await loadUserData();
-                showStatus('activationStatus', '✅ Swap unlocked! You can now swap.', 'success');
-                showConfetti();
-                unlockSwap();
-            } else {
-                showStatus('activationStatus', '❌ ' + (verifyData.error || 'Verification failed'), 'error');
-            }
-            
-        } catch(error) {
-            console.error('Activation error:', error);
-            showStatus('activationStatus', '❌ Payment cancelled or failed', 'error');
-        } finally {
-            isActivating = false;
-            if (elements.activateBtn) {
-                elements.activateBtn.disabled = false;
-                elements.activateBtn.innerHTML = '<i class="fas fa-key"></i> UNLOCK SWAP';
-            }
-        }
-    });
+    } catch(error) {
+        console.error('Activation error:', error);
+        showStatus('swapStatus', '❌ Payment cancelled or failed', 'error');
+        updateSwapButtonLockState(true);
+        return false;
+    } finally {
+        isActivating = false;
+    }
 }
 
 // ============================================================================
@@ -387,17 +363,17 @@ function validateSwapAmount() {
     const isActive = currentUser?.tonPaid === true;
     
     if (!isActive) {
-        if (elements.swapBtn) elements.swapBtn.disabled = true;
+        updateSwapButtonLockState(true);
         return;
     }
     
     if (isNaN(amount) || amount <= 0) {
-        if (elements.swapBtn) elements.swapBtn.disabled = true;
+        updateSwapButtonLockState(true);
         return;
     }
     
     const isValid = amount >= CONFIG.minSwap && amount <= balance && amount <= CONFIG.maxSwap;
-    if (elements.swapBtn) elements.swapBtn.disabled = !isValid;
+    updateSwapButtonLockState(!isValid);
 }
 
 if (elements.swapFrom) {
@@ -418,6 +394,12 @@ if (elements.swapFrom) {
 
 if (elements.swapBtn) {
     elements.swapBtn.addEventListener('click', async () => {
+        // If not activated yet, trigger activation flow
+        if (!currentUser?.tonPaid) {
+            await handleActivation();
+            return;
+        }
+        
         const amount = parseFloat(elements.swapFrom?.value || '0');
         
         if (isSwapping) return;
@@ -440,8 +422,7 @@ if (elements.swapBtn) {
         
         try {
             isSwapping = true;
-            elements.swapBtn.disabled = true;
-            elements.swapBtn.innerHTML = '<span class="spinner"></span> Processing...';
+            updateSwapButtonLockState(true);
             
             const res = await fetch('/api/swap', {
                 method: 'POST',
@@ -463,16 +444,15 @@ if (elements.swapBtn) {
                 }, 2500);
             } else {
                 showStatus('swapStatus', '❌ ' + (data.error || 'Swap failed'), 'error');
+                updateSwapButtonLockState(false);
             }
             
         } catch(error) {
             console.error('Swap error:', error);
             showStatus('swapStatus', '❌ Network error. Please try again.', 'error');
+            updateSwapButtonLockState(false);
         } finally {
             isSwapping = false;
-            elements.swapBtn.disabled = false;
-            elements.swapBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
-            validateSwapAmount();
         }
     });
 }
