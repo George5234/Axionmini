@@ -3,19 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Axion AI • Swap Station</title>
+    <title>Axion AI • DEX Swap</title>
     
-    <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
-    <!-- TON Connect UI -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
-    
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -27,58 +20,63 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-            background: radial-gradient(ellipse at 30% 20%, #0a2e1c, #051408);
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            background: #0a0c0f;
             min-height: 100vh;
             color: #ffffff;
-            padding: 16px;
+            padding: 20px 16px;
             position: relative;
         }
 
-        /* Electric Green Glow Effect */
+        /* Animated Gradient Background */
         body::before {
             content: '';
             position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(46, 204, 113, 0.15), transparent 60%);
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at 30% 20%, rgba(46, 204, 113, 0.12), transparent 50%),
+                        radial-gradient(ellipse at 80% 70%, rgba(241, 196, 15, 0.08), transparent 50%);
             pointer-events: none;
             z-index: -1;
-            animation: pulse 4s ease-in-out infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
+        /* Smooth Scrolling */
+        html {
+            scroll-behavior: smooth;
         }
 
-        /* Glassmorphism Card - Neon Green */
-        .card {
-            background: rgba(10, 30, 20, 0.65);
-            backdrop-filter: blur(16px);
-            border-radius: 32px;
-            border: 1px solid rgba(46, 204, 113, 0.4);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(46, 204, 113, 0.1);
-            transition: all 0.3s ease;
+        /* Glass Card - Premium Version */
+        .glass-card {
+            background: rgba(18, 25, 22, 0.75);
+            backdrop-filter: blur(20px);
+            border-radius: 40px;
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(46, 204, 113, 0.05) inset;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(46, 204, 113, 0.4);
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(46, 204, 113, 0.1) inset;
         }
 
         .container {
-            max-width: 480px;
+            max-width: 500px;
             margin: 0 auto;
         }
 
-        /* Header with Gradient Animation */
+        /* Premium Header */
         .header {
             text-align: center;
-            padding: 20px 0 16px;
+            padding: 8px 0 24px;
         }
         .header h1 {
-            font-size: 32px;
+            font-size: 34px;
             font-weight: 800;
-            background: linear-gradient(135deg, #2ecc71, #f1c40f, #2ecc71, #27ae60);
-            background-size: 300% 300%;
+            background: linear-gradient(135deg, #2ecc71 0%, #f1c40f 50%, #2ecc71 100%);
+            background-size: 200% 200%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             animation: gradientShift 4s ease infinite;
@@ -90,65 +88,67 @@
             100% { background-position: 0% 50%; }
         }
         .header p {
-            color: #8bc34a;
-            font-size: 12px;
-            margin-top: 6px;
-            letter-spacing: 1px;
+            color: #6c8b7a;
+            font-size: 13px;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
         }
 
-        /* Wallet Section */
+        /* Wallet Section - Premium */
         .wallet-section {
-            padding: 16px 20px;
-            margin-bottom: 20px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 16px;
+            border-radius: 32px;
         }
         .wallet-info {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
         .wallet-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
-            border-radius: 30px;
+            width: 52px;
+            height: 52px;
+            background: linear-gradient(145deg, #2ecc71, #1a6e3a);
+            border-radius: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 0 15px rgba(46, 204, 113, 0.4);
+            font-size: 26px;
+            box-shadow: 0 8px 20px rgba(46, 204, 113, 0.3);
         }
         .wallet-text h4 {
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 15px;
+            font-weight: 700;
             color: #f1c40f;
         }
         .wallet-text p {
-            font-size: 11px;
-            color: #2ecc71;
-            margin-top: 2px;
+            font-size: 12px;
+            color: #8bc34a;
+            margin-top: 4px;
         }
         #ton-connect {
-            min-width: 140px;
+            min-width: 150px;
         }
 
-        /* Balance Cards */
+        /* Balance Cards - Premium DEX Style */
         .balance-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 24px;
         }
         .balance-card {
-            padding: 20px 12px;
+            padding: 20px 16px;
             text-align: center;
+            border-radius: 32px;
             position: relative;
             overflow: hidden;
-            transition: transform 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         .balance-card:active {
             transform: scale(0.98);
@@ -160,146 +160,86 @@
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(46, 204, 113, 0.2), transparent);
+            background: linear-gradient(90deg, transparent, rgba(46, 204, 113, 0.15), transparent);
             transition: left 0.5s;
         }
         .balance-card:hover::after {
             left: 100%;
         }
         .balance-card .icon {
-            font-size: 36px;
-            margin-bottom: 8px;
+            font-size: 38px;
+            margin-bottom: 12px;
         }
         .balance-card .label {
-            font-size: 11px;
+            font-size: 12px;
             color: #8bc34a;
             text-transform: uppercase;
             letter-spacing: 2px;
             font-weight: 600;
         }
         .balance-card .value {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 800;
-            margin-top: 6px;
+            margin-top: 8px;
         }
         .balance-card.axc .value { 
             color: #f1c40f; 
-            text-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
+            text-shadow: 0 0 20px rgba(241, 196, 15, 0.2);
         }
         .balance-card.usdt .value { 
             color: #2ecc71; 
-            text-shadow: 0 0 15px rgba(46, 204, 113, 0.3);
+            text-shadow: 0 0 20px rgba(46, 204, 113, 0.2);
         }
 
-        /* Activation Lock Box */
-        .activation-box {
-            padding: 24px;
-            text-align: center;
-            margin-bottom: 20px;
-            border: 1px solid rgba(241, 196, 15, 0.4);
-            transition: all 0.5s ease;
-        }
-        .activation-box.locked {
-            border-color: rgba(231, 76, 60, 0.4);
-        }
-        .activation-box.unlocked {
-            border-color: rgba(46, 204, 113, 0.6);
-            box-shadow: 0 0 30px rgba(46, 204, 113, 0.2);
-        }
-        .activation-box .lock-icon {
-            font-size: 56px;
-            margin-bottom: 12px;
-            transition: all 0.3s;
-        }
-        .activation-box.locked .lock-icon {
-            color: #e74c3c;
-            animation: shake 0.5s ease;
-        }
-        .activation-box.unlocked .lock-icon {
-            color: #2ecc71;
-            animation: none;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-6px); }
-            75% { transform: translateX(6px); }
-        }
-        .activation-box h3 {
-            font-size: 18px;
-            margin-bottom: 8px;
-        }
-        .activation-box p {
-            font-size: 13px;
-            color: #bdc3c7;
-            margin-bottom: 20px;
-        }
-        .btn-gold {
-            background: linear-gradient(145deg, #f1c40f, #d4ac0d);
-            border: none;
-            border-radius: 40px;
-            padding: 14px 28px;
-            font-weight: 700;
-            font-size: 14px;
-            color: #1a2a1a;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
-            max-width: 220px;
-        }
-        .btn-gold:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(241, 196, 15, 0.4);
-        }
-        .btn-gold:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Swap Box */
+        /* Swap Box - Premium DEX Style */
         .swap-box {
             padding: 24px;
-            margin-bottom: 20px;
-            transition: all 0.5s ease;
+            margin-bottom: 24px;
+            border-radius: 40px;
+            transition: all 0.3s;
         }
         .swap-box.disabled {
-            opacity: 0.6;
-            filter: blur(2px);
+            opacity: 0.7;
+            filter: blur(3px);
             pointer-events: none;
         }
         .swap-input-group {
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 24px;
-            padding: 16px;
+            background: rgba(0, 0, 0, 0.45);
+            border-radius: 28px;
+            padding: 18px 20px;
             margin: 12px 0;
-            border: 1px solid rgba(46, 204, 113, 0.25);
-            transition: all 0.2s;
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            transition: all 0.25s;
         }
         .swap-input-group:focus-within {
             border-color: #2ecc71;
-            box-shadow: 0 0 15px rgba(46, 204, 113, 0.2);
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.15);
+            background: rgba(0, 0, 0, 0.55);
         }
         .swap-label {
             display: flex;
             justify-content: space-between;
             color: #8bc34a;
-            font-size: 12px;
-            margin-bottom: 10px;
+            font-size: 13px;
+            margin-bottom: 12px;
+            font-weight: 500;
         }
         .swap-input-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 16px;
         }
         .swap-input-row input {
             flex: 1;
             background: transparent;
             border: none;
             color: white;
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 700;
             outline: none;
+            font-family: monospace;
+            letter-spacing: 0.5px;
         }
         .swap-input-row input[type="number"] {
             -moz-appearance: textfield;
@@ -310,17 +250,20 @@
             margin: 0;
         }
         .swap-input-row input::placeholder {
-            color: #3a5a3a;
+            color: #3a5a4a;
+            font-weight: 500;
         }
         .token-badge {
-            background: rgba(46, 204, 113, 0.2);
-            padding: 8px 16px;
-            border-radius: 40px;
-            font-size: 14px;
-            font-weight: 600;
+            background: rgba(46, 204, 113, 0.15);
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-size: 15px;
+            font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            backdrop-filter: blur(4px);
         }
         .token-badge i {
             font-size: 18px;
@@ -330,35 +273,49 @@
             font-size: 28px;
             color: #2ecc71;
             margin: 8px 0;
-            animation: bounceVertical 2s ease-in-out infinite;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
         }
-        @keyframes bounceVertical {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(6px); }
+        .swap-arrow .line {
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #2ecc71, transparent);
         }
         .swap-rate {
             text-align: center;
             background: rgba(0, 0, 0, 0.3);
-            padding: 12px;
-            border-radius: 20px;
+            padding: 14px;
+            border-radius: 28px;
             color: #f1c40f;
             font-size: 13px;
-            margin: 16px 0 12px;
+            margin: 20px 0 16px;
+            font-weight: 500;
         }
+        .swap-rate i {
+            margin: 0 6px;
+        }
+
+        /* Premium SWAP Button - Lock/Unlock */
         .btn-swap {
             width: 100%;
             background: linear-gradient(145deg, #f1c40f, #d4ac0d);
             border: none;
-            border-radius: 44px;
+            border-radius: 60px;
             padding: 18px;
             font-weight: 800;
             font-size: 16px;
             color: #1a2a1a;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s;
             position: relative;
             overflow: hidden;
             letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         .btn-swap::before {
             content: '';
@@ -374,29 +331,51 @@
             left: 100%;
         }
         .btn-swap:disabled {
-            opacity: 0.5;
+            opacity: 0.6;
             cursor: not-allowed;
-            background: linear-gradient(145deg, #7f8c8d, #6c7a7a);
+            background: linear-gradient(145deg, #4a5a4a, #3a4a3a);
+            color: #8a9a8a;
+            transform: none;
+        }
+        .btn-swap:disabled:hover::before {
+            left: -100%;
         }
         .btn-swap:active:not(:disabled) {
             transform: scale(0.97);
         }
 
+        /* Locked State Styling */
+        .btn-swap.locked {
+            background: linear-gradient(145deg, #4a5a4a, #3a4a3a);
+            color: #8a9a8a;
+        }
+        .btn-swap.locked i {
+            color: #e74c3c;
+        }
+        .btn-swap.unlocked {
+            background: linear-gradient(145deg, #f1c40f, #d4ac0d);
+            color: #1a2a1a;
+        }
+        .btn-swap.unlocked i {
+            color: #2ecc71;
+        }
+
         /* Status Messages */
         .status-msg {
             background: rgba(0, 0, 0, 0.6);
-            border-radius: 20px;
+            border-radius: 24px;
             padding: 14px;
             font-size: 13px;
             text-align: center;
-            margin: 12px 0;
+            margin: 16px 0 0;
             display: none;
             animation: slideIn 0.3s ease;
+            font-weight: 500;
         }
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(-12px);
+                transform: translateY(-10px);
             }
             to {
                 opacity: 1;
@@ -404,70 +383,77 @@
             }
         }
         .status-msg.success {
-            background: rgba(46, 204, 113, 0.2);
+            background: rgba(46, 204, 113, 0.15);
             color: #2ecc71;
-            border: 1px solid #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.4);
         }
         .status-msg.error {
-            background: rgba(231, 76, 60, 0.2);
+            background: rgba(231, 76, 60, 0.15);
             color: #e74c3c;
-            border: 1px solid #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.4);
         }
         .status-msg.info {
-            background: rgba(52, 152, 219, 0.2);
+            background: rgba(52, 152, 219, 0.15);
             color: #3498db;
-            border: 1px solid #3498db;
+            border: 1px solid rgba(52, 152, 219, 0.4);
         }
 
-        /* Withdraw Section at Bottom */
+        /* Withdraw Section */
         .withdraw-box {
-            padding: 20px;
+            padding: 24px;
             margin-top: 8px;
             margin-bottom: 20px;
-            border-top: 2px solid rgba(46, 204, 113, 0.3);
+            border-radius: 40px;
+            border-top: 2px solid rgba(46, 204, 113, 0.2);
         }
         .withdraw-box h3 {
-            font-size: 16px;
-            margin-bottom: 16px;
+            font-size: 17px;
+            margin-bottom: 18px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             color: #f1c40f;
+            font-weight: 700;
         }
         .withdraw-input {
             width: 100%;
             background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(46, 204, 113, 0.3);
-            border-radius: 24px;
-            padding: 14px 18px;
+            border: 1px solid rgba(46, 204, 113, 0.25);
+            border-radius: 28px;
+            padding: 16px 20px;
             color: white;
             font-size: 14px;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
             outline: none;
             transition: all 0.2s;
         }
         .withdraw-input:focus {
             border-color: #2ecc71;
-            box-shadow: 0 0 10px rgba(46, 204, 113, 0.2);
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.1);
+            background: rgba(0, 0, 0, 0.55);
         }
         .btn-withdraw {
             width: 100%;
             background: linear-gradient(145deg, #e67e22, #d35400);
             border: none;
-            border-radius: 44px;
-            padding: 14px;
+            border-radius: 60px;
+            padding: 16px;
             font-weight: 700;
             font-size: 14px;
             color: white;
             cursor: pointer;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         .btn-withdraw:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(230, 126, 34, 0.3);
+            box-shadow: 0 10px 25px rgba(230, 126, 34, 0.25);
         }
         .btn-withdraw:active {
-            transform: scale(0.98);
+            transform: scale(0.97);
         }
 
         /* Utilities */
@@ -500,9 +486,10 @@
 
         @media (max-width: 450px) {
             body { padding: 12px; }
-            .balance-card .value { font-size: 22px; }
-            .swap-input-row input { font-size: 24px; }
-            .token-badge { padding: 6px 12px; font-size: 12px; }
+            .balance-card .value { font-size: 24px; }
+            .swap-input-row input { font-size: 26px; }
+            .token-badge { padding: 8px 16px; font-size: 13px; }
+            .swap-input-group { padding: 14px 16px; }
         }
     </style>
 </head>
@@ -513,12 +500,12 @@
         
         <!-- Header -->
         <div class="header">
-            <h1>⚡ AXION SWAP</h1>
-            <p>Instant • Secure • Zero Slippage</p>
+            <h1>⚡ AXION DEX</h1>
+            <p>Swap AXC ↔ USDT • Instant • Low Fee</p>
         </div>
 
         <!-- Wallet Connection -->
-        <div class="card wallet-section" id="walletSection">
+        <div class="glass-card wallet-section">
             <div class="wallet-info">
                 <div class="wallet-icon"><i class="fab fa-telegram-plane"></i></div>
                 <div class="wallet-text">
@@ -531,34 +518,23 @@
 
         <!-- Balances -->
         <div class="balance-row">
-            <div class="card balance-card axc">
+            <div class="glass-card balance-card axc">
                 <div class="icon"><i class="fas fa-gem"></i></div>
-                <div class="label">AXC BALANCE</div>
+                <div class="label">AXC Balance</div>
                 <div class="value" id="axcBalance">0</div>
             </div>
-            <div class="card balance-card usdt">
+            <div class="glass-card balance-card usdt">
                 <div class="icon"><i class="fas fa-dollar-sign"></i></div>
-                <div class="label">USDT BALANCE</div>
+                <div class="label">USDT Balance</div>
                 <div class="value" id="usdtBalance">$0.00</div>
             </div>
         </div>
 
-        <!-- Activation Box (Locked/Unlocked) -->
-        <div class="card activation-box locked" id="activationBox">
-            <div class="lock-icon"><i class="fas fa-lock"></i></div>
-            <h3 id="activationTitle">🔒 SWAP LOCKED</h3>
-            <p id="activationDesc">Pay <strong style="color:#f1c40f">0.05 TON</strong> one‑time fee to unlock Swap forever</p>
-            <button class="btn-gold" id="activateBtn">
-                <i class="fas fa-key"></i> UNLOCK SWAP
-            </button>
-            <div id="activationStatus" class="status-msg"></div>
-        </div>
-
         <!-- Swap Interface -->
-        <div class="card swap-box disabled" id="swapBox">
+        <div class="glass-card swap-box" id="swapBox">
             <div class="swap-input-group">
                 <div class="swap-label">
-                    <span><i class="fas fa-arrow-up"></i> You send</span>
+                    <span><i class="fas fa-arrow-up"></i> You Pay</span>
                     <span>Balance: <span id="fromBalance">0</span> AXC</span>
                 </div>
                 <div class="swap-input-row">
@@ -567,11 +543,15 @@
                 </div>
             </div>
 
-            <div class="swap-arrow"><i class="fas fa-arrow-down"></i></div>
+            <div class="swap-arrow">
+                <span class="line"></span>
+                <i class="fas fa-arrow-down"></i>
+                <span class="line"></span>
+            </div>
 
             <div class="swap-input-group">
                 <div class="swap-label">
-                    <span><i class="fas fa-arrow-down"></i> You receive</span>
+                    <span><i class="fas fa-arrow-down"></i> You Receive</span>
                     <span>Balance: <span id="toBalance">$0.00</span> USDT</span>
                 </div>
                 <div class="swap-input-row">
@@ -581,19 +561,19 @@
             </div>
 
             <div class="swap-rate">
-                <i class="fas fa-chart-line"></i> 1 AXC = $<span id="axcPrice">0.0099</span> USDT &nbsp;|&nbsp; 
-                <i class="fas fa-coins"></i> Fee: 0.05 TON (one‑time)
+                <i class="fas fa-chart-line"></i> 1 AXC = $<span id="axcPrice">0.0099</span> USDT
+                <i class="fas fa-coins" style="margin-left: 12px;"></i> Fee: 0.05 TON (one‑time)
             </div>
 
-            <button class="btn-swap" id="swapBtn" disabled>
-                <i class="fas fa-exchange-alt"></i> CONFIRM SWAP
+            <button class="btn-swap locked" id="swapBtn" disabled>
+                <i class="fas fa-lock"></i> CONFIRM SWAP
             </button>
 
             <div id="swapStatus" class="status-msg"></div>
         </div>
 
-        <!-- Withdraw USDT Section (Bottom) -->
-        <div class="card withdraw-box" id="withdrawBox">
+        <!-- Withdraw USDT Section -->
+        <div class="glass-card withdraw-box">
             <h3><i class="fas fa-money-bill-wave"></i> Withdraw USDT</h3>
             <input type="text" id="withdrawAddress" class="withdraw-input" placeholder="BEP20 Address (0x...)" autocomplete="off">
             <input type="number" id="withdrawAmount" class="withdraw-input" placeholder="Amount in USDT" step="0.01">
