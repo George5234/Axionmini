@@ -1,7 +1,8 @@
 // ============================================================================
-// AXION AI BOT - LEGENDARY EDITION v10.2 (COMPLETE FINAL)
+// AXION AI BOT - LEGENDARY EDITION v11.0 (AUTO-APPROVE WITHDRAWALS)
 // ============================================================================
 // Professional Design | Rate Limiting | Transaction History | Cache Warmup
+// Auto-Approve Withdrawals | Admin Notification Only
 // ============================================================================
 
 const express = require('express');
@@ -148,10 +149,23 @@ function formatTransactionHistory(transactions) {
         const tx = transactions[i];
         const date = new Date(tx.timestamp).toLocaleString();
         
+        let statusDisplay = '';
+        if (tx.status === 'approved') {
+            statusDisplay = '✅ Approved';
+        } else if (tx.status === 'pending') {
+            statusDisplay = '⏳ Pending';
+        } else if (tx.status === 'rejected') {
+            statusDisplay = '❌ Rejected';
+        } else if (tx.status === 'processing') {
+            statusDisplay = '📤 Processing';
+        } else {
+            statusDisplay = tx.status || 'Unknown';
+        }
+        
         history += `
 📌 <b>${tx.type.toUpperCase()}</b>
    Amount: ${tx.currency === 'AXC' ? formatAXC(tx.amount) : formatUSD(tx.amount)}
-   Status: ${tx.status === 'approved' ? '✅ Approved' : tx.status === 'pending' ? '⏳ Pending' : '❌ Rejected'}
+   Status: ${statusDisplay}
    ${tx.status === 'rejected' ? `Reason: ${tx.reason || 'N/A'}\n` : ''}
    📅 ${date}
 ${MINI_DIVIDER}`;
@@ -585,7 +599,7 @@ async function checkMilestoneAchievement(userId) {
 }
 
 // ============================================================================
-// 10. 💸 WITHDRAWAL SYSTEM
+// 10. 💸 WITHDRAWAL SYSTEM (AUTO-APPROVED)
 // ============================================================================
 
 const withdrawCooldownTracker = new Map();
@@ -623,6 +637,7 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
             if (amount > (user.usdtBalance || 0)) return { success: false, error: `💡 Your USDT balance is ${formatUSD(user.usdtBalance || 0)}. Swap AXC to USDT first!` };
         }
 
+        // Deduct balance
         if (currency === 'AXC') {
             await updateUser(userId, { balance: (user.balance || 0) - amount }, true);
         } else {
@@ -633,6 +648,9 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
 
         const withdrawalRef = db.collection('withdrawals').doc();
         const requestId = withdrawalRef.id;
+        
+        // AUTO-APPROVE: Set status to 'approved' immediately
+        const approvedAt = new Date().toISOString();
 
         await withdrawalRef.set({
             id: requestId,
@@ -641,30 +659,41 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
             amount,
             currency,
             walletAddress,
-            status: 'pending',
+            status: 'approved',
+            approvedAt: approvedAt,
+            autoApproved: true,
             createdAt: new Date().toISOString()
         });
 
+        // Add transaction record with 'approved' status
         await addTransaction(userId, {
             type: 'withdrawal',
             amount: amount,
             currency: currency,
-            status: 'pending',
-            description: `Withdrawal request to ${walletAddress.substring(0, 10)}...`
+            status: 'approved',
+            approvedAt: approvedAt,
+            description: `Withdrawal to ${walletAddress.substring(0, 10)}...`
         });
 
         const userWithdrawals = user.withdrawals || [];
-        userWithdrawals.push({ id: requestId, amount, currency, status: 'pending', createdAt: new Date().toISOString() });
+        userWithdrawals.push({ 
+            id: requestId, 
+            amount, 
+            currency, 
+            status: 'approved', 
+            approvedAt: approvedAt,
+            createdAt: new Date().toISOString() 
+        });
         await updateUser(userId, { withdrawals: userWithdrawals }, true);
 
+        // Send notification to admin group (without buttons - just info)
         if (WITHDRAWAL_GROUP_ID) {
             const message = formatProfessionalMessage(
-                '💸 NEW WITHDRAWAL REQUEST',
-                `👤 <b>User:</b> ${escapeHtml(user.userName)}\n🆔 <b>ID:</b> ${userId}\n💰 <b>Amount:</b> ${currency === 'AXC' ? amount + ' AXC' : '$' + amount}\n💳 <b>Wallet:</b> <code>${walletAddress}</code>\n🆔 <b>Request:</b> <code>${requestId}</code>`,
-                `👇 Click Approve or Reject`
+                '💸 NEW WITHDRAWAL REQUEST (AUTO-APPROVED)',
+                `👤 <b>User:</b> ${escapeHtml(user.userName)}\n🆔 <b>ID:</b> ${userId}\n💰 <b>Amount:</b> ${currency === 'AXC' ? amount + ' AXC' : '$' + amount}\n💳 <b>Wallet:</b> <code>${walletAddress}</code>\n🆔 <b>Request ID:</b> <code>${requestId}</code>\n\n✅ <b>Status:</b> Auto-approved - Ready for manual transfer`,
+                `📌 Admin: Please verify user and send funds manually to the address above.`
             );
-            const keyboard = { inline_keyboard: [[{ text: '✅ APPROVE', callback_data: `approve_wd_${requestId}` }, { text: '❌ REJECT', callback_data: `reject_wd_${requestId}` }]] };
-            await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, message, { parse_mode: 'HTML', ...keyboard }).catch(() => {});
+            await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, message, { parse_mode: 'HTML' }).catch(() => {});
         }
 
         return { success: true, requestId };
@@ -1102,8 +1131,8 @@ bot.action('confirm_withdraw_final', async (ctx) => {
     if (result.success) {
         const message = formatProfessionalMessage(
             '✅ WITHDRAWAL SUBMITTED!',
-            `💰 Amount: ${session.currency === 'AXC' ? formatAXC(session.amount) : formatUSD(session.amount)}\n⏳ Processing Time: 24-48 hours\n🆔 Request ID: <code>${result.requestId}</code>`,
-            `You will be notified once processed.`
+            `💰 Amount: ${session.currency === 'AXC' ? formatAXC(session.amount) : formatUSD(session.amount)}\n⏳ <b>Processing Time:</b> 1-12 hours\n🆔 <b>Request ID:</b> <code>${result.requestId}</code>\n\n<b>ℹ️ Your withdrawal has been auto-approved.</b>\nAn admin will review and send funds to your wallet.`,
+            `Thank you for trusting Axion AI!`
         );
         await ctx.reply(message, { parse_mode: 'HTML' });
     } else {
@@ -1294,92 +1323,11 @@ async function getBotStats() {
             totalUsdt += user.usdtBalance || 0;
             if (user.isVerified) verified++;
         }
+        // Note: Withdrawals are auto-approved, so no pending withdrawals
         const pendingSnapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
         return { users: userCache.cache.size, pendingWithdrawals: pendingSnapshot.size, totalBalance, totalUsdt, verified };
     } catch (error) {
         return { users: 0, pendingWithdrawals: 0, totalBalance: 0, totalUsdt: 0, verified: 0 };
-    }
-}
-
-async function getPendingWithdrawals() {
-    if (!checkDb()) return [];
-    try {
-        const snapshot = await db.collection('withdrawals').where('status', '==', 'pending').orderBy('createdAt', 'desc').get();
-        const withdrawals = [];
-        snapshot.forEach(doc => withdrawals.push({ id: doc.id, ...doc.data() }));
-        return withdrawals;
-    } catch (error) {
-        return [];
-    }
-}
-
-async function approveWithdrawal(withdrawalId, adminId) {
-    if (!checkDb()) return { success: false };
-    try {
-        const withdrawalRef = db.collection('withdrawals').doc(withdrawalId);
-        const withdrawalDoc = await withdrawalRef.get();
-        if (!withdrawalDoc.exists) return { success: false, error: 'Not found' };
-        const withdrawal = withdrawalDoc.data();
-        if (withdrawal.status !== 'pending') return { success: false, error: `Already ${withdrawal.status}` };
-        
-        await withdrawalRef.update({ status: 'approved', approvedAt: new Date().toISOString(), approvedBy: adminId });
-        
-        const user = await getUser(withdrawal.userId);
-        const transactions = user?.transactions || [];
-        const updatedTransactions = transactions.map(tx => 
-            tx.type === 'withdrawal' && tx.amount === withdrawal.amount && tx.status === 'pending'
-                ? { ...tx, status: 'approved', approvedAt: new Date().toISOString() }
-                : tx
-        );
-        await updateUser(withdrawal.userId, { transactions: updatedTransactions }, true);
-        
-        const message = formatProfessionalMessage(
-            '✅ WITHDRAWAL APPROVED',
-            `💰 Amount: ${withdrawal.currency === 'AXC' ? withdrawal.amount + ' AXC' : '$' + withdrawal.amount}\n\nYour withdrawal request has been approved. Funds will be sent within 24 hours.`
-        );
-        await bot.telegram.sendMessage(withdrawal.userId, message, { parse_mode: 'HTML' }).catch(() => {});
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-}
-
-async function rejectWithdrawal(withdrawalId, adminId, reason) {
-    if (!checkDb()) return { success: false };
-    try {
-        const withdrawalRef = db.collection('withdrawals').doc(withdrawalId);
-        const withdrawalDoc = await withdrawalRef.get();
-        if (!withdrawalDoc.exists) return { success: false, error: 'Not found' };
-        const withdrawal = withdrawalDoc.data();
-        if (withdrawal.status !== 'pending') return { success: false, error: `Already ${withdrawal.status}` };
-        
-        if (withdrawal.currency === 'AXC') {
-            const user = await getUser(withdrawal.userId);
-            await updateUser(withdrawal.userId, { balance: (user?.balance || 0) + withdrawal.amount }, true);
-        } else {
-            const user = await getUser(withdrawal.userId);
-            await updateUser(withdrawal.userId, { usdtBalance: (user?.usdtBalance || 0) + withdrawal.amount }, true);
-        }
-        
-        await withdrawalRef.update({ status: 'rejected', rejectReason: reason, rejectedAt: new Date().toISOString(), rejectedBy: adminId });
-        
-        const user = await getUser(withdrawal.userId);
-        const transactions = user?.transactions || [];
-        const updatedTransactions = transactions.map(tx => 
-            tx.type === 'withdrawal' && tx.amount === withdrawal.amount && tx.status === 'pending'
-                ? { ...tx, status: 'rejected', reason, rejectedAt: new Date().toISOString() }
-                : tx
-        );
-        await updateUser(withdrawal.userId, { transactions: updatedTransactions }, true);
-        
-        const message = formatProfessionalMessage(
-            '❌ WITHDRAWAL REJECTED',
-            `💰 Amount: ${withdrawal.currency === 'AXC' ? withdrawal.amount + ' AXC' : '$' + withdrawal.amount}\nReason: ${reason}\n\nThe amount has been returned to your balance.`
-        );
-        await bot.telegram.sendMessage(withdrawal.userId, message, { parse_mode: 'HTML' }).catch(() => {});
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
     }
 }
 
@@ -1409,7 +1357,7 @@ bot.hears('👑 ADMIN PANEL', async (ctx) => {
         const cacheStats = userCache.getStats();
         const message = formatProfessionalMessage(
             '👑 ADMIN PANEL',
-            `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n⏳ Pending: ${stats.pendingWithdrawals}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n📦 Cache: ${cacheStats.cacheSize} users`,
+            `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n📦 Cache: ${cacheStats.cacheSize} users\n\n📌 <b>Note:</b> Withdrawals are auto-approved. Check withdrawal group for manual transfer requests.`,
             `Select an option:`
         );
         await ctx.reply(message, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
@@ -1429,7 +1377,7 @@ bot.action('admin_stats', async (ctx) => {
     }
     await ctx.answerCbQuery();
     const stats = await getBotStats();
-    const message = formatProfessionalMessage('📊 STATISTICS', `👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💸 Pending: ${stats.pendingWithdrawals}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}`);
+    const message = formatProfessionalMessage('📊 STATISTICS', `👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n\n✨ All withdrawals are auto-approved!`);
     await ctx.reply(message, { parse_mode: 'HTML' });
 });
 
@@ -1440,51 +1388,13 @@ bot.action('admin_pending', async (ctx) => {
         return;
     }
     await ctx.answerCbQuery();
-    const withdrawals = await getPendingWithdrawals();
-    if (withdrawals.length === 0) {
-        await ctx.reply('✅ No pending withdrawals.');
-        return;
-    }
-    let msg = '';
-    for (let i = 0; i < Math.min(withdrawals.length, 10); i++) {
-        const w = withdrawals[i];
-        msg += `${i + 1}. 👤 ${w.userName}\n   💰 ${w.currency === 'AXC' ? w.amount + ' AXC' : '$' + w.amount}\n   🆔 <code>${w.id.substring(0, 8)}...</code>\n\n`;
-    }
-    const keyboard = { inline_keyboard: [] };
-    for (let i = 0; i < Math.min(withdrawals.length, 5); i++) {
-        const w = withdrawals[i];
-        keyboard.inline_keyboard.push([
-            { text: `✅ Approve`, callback_data: `approve_wd_${w.id}` },
-            { text: `❌ Reject`, callback_data: `reject_wd_${w.id}` }
-        ]);
-    }
-    keyboard.inline_keyboard.push([{ text: '🔄 Refresh', callback_data: 'admin_pending' }, { text: '🔙 Back', callback_data: 'admin_back' }]);
-    await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: keyboard });
-});
-
-bot.action(/approve_wd_(.+)/, async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const withdrawalId = ctx.match[1];
-    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
-        await ctx.answerCbQuery('⛔ Unauthorized');
-        return;
-    }
-    await ctx.answerCbQuery('✅ Approving...');
-    const result = await approveWithdrawal(withdrawalId, userId);
-    await ctx.reply(result.success ? `✅ Withdrawal approved!` : `❌ Error: ${result.error}`);
-});
-
-bot.action(/reject_wd_(.+)/, async (ctx) => {
-    const userId = ctx.from.id.toString();
-    const withdrawalId = ctx.match[1];
-    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
-        await ctx.answerCbQuery('⛔ Unauthorized');
-        return;
-    }
-    await ctx.answerCbQuery();
-    adminSessions.get(userId).step = 'awaiting_reject_reason';
-    adminSessions.get(userId).withdrawalId = withdrawalId;
-    await ctx.reply(`📝 Please send the reason for rejecting this withdrawal:`);
+    
+    const message = formatProfessionalMessage(
+        '💸 WITHDRAWALS SYSTEM',
+        `✅ <b>Withdrawals are auto-approved!</b>\n\nAll withdrawal requests are automatically approved.\n\n📌 Check the withdrawal group for new requests.\n\nAdmin manually sends USDT to the provided wallet address.`,
+        `No pending approvals needed.`
+    );
+    await ctx.reply(message, { parse_mode: 'HTML' });
 });
 
 bot.action('admin_users', async (ctx) => {
@@ -1574,7 +1484,7 @@ bot.action('admin_back', async (ctx) => {
     await ctx.answerCbQuery();
     const stats = await getBotStats();
     const cacheStats = userCache.getStats();
-    const message = formatProfessionalMessage('👑 ADMIN PANEL', `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n⏳ Pending: ${stats.pendingWithdrawals}\n📦 Cache: ${cacheStats.cacheSize} users`, `Select an option:`);
+    const message = formatProfessionalMessage('👑 ADMIN PANEL', `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n📦 Cache: ${cacheStats.cacheSize} users`, `Select an option:`);
     await ctx.reply(message, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
     try { await ctx.deleteMessage(); } catch(e) {}
 });
@@ -1597,19 +1507,12 @@ bot.on('text', async (ctx) => {
         if (messageText === ADMIN_PASSWORD) {
             adminSessions.set(userId, { authenticated: true, createdAt: Date.now() });
             const stats = await getBotStats();
-            const message = formatProfessionalMessage('✅ LOGIN SUCCESSFUL', `Welcome Admin.\n\n👥 Users: ${stats.users}\n⏳ Pending: ${stats.pendingWithdrawals}`, `Select an option:`);
+            const message = formatProfessionalMessage('✅ LOGIN SUCCESSFUL', `Welcome Admin.\n\n👥 Users: ${stats.users}\n\n✨ Withdrawals are auto-approved!`, `Select an option:`);
             await ctx.reply(message, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
         } else {
             await ctx.reply('❌ Invalid password.');
             adminSessions.delete(userId);
         }
-        return;
-    }
-    
-    if (adminSession?.step === 'awaiting_reject_reason' && isAdmin(userId)) {
-        const result = await rejectWithdrawal(adminSession.withdrawalId, userId, messageText);
-        await ctx.reply(result.success ? `✅ Withdrawal rejected.\nReason: ${messageText}` : `❌ Error: ${result.error}`);
-        adminSessions.delete(userId);
         return;
     }
     
@@ -1727,7 +1630,7 @@ bot.on('text', async (ctx) => {
             const approved = withdrawals.filter(w => w.status === 'approved').length;
             const pending = withdrawals.filter(w => w.status === 'pending').length;
             const rejected = withdrawals.filter(w => w.status === 'rejected').length;
-            const message = formatProfessionalMessage('👤 USER FOUND', `🆔 ID: ${user.userId}\n👤 Name: ${escapeHtml(user.userName)}\n👥 Referrals: ${user.inviteCount || 0}\n💰 AXC: ${formatAXC(user.balance || 0)}\n💵 USDT: ${formatUSD(user.usdtBalance || 0)}\n✅ Verified: ${user.isVerified ? 'Yes' : 'No'}\n💳 Wallet: ${user.walletAddress ? user.walletAddress.substring(0, 15) + '...' : 'Not set'}\n\n📊 Withdrawals:\n   ✅ Approved: ${approved}\n   ⏳ Pending: ${pending}\n   ❌ Rejected: ${rejected}`);
+            const message = formatProfessionalMessage('👤 USER FOUND', `🆔 ID: ${user.userId}\n👤 Name: ${escapeHtml(user.userName)}\n👥 Referrals: ${user.inviteCount || 0}\n💰 AXC: ${formatAXC(user.balance || 0)}\n💵 USDT: ${formatUSD(user.usdtBalance || 0)}\n✅ Verified: ${user.isVerified ? 'Yes' : 'No'}\n💳 Wallet: ${user.walletAddress ? user.walletAddress.substring(0, 15) + '...' : 'Not set'}\n\n📊 Withdrawals:\n   ✅ Approved (Auto): ${approved}\n   ⏳ Pending: ${pending}\n   ❌ Rejected: ${rejected}`);
             await ctx.reply(message, { parse_mode: 'HTML' });
         } else {
             await ctx.reply('❌ User not found.');
@@ -1906,7 +1809,7 @@ app.post('/api/swap', async (req, res) => {
     }
 });
 
-// API: WITHDRAW USDT
+// API: WITHDRAW USDT (AUTO-APPROVED)
 app.post('/api/withdraw-usdt', async (req, res) => {
     try {
         const { userId, amount, address } = req.body;
@@ -2012,13 +1915,14 @@ process.once('SIGTERM', gracefulShutdown);
 // ============================================================================
 
 bot.launch({ dropPendingUpdates: true })
-    .then(() => console.log('🚀 Axion AI Bot v10.2 Started'))
+    .then(() => console.log('🚀 Axion AI Bot v11.0 Started'))
     .catch(err => console.error('❌ Bot error:', err));
 
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                  AXION AI BOT - LEGENDARY EDITION v10.2                      ║
+║                  AXION AI BOT - LEGENDARY EDITION v11.0                      ║
+║                       (AUTO-APPROVE WITHDRAWALS)                             ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  📍 Port: ${PORT}                                                              ║
 ║  🔥 Firebase: ${db ? '✅ Connected' : '❌ Disconnected'}                                             ║
@@ -2031,6 +1935,7 @@ app.listen(PORT, () => {
 ║  💎 Withdraw AXC: ${APP_CONFIG.minWithdrawAXC} - ${APP_CONFIG.maxWithdrawAXC} AXC                               ║
 ║  💵 Withdraw USDT: $${APP_CONFIG.minWithdrawUSDT} - $${APP_CONFIG.maxWithdrawUSDT}                              ║
 ║  🔄 Swap: Min ${APP_CONFIG.minSwap} AXC - Max ${APP_CONFIG.maxSwap} AXC                                        ║
+║  ✨ Withdrawals: AUTO-APPROVED (1-12 hours processing)                       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     `);
 });
