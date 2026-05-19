@@ -1910,10 +1910,14 @@ const modBot = new Telegraf(MOD_BOT_TOKEN);
 modBot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
 modBot.telegram.getMe().then((botInfo) => { console.log(`🤖 Mod Bot: @${botInfo.username}`); }).catch(() => {});
 
+// ============================================================================
+// 17.1 🛠️ Helper Functions for Mod Bot
+// ============================================================================
+
 // Welcome message function for modBot
-async function modBotWelcomeMessage(ctx, member) {
+async function modBotWelcomeMessage(ctx, user) {
     const welcomeMsg = `
-✨ <b>Welcome to Axion AI, ${escapeHtml(member.first_name)}!</b> ✨
+✨ <b>Welcome to Axion AI, ${escapeHtml(user.first_name)}!</b> ✨
 
 🚀 <b>The future of decentralized finance is here!</b>
 
@@ -1935,7 +1939,10 @@ async function modBotWelcomeMessage(ctx, member) {
     await ctx.reply(welcomeMsg, { parse_mode: 'HTML' });
 }
 
-// Private chat handler for mod bot
+// ============================================================================
+// 17.2 📝 Private Chat Handler
+// ============================================================================
+
 modBot.start(async (ctx) => {
     const userId = ctx.from.id.toString();
     if (isAdmin(userId)) {
@@ -1945,7 +1952,10 @@ modBot.start(async (ctx) => {
     }
 });
 
-// Group moderation handler
+// ============================================================================
+// 17.3 🛡️ Group Moderation Handler (Text Messages)
+// ============================================================================
+
 modBot.on('text', async (ctx) => {
     const isGroup = ctx.chat.type === 'supergroup' || ctx.chat.type === 'group';
     if (!isGroup) return;
@@ -2007,33 +2017,78 @@ modBot.on('text', async (ctx) => {
     }
 });
 
-// Welcome new members - FIXED
+// ============================================================================
+// 17.4 👋 Welcome New Members (Bots & Users)
+// ============================================================================
+
+// Event 1: new_chat_members - للبوتات
 modBot.on('new_chat_members', async (ctx) => {
-    console.log('📢 New member event detected!'); // للتحقق من وصول الحدث
-    if (!welcomeActive) {
-        console.log('⚠️ Welcome messages are disabled');
-        return;
-    }
+    console.log('📢 [new_chat_members] Event triggered');
+    if (!welcomeActive) return;
     
     for (const member of ctx.message.new_chat_members) {
         if (member.id === modBot.botInfo.id) {
-            console.log('🤖 Bot joined, skipping welcome');
+            console.log('🤖 Bot joined the group');
             continue;
         }
-        console.log(`👋 Sending welcome to: ${member.first_name} (${member.id})`);
-        await modBotWelcomeMessage(ctx, member);
+        
+        // Only for bots
+        if (member.is_bot) {
+            console.log(`🤖 Bot joined: @${member.username || member.first_name}`);
+            await ctx.reply(`🤖 <b>Welcome bot @${member.username || member.first_name}!</b>\n\nYou have been added as a moderator.`, { parse_mode: 'HTML' });
+        }
     }
 });
 
-// Alternative event for chat member updates
+// Event 2: chat_member - للمستخدمين العاديين (FIXED)
 modBot.on('chat_member', async (ctx) => {
-    const newStatus = ctx.chatMember.new_chat_member.status;
-    const userId = ctx.chatMember.new_chat_member.user.id;
-    const userFirstName = ctx.chatMember.new_chat_member.user.first_name;
+    console.log('📢 [chat_member] Event triggered');
     
-    if (newStatus === 'member' && userId !== modBot.botInfo.id && welcomeActive) {
-        console.log(`👋 New member via chat_member: ${userFirstName} (${userId})`);
-        await modBotWelcomeMessage(ctx, ctx.chatMember.new_chat_member.user);
+    if (!welcomeActive) {
+        console.log('⚠️ Welcome messages disabled');
+        return;
+    }
+    
+    const newMember = ctx.chatMember.new_chat_member;
+    const oldMember = ctx.chatMember.old_chat_member;
+    
+    // Check status change
+    const wasMember = oldMember && ['member', 'administrator', 'creator'].includes(oldMember.status);
+    const isMember = ['member', 'administrator', 'creator'].includes(newMember.status);
+    
+    // User just joined (was not member, now is member)
+    if (!wasMember && isMember) {
+        const user = newMember.user;
+        
+        // Skip bots (handled by new_chat_members event)
+        if (user.is_bot) {
+            console.log(`🤖 Bot ${user.first_name} joined (handled by new_chat_members)`);
+            return;
+        }
+        
+        console.log(`👋 New user joined: ${user.first_name} (${user.id})`);
+        
+        try {
+            await modBotWelcomeMessage(ctx, user);
+            console.log(`✅ Welcome message sent to ${user.first_name}`);
+        } catch (error) {
+            console.error(`❌ Failed to send welcome to ${user.first_name}:`, error.message);
+        }
+    }
+});
+
+// ============================================================================
+// 17.5 🔍 Bot Status Check (For Debugging)
+// ============================================================================
+
+modBot.on('my_chat_member', async (ctx) => {
+    const status = ctx.myChatMember.new_chat_member.status;
+    console.log(`🤖 Bot status in ${ctx.chat.title || 'group'}: ${status}`);
+    
+    if (status === 'administrator') {
+        console.log('✅ Bot is admin! Welcome messages should work properly.');
+    } else if (status === 'member') {
+        console.log('⚠️ Bot is only a member! Add as admin for welcome messages to work.');
     }
 });
 
