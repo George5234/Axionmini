@@ -1,10 +1,4 @@
 // ============================================================================
-// AXION AI BOT - LEGENDARY EDITION v13.0 (COMPLETE FINAL)
-// ============================================================================
-// Professional Design | Rate Limiting | Transaction History | Cache Warmup
-// Auto-Approve Withdrawals | Group Moderation | Smart Auto-Responses
-// Optimized Cache (Periodic Sync Every 6 Hours)
-// ============================================================================
 
 const express = require('express');
 const path = require('path');
@@ -1371,7 +1365,7 @@ mainBot.hears('🔄 SWAP STATION', async (ctx) => {
     const swapUrl = `${APP_URL}/index.html?userId=${userId}`;
     const message = formatProfessionalMessage(
         '⚡ AXION SWAP STATION',
-        `💰 AXC: ${formatAXC(user.balance || 0)}\n💵 USDT: ${formatUSD(user.usdtBalance || 0)}\n\n${user.tonPaid ? '✅ Swap Active' : '🔒 Activate with 0.05 TON'}`,
+        `💰 AXC: ${formatAXC(user.balance || 0)}\n💵 USDT: ${formatUSD(user.usdtBalance || 0)}\n\n${user.tonPaid ? '✅ Swap Active' : '🔒 Activate swap to unlock swapping $AXC <--> USDT'}`,
         `Click below to open:`
     );
     
