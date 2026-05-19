@@ -1910,6 +1910,31 @@ const modBot = new Telegraf(MOD_BOT_TOKEN);
 modBot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
 modBot.telegram.getMe().then((botInfo) => { console.log(`🤖 Mod Bot: @${botInfo.username}`); }).catch(() => {});
 
+// Welcome message function for modBot
+async function modBotWelcomeMessage(ctx, member) {
+    const welcomeMsg = `
+✨ <b>Welcome to Axion AI, ${escapeHtml(member.first_name)}!</b> ✨
+
+🚀 <b>The future of decentralized finance is here!</b>
+
+🎁 <b>Get Started:</b>
+• Join our required channels
+• Click the VERIFY button in @AxionBep20Airdropbot
+• Receive 100 AXC bonus!
+
+📌 <b>Community Rules:</b>
+• No spam or flood
+• No external links
+• No inappropriate content
+• Respect all members
+
+💡 <b>Need help?</b> Type "help" or contact admin
+
+<tg-spoiler>⚠️ Be aware of scammers! Admin will NEVER DM you first!</tg-spoiler>
+    `;
+    await ctx.reply(welcomeMsg, { parse_mode: 'HTML' });
+}
+
 // Private chat handler for mod bot
 modBot.start(async (ctx) => {
     const userId = ctx.from.id.toString();
@@ -1982,20 +2007,39 @@ modBot.on('text', async (ctx) => {
     }
 });
 
-// Welcome new members
+// Welcome new members - FIXED
 modBot.on('new_chat_members', async (ctx) => {
-    if (!welcomeActive) return;
+    console.log('📢 New member event detected!'); // للتحقق من وصول الحدث
+    if (!welcomeActive) {
+        console.log('⚠️ Welcome messages are disabled');
+        return;
+    }
     
     for (const member of ctx.message.new_chat_members) {
-        if (member.id === modBot.botInfo.id) continue;
-        await sendWelcomeMessage(ctx, member);
+        if (member.id === modBot.botInfo.id) {
+            console.log('🤖 Bot joined, skipping welcome');
+            continue;
+        }
+        console.log(`👋 Sending welcome to: ${member.first_name} (${member.id})`);
+        await modBotWelcomeMessage(ctx, member);
+    }
+});
+
+// Alternative event for chat member updates
+modBot.on('chat_member', async (ctx) => {
+    const newStatus = ctx.chatMember.new_chat_member.status;
+    const userId = ctx.chatMember.new_chat_member.user.id;
+    const userFirstName = ctx.chatMember.new_chat_member.user.first_name;
+    
+    if (newStatus === 'member' && userId !== modBot.botInfo.id && welcomeActive) {
+        console.log(`👋 New member via chat_member: ${userFirstName} (${userId})`);
+        await modBotWelcomeMessage(ctx, ctx.chatMember.new_chat_member.user);
     }
 });
 
 // ============================================================================
 // 18. 🌐 API ROUTES
 // ============================================================================
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
