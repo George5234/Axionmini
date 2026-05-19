@@ -1,8 +1,8 @@
 // ============================================================================
-// AXION AI BOT - LEGENDARY EDITION v11.0 (AUTO-APPROVE WITHDRAWALS)
+// AXION AI BOT - LEGENDARY EDITION v12.0 (COMPLETE FINAL)
 // ============================================================================
 // Professional Design | Rate Limiting | Transaction History | Cache Warmup
-// Auto-Approve Withdrawals | Admin Notification Only
+// Auto-Approve Withdrawals | Group Moderation | Smart Auto-Responses
 // ============================================================================
 
 const express = require('express');
@@ -23,6 +23,7 @@ let firebaseWebConfig = {};
 let ADMIN_ID = null;
 let ADMIN_PASSWORD = null;
 let BOT_TOKEN = null;
+let MOD_BOT_TOKEN = null;
 let WITHDRAWAL_GROUP_ID = null;
 let OWNER_WALLET = null;
 let APP_URL = null;
@@ -65,6 +66,7 @@ try {
 
 // Environment Variables
 BOT_TOKEN = process.env.BOT_TOKEN;
+MOD_BOT_TOKEN = process.env.MOD_BOT_TOKEN;
 WITHDRAWAL_GROUP_ID = process.env.WITHDRAWAL_GROUP_ID;
 OWNER_WALLET = process.env.OWNER_WALLET;
 APP_URL = process.env.APP_URL;
@@ -488,7 +490,7 @@ async function verifyChannelMembership(userId, channelUsername, forceRefresh = f
     
     try {
         const cleanChannel = channelUsername.replace('@', '').trim();
-        const chatMember = await bot.telegram.getChatMember(`@${cleanChannel}`, parseInt(userId));
+        const chatMember = await mainBot.telegram.getChatMember(`@${cleanChannel}`, parseInt(userId));
         const isMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
         
         channelStatusCache.set(cacheKey, { isMember, timestamp: Date.now() });
@@ -552,7 +554,7 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
             `💡 Keep inviting to unlock milestone rewards!`
         );
         
-        await bot.telegram.sendMessage(referrerId, message, { parse_mode: 'HTML' }).catch(() => {});
+        await mainBot.telegram.sendMessage(referrerId, message, { parse_mode: 'HTML' }).catch(() => {});
         await checkMilestoneAchievement(referrerId);
         
         return true;
@@ -590,7 +592,7 @@ async function checkMilestoneAchievement(userId) {
                     `🎉 ${milestone.name}\n👥 ${milestone.count} Referrals\n💰 +${milestone.reward} USDT Added!`,
                     `✨ You're on fire! Keep going!`
                 );
-                await bot.telegram.sendMessage(userId, message, { parse_mode: 'HTML' }).catch(() => {});
+                await mainBot.telegram.sendMessage(userId, message, { parse_mode: 'HTML' }).catch(() => {});
             }
         }
     } catch (error) {
@@ -693,7 +695,7 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
                 `👤 <b>User:</b> ${escapeHtml(user.userName)}\n🆔 <b>ID:</b> ${userId}\n💰 <b>Amount:</b> ${currency === 'AXC' ? amount + ' AXC' : '$' + amount}\n💳 <b>Wallet:</b> <code>${walletAddress}</code>\n🆔 <b>Request ID:</b> <code>${requestId}</code>\n\n✅ <b>Status:</b> Auto-approved - Ready for manual transfer`,
                 `📌 Admin: Please verify user and send funds manually to the address above.`
             );
-            await bot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, message, { parse_mode: 'HTML' }).catch(() => {});
+            await mainBot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, message, { parse_mode: 'HTML' }).catch(() => {});
         }
 
         return { success: true, requestId };
@@ -754,17 +756,29 @@ function getWithdrawAmountKeyboard(currency, minAmount, maxAmount, balance) {
 }
 
 function getAdminKeyboard() {
-    return {
+    const keyboard = {
         inline_keyboard: [
             [{ text: '📊 STATISTICS', callback_data: 'admin_stats' }],
-            [{ text: '💸 PENDING WITHDRAWALS', callback_data: 'admin_pending' }],
             [{ text: '👥 TOTAL USERS', callback_data: 'admin_users' }],
-            [{ text: '🔍 SEARCH USER', callback_data: 'admin_search' }],
             [{ text: '💰 ADD BALANCE', callback_data: 'admin_add_balance' }],
             [{ text: '➖ REMOVE BALANCE', callback_data: 'admin_remove_balance' }],
             [{ text: '📢 BROADCAST', callback_data: 'admin_broadcast' }],
             [{ text: '🔄 SYNC CACHE', callback_data: 'admin_sync_cache' }],
+            [{ text: '🛡️ MODERATION', callback_data: 'admin_moderation_panel' }],
             [{ text: '🚪 LOGOUT', callback_data: 'admin_logout' }]
+        ]
+    };
+    return keyboard;
+}
+
+function getModerationKeyboard() {
+    return {
+        inline_keyboard: [
+            [{ text: moderationActive ? '🔴 STOP MODERATION' : '🟢 START MODERATION', callback_data: 'toggle_moderation' }],
+            [{ text: autoResponsesActive ? '🔇 DISABLE AUTO-RESPONSES' : '🎤 ENABLE AUTO-RESPONSES', callback_data: 'toggle_autoresponse' }],
+            [{ text: welcomeActive ? '📢 DISABLE WELCOME' : '🎉 ENABLE WELCOME', callback_data: 'toggle_welcome' }],
+            [{ text: '📋 VIEW RULES', callback_data: 'view_rules' }],
+            [{ text: '🔙 BACK', callback_data: 'admin_back' }]
         ]
     };
 }
@@ -803,16 +817,128 @@ async function sendAndTrack(ctx, message, keyboard = null) {
 }
 
 // ============================================================================
-// 12. 🤖 BOT COMMANDS & HANDLERS
+// 12. 🛡️ MODERATION BOT (Standalone within same file)
 // ============================================================================
 
-const bot = new Telegraf(BOT_TOKEN);
+// Moderation settings
+let moderationActive = true;
+let autoResponsesActive = true;
+let welcomeActive = true;
 
-bot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
-bot.telegram.getMe().then((botInfo) => { BOT_USERNAME = botInfo.username; console.log(`🤖 Bot: @${BOT_USERNAME}`); }).catch(() => {});
+// Store user warnings
+const userWarnings = new Map();
+
+// Banned words - Delete + Mute Immediately
+const BAN_IMMEDIATELY_WORDS = [
+    "scam", "fake", "fuck", "bio", "sex", "porn", "nude", "naked", "xxx", "adult",
+    "cum", "dick", "cock", "pussy", "ass", "bitch", "whore", "slut", "fag", "nigga", "nigger"
+];
+
+// Words - Delete + Warning
+const WARN_AND_DELETE_WORDS = [
+    "spam", "free money", "click here"
+];
+
+// Words - Delete Only
+const DELETE_ONLY_WORDS = [
+    "http://", "https://", "www.", ".com", ".net", ".org", ".io", ".xyz"
+];
+
+// Allowed usernames
+const ALLOWED_USERNAMES = [
+    "@AxionAiSignal", "@AxionAiSignals", "@Airdrop_MasterVIP", "@Daily_AirdropX",
+    "@AxionAiSwap", "@AxionAiSupport"
+];
+
+// Smart auto-responses
+const SMART_RESPONSES = [
+    { keywords: ["withdraw", "سحب", "withdrawal", "how to withdraw"], response: "💸 <b>Withdrawal Guide</b>\n\n• Open @AxionBep20Airdropbot\n• Click WITHDRAW button\n• Choose AXC or USDT\n• Enter amount and confirm\n\n💰 Min: 1000 AXC or 10 USDT\n⏳ Processing: 1-12 hours" },
+    { keywords: ["referral", "إحالة", "invite", "refer", "دعوة"], response: "🔗 <b>Referral Program</b>\n\n• Get 100 AXC per referral\n• Your referrals must verify channels\n• Milestone rewards up to 50 USDT\n\n📌 Get your link from @AxionBep20Airdropbot → REFERRAL button" },
+    { keywords: ["balance", "رصيد", "how much", "كم معي"], response: "💰 <b>Check Your Balance</b>\n\nOpen @AxionBep20Airdropbot and click BALANCE button to see:\n• AXC balance\n• USDT balance\n• Referral count\n• Total earned" },
+    { keywords: ["swap", "exchange", "convert", "تبديل", "سواب"], response: "🔄 <b>Swap AXC to USDT</b>\n\n1. Open @AxionBep20Airdropbot\n2. Click SWAP STATION\n3. Connect TON wallet (one-time 0.05 TON)\n4. Enter amount and confirm\n\n⚡ Instant • Secure • Best rate" },
+    { keywords: ["price", "سعر", "axc price", "token price"], response: "📈 <b>AXC Price</b>\n\n1 AXC = $0.0099 USDT\n\n💎 Total supply: 1,000,000 AXC\n🔥 Deflationary token" },
+    { keywords: ["verify", "verification", "تحقق", "توثيق"], response: "✅ <b>Verification Guide</b>\n\n1️⃣ Join all required channels\n2️⃣ Click VERIFY button in @AxionBep20Airdropbot\n3️⃣ Get 100 AXC bonus!\n\n🔓 Unlocks withdrawals and swaps" },
+    { keywords: ["contract", "address", "عقد", "عنوان العقد", "ca"], response: "📜 <b>Axion AI Contract Address (BEP20)</b>\n\n<code>0x7aeA114ce8488B01f1254e1CA22786A8eea938a1</code>\n\n⚠️ Always verify before sending!" },
+    { keywords: ["trust wallet", "trust", "wallet", "محفظة", "تريست"], response: "🔐 <b>Recommended Wallet: Trust Wallet</b>\n\n📥 Download: https://trustwallet.com\n\n✅ Supports BEP20 tokens\n✅ Secure and easy to use" },
+    { keywords: ["help", "مساعدة", "مشكلة", "issue", "problem"], response: "🆘 <b>Need Help?</b>\n\n📌 Common solutions:\n• Must verify channels first\n• Minimum withdrawal 1000 AXC\n• Swap requires 0.05 TON activation\n\n👑 Contact admin for support" },
+    { keywords: ["rules", "قوانين", "شروط"], response: "📜 <b>Community Rules</b>\n\n1️⃣ No spam or flood\n2️⃣ No external links\n3️⃣ No inappropriate content\n4️⃣ No unauthorized mentions\n5️⃣ Respect all members\n\n⚠️ Violations may result in mute or ban" }
+];
+
+// Helper functions for moderation
+function containsWord(text, words) {
+    const lowerText = text.toLowerCase();
+    return words.some(word => lowerText.includes(word.toLowerCase()));
+}
+
+function containsBadMention(text) {
+    const mentions = text.match(/@[a-zA-Z0-9_]+/g);
+    if (!mentions) return false;
+    return mentions.some(m => !ALLOWED_USERNAMES.includes(m));
+}
+
+function getAutoResponse(text) {
+    const lowerText = text.toLowerCase();
+    for (const item of SMART_RESPONSES) {
+        for (const keyword of item.keywords) {
+            if (lowerText.includes(keyword.toLowerCase())) {
+                return item.response;
+            }
+        }
+    }
+    return null;
+}
+
+async function muteUser(ctx, userId) {
+    try {
+        await ctx.telegram.restrictChatMember(ctx.chat.id, userId, {
+            can_send_messages: false,
+            can_send_media_messages: false,
+            can_send_other_messages: false,
+            can_add_web_page_previews: false
+        });
+        return true;
+    } catch (error) {
+        console.error('Mute error:', error.message);
+        return false;
+    }
+}
+
+// Welcome message for new members
+async function sendWelcomeMessage(ctx, member) {
+    const welcomeMsg = `
+✨ <b>Welcome to Axion AI, ${escapeHtml(member.first_name)}!</b> ✨
+
+🚀 <b>The future of decentralized finance is here!</b>
+
+🎁 <b>Get Started:</b>
+• Join our required channels
+• Click the VERIFY button in @AxionBep20Airdropbot
+• Receive 100 AXC bonus!
+
+📌 <b>Community Rules:</b>
+• No spam or flood
+• No external links
+• No inappropriate content
+• Respect all members
+
+💡 <b>Need help?</b> Type "help" or contact admin
+
+<tg-spoiler>⚠️ Be aware of scammers! Admin will NEVER DM you first!</tg-spoiler>
+    `;
+    await ctx.reply(welcomeMsg, { parse_mode: 'HTML' });
+}
+
+// ============================================================================
+// 13. 🤖 MAIN BOT COMMANDS & HANDLERS
+// ============================================================================
+
+const mainBot = new Telegraf(BOT_TOKEN);
+
+mainBot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
+mainBot.telegram.getMe().then((botInfo) => { BOT_USERNAME = botInfo.username; console.log(`🤖 Main Bot: @${BOT_USERNAME}`); }).catch(() => {});
 
 // ==================== START COMMAND ====================
-bot.start(async (ctx) => {
+mainBot.start(async (ctx) => {
     const refCode = ctx.startPayload;
     const userId = ctx.from.id.toString();
     const userName = ctx.from.first_name || 'Axion User';
@@ -879,7 +1005,7 @@ bot.start(async (ctx) => {
 });
 
 // ==================== BALANCE ====================
-bot.hears('💰 BALANCE', async (ctx) => {
+mainBot.hears('💰 BALANCE', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getUser(userId);
     if (!user) return;
@@ -895,7 +1021,7 @@ bot.hears('💰 BALANCE', async (ctx) => {
 });
 
 // ==================== REFERRAL ====================
-bot.hears('🔗 REFERRAL', async (ctx) => {
+mainBot.hears('🔗 REFERRAL', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getUser(userId);
     if (!user) return;
@@ -925,7 +1051,7 @@ bot.hears('🔗 REFERRAL', async (ctx) => {
 });
 
 // ==================== HISTORY ====================
-bot.hears('📜 HISTORY', async (ctx) => {
+mainBot.hears('📜 HISTORY', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getUser(userId);
     if (!user) return;
@@ -941,7 +1067,7 @@ bot.hears('📜 HISTORY', async (ctx) => {
 });
 
 // ==================== WITHDRAW ====================
-bot.hears('💸 WITHDRAW', async (ctx) => {
+mainBot.hears('💸 WITHDRAW', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getUser(userId);
     if (!user) return;
@@ -1013,7 +1139,7 @@ bot.hears('💸 WITHDRAW', async (ctx) => {
 });
 
 // ==================== WITHDRAW CURRENCY SELECTION ====================
-bot.action('withdraw_axc', async (ctx) => {
+mainBot.action('withdraw_axc', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     
@@ -1035,7 +1161,7 @@ bot.action('withdraw_axc', async (ctx) => {
     await ctx.reply(message, { parse_mode: 'HTML', reply_markup: getWithdrawAmountKeyboard('AXC', APP_CONFIG.minWithdrawAXC, APP_CONFIG.maxWithdrawAXC, balance) });
 });
 
-bot.action('withdraw_usdt', async (ctx) => {
+mainBot.action('withdraw_usdt', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     
@@ -1058,7 +1184,7 @@ bot.action('withdraw_usdt', async (ctx) => {
 });
 
 // ==================== WITHDRAW AMOUNT SELECTION ====================
-bot.action(/withdraw_amount_(.+)/, async (ctx) => {
+mainBot.action(/withdraw_amount_(.+)/, async (ctx) => {
     const userId = ctx.from.id.toString();
     const amount = parseFloat(ctx.match[1]);
     await ctx.answerCbQuery();
@@ -1096,7 +1222,7 @@ bot.action(/withdraw_amount_(.+)/, async (ctx) => {
     await ctx.reply(message, { parse_mode: 'HTML', reply_markup: keyboard });
 });
 
-bot.action('withdraw_custom_amount', async (ctx) => {
+mainBot.action('withdraw_custom_amount', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     
@@ -1107,7 +1233,7 @@ bot.action('withdraw_custom_amount', async (ctx) => {
     await ctx.reply(formatProfessionalMessage('✏️ CUSTOM AMOUNT', 'Please send the amount you wish to withdraw as a number.\n\nExample: 500', 'Send a number now:'));
 });
 
-bot.action('confirm_withdraw_final', async (ctx) => {
+mainBot.action('confirm_withdraw_final', async (ctx) => {
     const userId = ctx.from.id.toString();
     const session = withdrawSessions.get(userId);
     await ctx.answerCbQuery();
@@ -1142,7 +1268,7 @@ bot.action('confirm_withdraw_final', async (ctx) => {
     withdrawSessions.delete(userId);
 });
 
-bot.action('back_to_withdraw', async (ctx) => {
+mainBot.action('back_to_withdraw', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     withdrawSessions.delete(userId);
@@ -1154,7 +1280,7 @@ bot.action('back_to_withdraw', async (ctx) => {
 });
 
 // ==================== VERIFY MEMBERSHIP ====================
-bot.action('verify_membership', async (ctx) => {
+mainBot.action('verify_membership', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery('🔍 Checking channels...');
     
@@ -1221,7 +1347,7 @@ bot.action('verify_membership', async (ctx) => {
 });
 
 // ==================== SWAP STATION ====================
-bot.hears('🔄 SWAP STATION', async (ctx) => {
+mainBot.hears('🔄 SWAP STATION', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getUser(userId);
     if (!user) return;
@@ -1249,7 +1375,7 @@ bot.hears('🔄 SWAP STATION', async (ctx) => {
 });
 
 // ==================== SETTINGS ====================
-bot.hears('⚙️ SETTINGS', async (ctx) => {
+mainBot.hears('⚙️ SETTINGS', async (ctx) => {
     const userId = ctx.from.id.toString();
     const user = await getUser(userId);
     
@@ -1268,7 +1394,7 @@ bot.hears('⚙️ SETTINGS', async (ctx) => {
     await sendAndTrack(ctx, message, keyboard);
 });
 
-bot.action('change_wallet', async (ctx) => {
+mainBot.action('change_wallet', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     
@@ -1282,7 +1408,7 @@ bot.action('change_wallet', async (ctx) => {
 });
 
 // ==================== GENERAL ACTIONS ====================
-bot.action('cancel_action', async (ctx) => {
+mainBot.action('cancel_action', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     withdrawSessions.delete(userId);
@@ -1290,7 +1416,7 @@ bot.action('cancel_action', async (ctx) => {
     await ctx.reply(message, { parse_mode: 'HTML', reply_markup: getMainKeyboard(userId) });
 });
 
-bot.action('back_to_menu', async (ctx) => {
+mainBot.action('back_to_menu', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     withdrawSessions.delete(userId);
@@ -1300,7 +1426,7 @@ bot.action('back_to_menu', async (ctx) => {
 });
 
 // ============================================================================
-// 13. 👑 ADMIN PANEL
+// 14. 👑 ADMIN PANEL
 // ============================================================================
 
 const adminSessions = new Map();
@@ -1315,7 +1441,7 @@ setInterval(() => {
 }, APP_CONFIG.sessionCleanupInterval);
 
 async function getBotStats() {
-    if (!checkDb()) return { users: 0, pendingWithdrawals: 0, totalBalance: 0, totalUsdt: 0, verified: 0 };
+    if (!checkDb()) return { users: 0, totalBalance: 0, totalUsdt: 0, verified: 0 };
     try {
         let totalBalance = 0, totalUsdt = 0, verified = 0;
         for (const [_, user] of userCache.cache) {
@@ -1323,11 +1449,9 @@ async function getBotStats() {
             totalUsdt += user.usdtBalance || 0;
             if (user.isVerified) verified++;
         }
-        // Note: Withdrawals are auto-approved, so no pending withdrawals
-        const pendingSnapshot = await db.collection('withdrawals').where('status', '==', 'pending').get();
-        return { users: userCache.cache.size, pendingWithdrawals: pendingSnapshot.size, totalBalance, totalUsdt, verified };
+        return { users: userCache.cache.size, totalBalance, totalUsdt, verified };
     } catch (error) {
-        return { users: 0, pendingWithdrawals: 0, totalBalance: 0, totalUsdt: 0, verified: 0 };
+        return { users: 0, totalBalance: 0, totalUsdt: 0, verified: 0 };
     }
 }
 
@@ -1335,7 +1459,7 @@ async function broadcastToAllUsers(message) {
     let sent = 0, failed = 0;
     for (const [userId, _] of userCache.cache) {
         try {
-            await bot.telegram.sendMessage(userId, formatProfessionalMessage('📢 ANNOUNCEMENT', message), { parse_mode: 'HTML' });
+            await mainBot.telegram.sendMessage(userId, formatProfessionalMessage('📢 ANNOUNCEMENT', message), { parse_mode: 'HTML' });
             sent++;
             await new Promise(r => setTimeout(r, 50));
         } catch (e) { failed++; }
@@ -1344,7 +1468,7 @@ async function broadcastToAllUsers(message) {
 }
 
 // ==================== ADMIN PANEL HANDLER ====================
-bot.hears('👑 ADMIN PANEL', async (ctx) => {
+mainBot.hears('👑 ADMIN PANEL', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId)) {
         await ctx.reply('⛔ Access Denied');
@@ -1369,7 +1493,7 @@ bot.hears('👑 ADMIN PANEL', async (ctx) => {
 });
 
 // ==================== ADMIN ACTIONS ====================
-bot.action('admin_stats', async (ctx) => {
+mainBot.action('admin_stats', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
         await ctx.answerCbQuery('⛔ Unauthorized');
@@ -1381,23 +1505,7 @@ bot.action('admin_stats', async (ctx) => {
     await ctx.reply(message, { parse_mode: 'HTML' });
 });
 
-bot.action('admin_pending', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
-        await ctx.answerCbQuery('⛔ Unauthorized');
-        return;
-    }
-    await ctx.answerCbQuery();
-    
-    const message = formatProfessionalMessage(
-        '💸 WITHDRAWALS SYSTEM',
-        `✅ <b>Withdrawals are auto-approved!</b>\n\nAll withdrawal requests are automatically approved.\n\n📌 Check the withdrawal group for new requests.\n\nAdmin manually sends USDT to the provided wallet address.`,
-        `No pending approvals needed.`
-    );
-    await ctx.reply(message, { parse_mode: 'HTML' });
-});
-
-bot.action('admin_users', async (ctx) => {
+mainBot.action('admin_users', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
         await ctx.answerCbQuery('⛔ Unauthorized');
@@ -1413,18 +1521,7 @@ bot.action('admin_users', async (ctx) => {
     await ctx.reply(message, { parse_mode: 'HTML' });
 });
 
-bot.action('admin_search', async (ctx) => {
-    const userId = ctx.from.id.toString();
-    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
-        await ctx.answerCbQuery('⛔ Unauthorized');
-        return;
-    }
-    await ctx.answerCbQuery();
-    adminSessions.get(userId).step = 'searching_user';
-    await ctx.reply('🔍 <b>SEARCH USER</b>\n\nSend user ID or username:', { parse_mode: 'HTML' });
-});
-
-bot.action('admin_add_balance', async (ctx) => {
+mainBot.action('admin_add_balance', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
         await ctx.answerCbQuery('⛔ Unauthorized');
@@ -1435,7 +1532,7 @@ bot.action('admin_add_balance', async (ctx) => {
     await ctx.reply('💰 <b>ADD BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\nExample: <code>123456789 100 AXC</code>', { parse_mode: 'HTML' });
 });
 
-bot.action('admin_remove_balance', async (ctx) => {
+mainBot.action('admin_remove_balance', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
         await ctx.answerCbQuery('⛔ Unauthorized');
@@ -1446,7 +1543,7 @@ bot.action('admin_remove_balance', async (ctx) => {
     await ctx.reply('➖ <b>REMOVE BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\nExample: <code>123456789 50 AXC</code>', { parse_mode: 'HTML' });
 });
 
-bot.action('admin_broadcast', async (ctx) => {
+mainBot.action('admin_broadcast', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
         await ctx.answerCbQuery('⛔ Unauthorized');
@@ -1457,7 +1554,7 @@ bot.action('admin_broadcast', async (ctx) => {
     await ctx.reply('📢 <b>BROADCAST</b>\n\nSend your message to all users:', { parse_mode: 'HTML' });
 });
 
-bot.action('admin_sync_cache', async (ctx) => {
+mainBot.action('admin_sync_cache', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
         await ctx.answerCbQuery('⛔ Unauthorized');
@@ -1468,14 +1565,30 @@ bot.action('admin_sync_cache', async (ctx) => {
     await ctx.reply('✅ Cache synced to Firebase!');
 });
 
-bot.action('admin_logout', async (ctx) => {
+mainBot.action('admin_moderation_panel', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
+        await ctx.answerCbQuery('⛔ Unauthorized');
+        return;
+    }
+    await ctx.answerCbQuery();
+    
+    const message = formatProfessionalMessage(
+        '🛡️ MODERATION PANEL',
+        `📊 <b>Current Settings:</b>\n\n🛡️ Moderation: ${moderationActive ? '🟢 ACTIVE' : '🔴 OFF'}\n🤖 Auto-Responses: ${autoResponsesActive ? '🟢 ENABLED' : '🔴 OFF'}\n👋 Welcome Messages: ${welcomeActive ? '🟢 ON' : '🔴 OFF'}\n\n📋 <b>Rules:</b>\n• No spam or flood\n• No external links\n• No inappropriate content\n• Respect all members`,
+        `Use the buttons below to control moderation.`
+    );
+    await ctx.reply(message, { reply_markup: getModerationKeyboard(), parse_mode: 'HTML' });
+});
+
+mainBot.action('admin_logout', async (ctx) => {
     const userId = ctx.from.id.toString();
     await ctx.answerCbQuery();
     adminSessions.delete(userId);
     await ctx.reply('🔓 Logged out successfully.');
 });
 
-bot.action('admin_back', async (ctx) => {
+mainBot.action('admin_back', async (ctx) => {
     const userId = ctx.from.id.toString();
     if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
         await ctx.answerCbQuery('⛔ Unauthorized');
@@ -1490,10 +1603,111 @@ bot.action('admin_back', async (ctx) => {
 });
 
 // ============================================================================
-// 14. 📝 TEXT MESSAGE HANDLER
+// 15. 🛡️ MODERATION BOT ACTIONS (Admin Controls)
 // ============================================================================
 
-bot.on('text', async (ctx) => {
+mainBot.action('toggle_moderation', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
+        await ctx.answerCbQuery('⛔ Unauthorized');
+        return;
+    }
+    moderationActive = !moderationActive;
+    const status = moderationActive ? '🟢 ACTIVATED' : '🔴 DEACTIVATED';
+    await ctx.answerCbQuery(`Moderation ${status}`);
+    await ctx.reply(`🛡️ <b>Group Moderation</b> ${status}\n\n${moderationActive ? 'Bot will now monitor and enforce rules.' : 'Bot will stop monitoring the group.'}`, { parse_mode: 'HTML' });
+    
+    // Update the moderation panel message
+    const message = formatProfessionalMessage(
+        '🛡️ MODERATION PANEL',
+        `📊 <b>Current Settings:</b>\n\n🛡️ Moderation: ${moderationActive ? '🟢 ACTIVE' : '🔴 OFF'}\n🤖 Auto-Responses: ${autoResponsesActive ? '🟢 ENABLED' : '🔴 OFF'}\n👋 Welcome Messages: ${welcomeActive ? '🟢 ON' : '🔴 OFF'}`,
+        `Use the buttons below to control moderation.`
+    );
+    await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: getModerationKeyboard() });
+});
+
+mainBot.action('toggle_autoresponse', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
+        await ctx.answerCbQuery('⛔ Unauthorized');
+        return;
+    }
+    autoResponsesActive = !autoResponsesActive;
+    const status = autoResponsesActive ? '🟢 ENABLED' : '🔴 DISABLED';
+    await ctx.answerCbQuery(`Auto-Responses ${status}`);
+    await ctx.reply(`🤖 <b>Auto-Responses</b> ${status}\n\n${autoResponsesActive ? 'Bot will now answer questions automatically.' : 'Bot will stop auto-responding.'}`, { parse_mode: 'HTML' });
+    
+    const message = formatProfessionalMessage(
+        '🛡️ MODERATION PANEL',
+        `📊 <b>Current Settings:</b>\n\n🛡️ Moderation: ${moderationActive ? '🟢 ACTIVE' : '🔴 OFF'}\n🤖 Auto-Responses: ${autoResponsesActive ? '🟢 ENABLED' : '🔴 OFF'}\n👋 Welcome Messages: ${welcomeActive ? '🟢 ON' : '🔴 OFF'}`,
+        `Use the buttons below to control moderation.`
+    );
+    await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: getModerationKeyboard() });
+});
+
+mainBot.action('toggle_welcome', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
+        await ctx.answerCbQuery('⛔ Unauthorized');
+        return;
+    }
+    welcomeActive = !welcomeActive;
+    const status = welcomeActive ? '🟢 ENABLED' : '🔴 DISABLED';
+    await ctx.answerCbQuery(`Welcome Messages ${status}`);
+    await ctx.reply(`👋 <b>Welcome Messages</b> ${status}\n\n${welcomeActive ? 'Bot will now welcome new members.' : 'Bot will stop welcoming new members.'}`, { parse_mode: 'HTML' });
+    
+    const message = formatProfessionalMessage(
+        '🛡️ MODERATION PANEL',
+        `📊 <b>Current Settings:</b>\n\n🛡️ Moderation: ${moderationActive ? '🟢 ACTIVE' : '🔴 OFF'}\n🤖 Auto-Responses: ${autoResponsesActive ? '🟢 ENABLED' : '🔴 OFF'}\n👋 Welcome Messages: ${welcomeActive ? '🟢 ON' : '🔴 OFF'}`,
+        `Use the buttons below to control moderation.`
+    );
+    await ctx.editMessageText(message, { parse_mode: 'HTML', reply_markup: getModerationKeyboard() });
+});
+
+mainBot.action('view_rules', async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (!isAdmin(userId) || !adminSessions.get(userId)?.authenticated) {
+        await ctx.answerCbQuery('⛔ Unauthorized');
+        return;
+    }
+    await ctx.answerCbQuery();
+    
+    const rules = `
+╔══════════════════════════════════╗
+║         📜 <b>GROUP RULES</b>          ║
+╠══════════════════════════════════╣
+║                                    ║
+║  1️⃣ <b>No Spam</b>                  ║
+║     • Don't flood the chat         ║
+║     • No repetitive messages       ║
+║                                    ║
+║  2️⃣ <b>No External Links</b>        ║
+║     • No promotion                 ║
+║     • No suspicious links          ║
+║                                    ║
+║  3️⃣ <b>No Inappropriate Content</b> ║
+║     • No NSFW                      ║
+║     • No offensive language        ║
+║                                    ║
+║  4️⃣ <b>Respect Members</b>           ║
+║     • Be kind                      ║
+║     • No harassment                ║
+║                                    ║
+║  5️⃣ <b>No Unauthorized Mentions</b>  ║
+║     • Ask before tagging           ║
+║                                    ║
+╠══════════════════════════════════╣
+║  ⚠️ Violations = Mute or Ban       ║
+╚══════════════════════════════════╝
+    `;
+    await ctx.reply(rules, { parse_mode: 'HTML' });
+});
+
+// ============================================================================
+// 16. 📝 MAIN BOT TEXT MESSAGE HANDLER (PRIVATE CHAT)
+// ============================================================================
+
+mainBot.on('text', async (ctx) => {
     const userId = ctx.from.id.toString();
     const messageText = ctx.message.text;
     
@@ -1645,7 +1859,7 @@ bot.on('text', async (ctx) => {
         if (isValidBEP20(messageText)) {
             await updateUser(userId, { walletAddress: messageText }, true);
             withdrawSessions.delete(userId);
-            const message = formatProfessionalMessage('✅ WALLET SAVED!', `💳 <code>${messageText}</code>\n\nYou can now withdraw funds.`);
+            const message = formatProfessionalMessage('✅ WALLET SAVED!', `💳 <code>${messageText}</code>\n\nYou can now withdraw funds.`, `Send your address now:`);
             await ctx.reply(message, { parse_mode: 'HTML', reply_markup: getMainKeyboard(userId) });
         } else {
             await ctx.reply('❌ Invalid BEP20 address. Please send a valid wallet address starting with 0x...');
@@ -1687,7 +1901,99 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================================
-// 15. 🌐 API ROUTES
+// 17. 🤖 MODERATION BOT HANDLERS (Group Only)
+// ============================================================================
+
+// Create moderation bot instance
+const modBot = new Telegraf(MOD_BOT_TOKEN);
+
+modBot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
+modBot.telegram.getMe().then((botInfo) => { console.log(`🤖 Mod Bot: @${botInfo.username}`); }).catch(() => {});
+
+// Private chat handler for mod bot
+modBot.start(async (ctx) => {
+    const userId = ctx.from.id.toString();
+    if (isAdmin(userId)) {
+        await ctx.reply('🛡️ <b>Moderation Bot</b>\n\nUse the main bot @AxionBep20Airdropbot to access the admin panel.', { parse_mode: 'HTML' });
+    } else {
+        await ctx.reply('🤖 <b>Moderation Bot</b>\n\nThis bot is for group moderation only.\n\nPlease use @AxionBep20Airdropbot for airdrop-related queries.', { parse_mode: 'HTML' });
+    }
+});
+
+// Group moderation handler
+modBot.on('text', async (ctx) => {
+    const isGroup = ctx.chat.type === 'supergroup' || ctx.chat.type === 'group';
+    if (!isGroup) return;
+    if (!moderationActive) return;
+    if (ctx.message.text.startsWith('/')) return;
+    
+    const text = ctx.message.text;
+    const userId = ctx.from.id;
+    const userFirstName = ctx.from.first_name;
+    const username = ctx.from.username || userFirstName;
+    
+    // Check for banned words - Mute Immediately
+    if (containsWord(text, BAN_IMMEDIATELY_WORDS)) {
+        await ctx.deleteMessage();
+        await muteUser(ctx, userId);
+        await ctx.reply(`🔇 <b>User ${userFirstName} has been muted!</b>\n\nReason: Inappropriate content\n\n⏳ Muted permanently until admin unmutes.`, { parse_mode: 'HTML' });
+        
+        if (ADMIN_ID) {
+            await modBot.telegram.sendMessage(ADMIN_ID, `🔴 <b>Moderation Alert</b>\n\nUser: ${userFirstName}\nID: ${userId}\nAction: Permanently muted\nReason: Inappropriate words\nGroup: ${ctx.chat.title}`, { parse_mode: 'HTML' });
+        }
+        return;
+    }
+    
+    // Check for warning words
+    if (containsWord(text, WARN_AND_DELETE_WORDS)) {
+        await ctx.deleteMessage();
+        const warnings = (userWarnings.get(userId) || 0) + 1;
+        userWarnings.set(userId, warnings);
+        await ctx.reply(`⚠️ <b>Warning ${warnings}/3</b>\n\n@${username}, please avoid spam messages.\n\n📌 Read the group rules.`, { parse_mode: 'HTML' });
+        
+        if (warnings >= 3) {
+            await muteUser(ctx, userId);
+            await ctx.reply(`🔇 <b>User ${userFirstName} has been muted for repeated violations!</b>`, { parse_mode: 'HTML' });
+            userWarnings.delete(userId);
+        }
+        return;
+    }
+    
+    // Check for links
+    if (containsWord(text, DELETE_ONLY_WORDS)) {
+        await ctx.deleteMessage();
+        await ctx.reply(`🚫 <b>Links are not allowed!</b>\n\n@${username}, please do not share external links.`, { parse_mode: 'HTML' });
+        return;
+    }
+    
+    // Check for bad mentions
+    if (containsBadMention(text)) {
+        await ctx.deleteMessage();
+        await ctx.reply(`🔇 <b>Mentions are not allowed!</b>\n\n@${username}, please do not mention other users unnecessarily.`, { parse_mode: 'HTML' });
+        return;
+    }
+    
+    // Auto-responses
+    if (autoResponsesActive) {
+        const response = getAutoResponse(text);
+        if (response) {
+            await ctx.reply(response, { parse_mode: 'HTML' });
+        }
+    }
+});
+
+// Welcome new members
+modBot.on('new_chat_members', async (ctx) => {
+    if (!welcomeActive) return;
+    
+    for (const member of ctx.message.new_chat_members) {
+        if (member.id === modBot.botInfo.id) continue;
+        await sendWelcomeMessage(ctx, member);
+    }
+});
+
+// ============================================================================
+// 18. 🌐 API ROUTES
 // ============================================================================
 
 app.use(cors());
@@ -1749,7 +2055,7 @@ app.get('/tonconnect-manifest.json', (req, res) => {
 });
 
 // ============================================================================
-// 15.5. 🚀 SWAP & WITHDRAW APIs (FOR MINI APP)
+// 19. 🚀 SWAP & WITHDRAW APIs (FOR MINI APP)
 // ============================================================================
 
 // API: SWAP AXC to USDT
@@ -1897,7 +2203,7 @@ app.post('/api/ton-verify', async (req, res) => {
 });
 
 // ============================================================================
-// 16. 🚀 GRACEFUL SHUTDOWN
+// 20. 🚀 GRACEFUL SHUTDOWN
 // ============================================================================
 
 async function gracefulShutdown() {
@@ -1911,31 +2217,40 @@ process.once('SIGINT', gracefulShutdown);
 process.once('SIGTERM', gracefulShutdown);
 
 // ============================================================================
-// 17. 🚀 START THE BOT
+// 21. 🚀 START BOTH BOTS
 // ============================================================================
 
-bot.launch({ dropPendingUpdates: true })
-    .then(() => console.log('🚀 Axion AI Bot v11.0 Started'))
-    .catch(err => console.error('❌ Bot error:', err));
+mainBot.launch({ dropPendingUpdates: true })
+    .then(() => console.log('🚀 Axion AI Main Bot Started'))
+    .catch(err => console.error('❌ Main Bot error:', err));
+
+modBot.launch({ dropPendingUpdates: true })
+    .then(() => console.log('🚀 Axion AI Moderation Bot Started'))
+    .catch(err => console.error('❌ Mod Bot error:', err));
 
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                  AXION AI BOT - LEGENDARY EDITION v11.0                      ║
-║                       (AUTO-APPROVE WITHDRAWALS)                             ║
+║                  AXION AI BOT - LEGENDARY EDITION v12.0                      ║
+║                    (Main Bot + Moderation Bot Combined)                      ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  📍 Port: ${PORT}                                                              ║
 ║  🔥 Firebase: ${db ? '✅ Connected' : '❌ Disconnected'}                                             ║
 ║  👑 Admin: ${ADMIN_ID ? '✅ Configured' : '❌ Missing'}                                              ║
-║  🤖 Bot: ${BOT_TOKEN ? '✅ Running' : '❌ Missing'}                                                ║
+║  🤖 Main Bot: ${BOT_TOKEN ? '✅ Running' : '❌ Missing'}                                             ║
+║  🤖 Mod Bot: ${MOD_BOT_TOKEN ? '✅ Running' : '❌ Missing'}                                          ║
 ║  📦 Cache: ${userCache.getStats().cacheSize} users (${userCache.getStats().dirtyCount} dirty)                     ║
 ║  🛡️ Rate Limit: ${APP_CONFIG.rateLimitMax} req/${APP_CONFIG.rateLimitWindow / 1000}s                        ║
+║  🛡️ Moderation: ${moderationActive ? '🟢 ACTIVE' : '🔴 OFF'}                                                ║
+║  🤖 Auto-Responses: ${autoResponsesActive ? '🟢 ENABLED' : '🔴 OFF'}                                          ║
+║  👋 Welcome: ${welcomeActive ? '🟢 ON' : '🔴 OFF'}                                                          ║
 ║  🎁 Welcome: ${APP_CONFIG.welcomeBonus} AXC (~$${(APP_CONFIG.welcomeBonus * APP_CONFIG.axcPrice).toFixed(2)})                    ║
 ║  👥 Referral: ${APP_CONFIG.referralBonus} AXC (~$${(APP_CONFIG.referralBonus * APP_CONFIG.axcPrice).toFixed(2)})                    ║
 ║  💎 Withdraw AXC: ${APP_CONFIG.minWithdrawAXC} - ${APP_CONFIG.maxWithdrawAXC} AXC                               ║
 ║  💵 Withdraw USDT: $${APP_CONFIG.minWithdrawUSDT} - $${APP_CONFIG.maxWithdrawUSDT}                              ║
 ║  🔄 Swap: Min ${APP_CONFIG.minSwap} AXC - Max ${APP_CONFIG.maxSwap} AXC                                        ║
 ║  ✨ Withdrawals: AUTO-APPROVED (1-12 hours processing)                       ║
+║  🔗 Contract: 0x7aeA114ce8488B01f1254e1CA22786A8eea938a1                     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     `);
 });
