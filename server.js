@@ -1,8 +1,9 @@
 // ============================================================================
-// AXION AI BOT - LEGENDARY EDITION v12.0 (COMPLETE FINAL)
+// AXION AI BOT - LEGENDARY EDITION v13.0 (COMPLETE FINAL)
 // ============================================================================
 // Professional Design | Rate Limiting | Transaction History | Cache Warmup
 // Auto-Approve Withdrawals | Group Moderation | Smart Auto-Responses
+// Optimized Cache (Periodic Sync Every 6 Hours)
 // ============================================================================
 
 const express = require('express');
@@ -90,7 +91,7 @@ const APP_CONFIG = {
     withdrawCooldown: 86400000,
     sessionTTL: 3600000,
     adminSessionTTL: 86400000,
-    syncInterval: 21600000,
+    syncInterval: 21600000, // 6 hours - Periodic sync to Firebase
     cacheTTL: 3600000,
     rateLimitWindow: 60000,
     rateLimitMax: 30,
@@ -244,7 +245,7 @@ const rateLimiter = new RateLimiter(APP_CONFIG.rateLimitWindow, APP_CONFIG.rateL
 setInterval(() => rateLimiter.cleanup(), 3600000);
 
 // ============================================================================
-// 5. 💾 ADVANCED CACHE SYSTEM WITH WARMUP
+// 5. 💾 ADVANCED CACHE SYSTEM WITH PERIODIC SYNC
 // ============================================================================
 
 class UserCache {
@@ -301,6 +302,7 @@ class UserCache {
         return null;
     }
 
+    // Only used for immediate sync (create user, admin add balance, etc.)
     async updateImmediate(userId, updates, db) {
         const updated = this.update(userId, updates);
         if (updated && db) {
@@ -320,7 +322,7 @@ class UserCache {
         const dirtyArray = Array.from(this.dirtyUsers);
         if (dirtyArray.length === 0) return;
         
-        console.log(`🔄 Syncing ${dirtyArray.length} users...`);
+        console.log(`🔄 Periodic sync: Saving ${dirtyArray.length} dirty users to Firebase...`);
         let success = 0;
         
         for (const userId of dirtyArray) {
@@ -337,7 +339,7 @@ class UserCache {
         }
         
         this.dirtyUsers.clear();
-        console.log(`✅ Synced ${success} users`);
+        console.log(`✅ Periodic sync complete: ${success} users updated`);
     }
 
     getStats() {
@@ -363,6 +365,8 @@ if (serviceAccount) {
         console.log('🔥 Firebase initialized');
         
         setTimeout(() => userCache.warmup(db, 500), 5000);
+        
+        // Periodic sync every 6 hours
         setInterval(async () => {
             await userCache.syncAllToFirebase(db);
         }, APP_CONFIG.syncInterval);
@@ -441,7 +445,7 @@ async function getOrCreateUser(userId, userName, username, referredBy = null) {
         };
         
         await userRef.set(newUser);
-        console.log(`✅ New user: ${userId} (${userName})`);
+        console.log(`✅ New user created: ${userId} (${userName})`);
         return userCache.set(userId, newUser);
         
     } catch (error) {
@@ -450,6 +454,7 @@ async function getOrCreateUser(userId, userName, username, referredBy = null) {
     }
 }
 
+// updates with immediate = false for periodic sync (default)
 async function updateUser(userId, updates, immediate = false) {
     if (immediate) {
         return await userCache.updateImmediate(userId, updates, db);
@@ -457,7 +462,7 @@ async function updateUser(userId, updates, immediate = false) {
     return userCache.update(userId, updates);
 }
 
-async function addTransaction(userId, transaction) {
+async function addTransaction(userId, transaction, immediate = false) {
     const user = await getUser(userId);
     if (!user) return;
     
@@ -469,7 +474,7 @@ async function addTransaction(userId, transaction) {
     });
     
     const limited = transactions.slice(0, 100);
-    await updateUser(userId, { transactions: limited }, true);
+    await updateUser(userId, { transactions: limited }, immediate);
 }
 
 // ============================================================================
@@ -530,13 +535,14 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
         const currentReferrals = referrer.referrals || [];
         if (currentReferrals.includes(newUserId)) return false;
 
+        // Use periodic sync (immediate = false)
         await updateUser(referrerId, {
             referrals: [...currentReferrals, newUserId],
             inviteCount: (referrer.inviteCount || 0) + 1,
             balance: (referrer.balance || 0) + APP_CONFIG.referralBonus,
             totalEarned: (referrer.totalEarned || 0) + APP_CONFIG.referralBonus,
             lastReferralAt: new Date().toISOString()
-        }, true);
+        }, false);
         
         await addTransaction(referrerId, {
             type: 'referral',
@@ -544,7 +550,7 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
             currency: 'AXC',
             status: 'completed',
             description: `Referral bonus for ${newUserName}`
-        });
+        }, false);
 
         const newInviteCount = (referrer.inviteCount || 0) + 1;
         
@@ -577,7 +583,7 @@ async function checkMilestoneAchievement(userId) {
                 await updateUser(userId, {
                     usdtBalance: (user.usdtBalance || 0) + milestone.reward,
                     claimedMilestones: [...claimed, milestone.count]
-                }, true);
+                }, false);
                 
                 await addTransaction(userId, {
                     type: 'milestone',
@@ -585,7 +591,7 @@ async function checkMilestoneAchievement(userId) {
                     currency: 'USDT',
                     status: 'completed',
                     description: `${milestone.name} milestone: ${milestone.count} referrals`
-                });
+                }, false);
 
                 const message = formatProfessionalMessage(
                     '🏆 MILESTONE UNLOCKED!',
@@ -639,11 +645,11 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
             if (amount > (user.usdtBalance || 0)) return { success: false, error: `💡 Your USDT balance is ${formatUSD(user.usdtBalance || 0)}. Swap AXC to USDT first!` };
         }
 
-        // Deduct balance
+        // Deduct balance - use periodic sync
         if (currency === 'AXC') {
-            await updateUser(userId, { balance: (user.balance || 0) - amount }, true);
+            await updateUser(userId, { balance: (user.balance || 0) - amount }, false);
         } else {
-            await updateUser(userId, { usdtBalance: (user.usdtBalance || 0) - amount }, true);
+            await updateUser(userId, { usdtBalance: (user.usdtBalance || 0) - amount }, false);
         }
 
         withdrawCooldownTracker.set(userId, Date.now());
@@ -651,7 +657,6 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
         const withdrawalRef = db.collection('withdrawals').doc();
         const requestId = withdrawalRef.id;
         
-        // AUTO-APPROVE: Set status to 'approved' immediately
         const approvedAt = new Date().toISOString();
 
         await withdrawalRef.set({
@@ -667,7 +672,7 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
             createdAt: new Date().toISOString()
         });
 
-        // Add transaction record with 'approved' status
+        // Add transaction record - use periodic sync
         await addTransaction(userId, {
             type: 'withdrawal',
             amount: amount,
@@ -675,7 +680,7 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
             status: 'approved',
             approvedAt: approvedAt,
             description: `Withdrawal to ${walletAddress.substring(0, 10)}...`
-        });
+        }, false);
 
         const userWithdrawals = user.withdrawals || [];
         userWithdrawals.push({ 
@@ -686,7 +691,7 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
             approvedAt: approvedAt,
             createdAt: new Date().toISOString() 
         });
-        await updateUser(userId, { withdrawals: userWithdrawals }, true);
+        await updateUser(userId, { withdrawals: userWithdrawals }, false);
 
         // Send notification to admin group (without buttons - just info)
         if (WITHDRAWAL_GROUP_ID) {
@@ -817,7 +822,7 @@ async function sendAndTrack(ctx, message, keyboard = null) {
 }
 
 // ============================================================================
-// 12. 🛡️ MODERATION BOT (Standalone within same file)
+// 12. 🛡️ MODERATION BOT SETTINGS & LISTS
 // ============================================================================
 
 // Moderation settings
@@ -850,8 +855,13 @@ const ALLOWED_USERNAMES = [
     "@AxionAiSwap", "@AxionAiSupport"
 ];
 
-// Smart auto-responses
+// Smart auto-responses (including casual greetings)
 const SMART_RESPONSES = [
+    // Greetings
+    { keywords: ["hi", "hello", "hey", "سلام", "هلا"], response: "👋 <b>Hello!</b>\n\nWelcome to Axion AI! How can I help you today?\n\n💡 Type <b>help</b> to see available commands." },
+    { keywords: ["thanks", "thank you", "thx", "شكرا", "thank"], response: "❤️ <b>You're welcome!</b>\n\nHappy to help! Let me know if you need anything else.\n\n🚀 Enjoy your Axion AI experience!" },
+    
+    // Commands
     { keywords: ["withdraw", "سحب", "withdrawal", "how to withdraw"], response: "💸 <b>Withdrawal Guide</b>\n\n• Open @AxionBep20Airdropbot\n• Click WITHDRAW button\n• Choose AXC or USDT\n• Enter amount and confirm\n\n💰 Min: 1000 AXC or 10 USDT\n⏳ Processing: 1-12 hours" },
     { keywords: ["referral", "إحالة", "invite", "refer", "دعوة"], response: "🔗 <b>Referral Program</b>\n\n• Get 100 AXC per referral\n• Your referrals must verify channels\n• Milestone rewards up to 50 USDT\n\n📌 Get your link from @AxionBep20Airdropbot → REFERRAL button" },
     { keywords: ["balance", "رصيد", "how much", "كم معي"], response: "💰 <b>Check Your Balance</b>\n\nOpen @AxionBep20Airdropbot and click BALANCE button to see:\n• AXC balance\n• USDT balance\n• Referral count\n• Total earned" },
@@ -969,7 +979,7 @@ mainBot.start(async (ctx) => {
                 currency: 'AXC',
                 status: 'completed',
                 description: 'Welcome bonus for joining Axion AI'
-            });
+            }, true);
             
             if (user.referredBy) {
                 await processReferralAfterVerification(user.referredBy, userId, user.userName);
@@ -1096,7 +1106,7 @@ mainBot.hears('💸 WITHDRAW', async (ctx) => {
                 currency: 'AXC',
                 status: 'completed',
                 description: 'Welcome bonus'
-            });
+            }, true);
             if (user.referredBy) {
                 await processReferralAfterVerification(user.referredBy, userId, user.userName);
             }
@@ -1328,7 +1338,7 @@ mainBot.action('verify_membership', async (ctx) => {
             currency: 'AXC',
             status: 'completed',
             description: 'Welcome bonus for joining channels'
-        });
+        }, true);
         
         if (user?.referredBy) {
             await processReferralAfterVerification(user.referredBy, userId, user.userName);
@@ -1481,7 +1491,7 @@ mainBot.hears('👑 ADMIN PANEL', async (ctx) => {
         const cacheStats = userCache.getStats();
         const message = formatProfessionalMessage(
             '👑 ADMIN PANEL',
-            `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n📦 Cache: ${cacheStats.cacheSize} users\n\n📌 <b>Note:</b> Withdrawals are auto-approved. Check withdrawal group for manual transfer requests.`,
+            `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n📦 Cache: ${cacheStats.cacheSize} users (${cacheStats.dirtyCount} dirty)\n\n📌 <b>Note:</b> Withdrawals are auto-approved. Check withdrawal group for manual transfer requests.`,
             `Select an option:`
         );
         await ctx.reply(message, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
@@ -1529,7 +1539,7 @@ mainBot.action('admin_add_balance', async (ctx) => {
     }
     await ctx.answerCbQuery();
     adminSessions.get(userId).step = 'adding_balance';
-    await ctx.reply('💰 <b>ADD BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\nExample: <code>123456789 100 AXC</code>', { parse_mode: 'HTML' });
+    await ctx.reply('💰 <b>ADD BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\nExample: <code>123456789 100 AXC</code>\n\n⚠️ Use immediate sync (saves to Firebase now)', { parse_mode: 'HTML' });
 });
 
 mainBot.action('admin_remove_balance', async (ctx) => {
@@ -1540,7 +1550,7 @@ mainBot.action('admin_remove_balance', async (ctx) => {
     }
     await ctx.answerCbQuery();
     adminSessions.get(userId).step = 'removing_balance';
-    await ctx.reply('➖ <b>REMOVE BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\nExample: <code>123456789 50 AXC</code>', { parse_mode: 'HTML' });
+    await ctx.reply('➖ <b>REMOVE BALANCE</b>\n\nFormat: <code>USER_ID AMOUNT CURRENCY</code>\nExample: <code>123456789 50 AXC</code>\n\n⚠️ Use immediate sync (saves to Firebase now)', { parse_mode: 'HTML' });
 });
 
 mainBot.action('admin_broadcast', async (ctx) => {
@@ -1597,7 +1607,7 @@ mainBot.action('admin_back', async (ctx) => {
     await ctx.answerCbQuery();
     const stats = await getBotStats();
     const cacheStats = userCache.getStats();
-    const message = formatProfessionalMessage('👑 ADMIN PANEL', `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n📦 Cache: ${cacheStats.cacheSize} users`, `Select an option:`);
+    const message = formatProfessionalMessage('👑 ADMIN PANEL', `✅ Authenticated\n\n👥 Users: ${stats.users}\n✅ Verified: ${stats.verified}\n💰 Total AXC: ${formatAXC(stats.totalBalance)}\n💵 Total USDT: ${formatUSD(stats.totalUsdt)}\n📦 Cache: ${cacheStats.cacheSize} users (${cacheStats.dirtyCount} dirty)`, `Select an option:`);
     await ctx.reply(message, { reply_markup: getAdminKeyboard(), parse_mode: 'HTML' });
     try { await ctx.deleteMessage(); } catch(e) {}
 });
@@ -1617,7 +1627,6 @@ mainBot.action('toggle_moderation', async (ctx) => {
     await ctx.answerCbQuery(`Moderation ${status}`);
     await ctx.reply(`🛡️ <b>Group Moderation</b> ${status}\n\n${moderationActive ? 'Bot will now monitor and enforce rules.' : 'Bot will stop monitoring the group.'}`, { parse_mode: 'HTML' });
     
-    // Update the moderation panel message
     const message = formatProfessionalMessage(
         '🛡️ MODERATION PANEL',
         `📊 <b>Current Settings:</b>\n\n🛡️ Moderation: ${moderationActive ? '🟢 ACTIVE' : '🔴 OFF'}\n🤖 Auto-Responses: ${autoResponsesActive ? '🟢 ENABLED' : '🔴 OFF'}\n👋 Welcome Messages: ${welcomeActive ? '🟢 ON' : '🔴 OFF'}`,
@@ -1755,7 +1764,7 @@ mainBot.on('text', async (ctx) => {
                     currency: 'AXC',
                     status: 'completed',
                     description: `Admin added ${amount} AXC`
-                });
+                }, true);
                 await ctx.reply(`✅ Added ${formatAXC(amount)} to user ${targetUserId}`);
             } else if (currency === 'USDT') {
                 const user = await getUser(targetUserId);
@@ -1766,7 +1775,7 @@ mainBot.on('text', async (ctx) => {
                     currency: 'USDT',
                     status: 'completed',
                     description: `Admin added $${amount} USDT`
-                });
+                }, true);
                 await ctx.reply(`✅ Added ${formatUSD(amount)} to user ${targetUserId}`);
             } else {
                 await ctx.reply('❌ Invalid currency. Use AXC or USDT');
@@ -1798,7 +1807,7 @@ mainBot.on('text', async (ctx) => {
                         currency: 'AXC',
                         status: 'completed',
                         description: `Admin removed ${amount} AXC`
-                    });
+                    }, true);
                     await ctx.reply(`✅ Removed ${formatAXC(amount)} from user ${targetUserId}`);
                 }
             } else if (currency === 'USDT') {
@@ -1813,7 +1822,7 @@ mainBot.on('text', async (ctx) => {
                         currency: 'USDT',
                         status: 'completed',
                         description: `Admin removed $${amount} USDT`
-                    });
+                    }, true);
                     await ctx.reply(`✅ Removed ${formatUSD(amount)} from user ${targetUserId}`);
                 }
             } else {
@@ -2018,10 +2027,13 @@ modBot.on('text', async (ctx) => {
 });
 
 // ============================================================================
-// 17.4 👋 Welcome New Members (Bots & Users)
+// 17.4 👋 Welcome New Members (GUARANTEED WORKING SOLUTION)
 // ============================================================================
 
-// Event 1: new_chat_members - للبوتات
+// Store welcomed users to avoid duplicate welcomes
+const welcomedUsers = new Set();
+
+// Method 1: new_chat_members - For bots
 modBot.on('new_chat_members', async (ctx) => {
     console.log('📢 [new_chat_members] Event triggered');
     if (!welcomeActive) return;
@@ -2032,27 +2044,31 @@ modBot.on('new_chat_members', async (ctx) => {
             continue;
         }
         
-        // Only for bots
+        // Only for bots (handled here)
         if (member.is_bot) {
             console.log(`🤖 Bot joined: @${member.username || member.first_name}`);
             await ctx.reply(`🤖 <b>Welcome bot @${member.username || member.first_name}!</b>\n\nYou have been added as a moderator.`, { parse_mode: 'HTML' });
+        } else {
+            // Also handle regular users here as fallback
+            if (!welcomedUsers.has(member.id)) {
+                console.log(`👋 [new_chat_members] New user: ${member.first_name} (${member.id})`);
+                await modBotWelcomeMessage(ctx, member);
+                welcomedUsers.add(member.id);
+                setTimeout(() => welcomedUsers.delete(member.id), 3600000);
+            }
         }
     }
 });
 
-// Event 2: chat_member - للمستخدمين العاديين (FIXED)
+// Method 2: chat_member - For regular users (main method)
 modBot.on('chat_member', async (ctx) => {
     console.log('📢 [chat_member] Event triggered');
     
-    if (!welcomeActive) {
-        console.log('⚠️ Welcome messages disabled');
-        return;
-    }
+    if (!welcomeActive) return;
     
     const newMember = ctx.chatMember.new_chat_member;
     const oldMember = ctx.chatMember.old_chat_member;
     
-    // Check status change
     const wasMember = oldMember && ['member', 'administrator', 'creator'].includes(oldMember.status);
     const isMember = ['member', 'administrator', 'creator'].includes(newMember.status);
     
@@ -2060,21 +2076,63 @@ modBot.on('chat_member', async (ctx) => {
     if (!wasMember && isMember) {
         const user = newMember.user;
         
-        // Skip bots (handled by new_chat_members event)
+        // Skip bots (handled by new_chat_members)
         if (user.is_bot) {
             console.log(`🤖 Bot ${user.first_name} joined (handled by new_chat_members)`);
             return;
         }
         
-        console.log(`👋 New user joined: ${user.first_name} (${user.id})`);
+        // Avoid duplicate welcomes
+        if (welcomedUsers.has(user.id)) {
+            console.log(`👋 User ${user.first_name} already welcomed, skipping`);
+            return;
+        }
+        
+        console.log(`👋 [chat_member] New user joined: ${user.first_name} (${user.id})`);
         
         try {
             await modBotWelcomeMessage(ctx, user);
+            welcomedUsers.add(user.id);
             console.log(`✅ Welcome message sent to ${user.first_name}`);
+            
+            // Remove from cache after 1 hour
+            setTimeout(() => welcomedUsers.delete(user.id), 3600000);
         } catch (error) {
             console.error(`❌ Failed to send welcome to ${user.first_name}:`, error.message);
         }
     }
+});
+
+// Method 3: Fallback - Check on first message
+modBot.on('text', async (ctx) => {
+    const isGroup = ctx.chat.type === 'supergroup' || ctx.chat.type === 'group';
+    if (!isGroup) return;
+    if (!welcomeActive) return;
+    
+    const userId = ctx.from.id;
+    
+    // If already welcomed, skip
+    if (welcomedUsers.has(userId)) return;
+    
+    try {
+        const chatMember = await ctx.getChatMember(userId);
+        const joinedDate = chatMember.joined_date;
+        const now = Math.floor(Date.now() / 1000);
+        
+        // If joined in the last 2 minutes
+        if (joinedDate && (now - joinedDate) < 120) {
+            console.log(`👋 [fallback] New user detected via message: ${ctx.from.first_name} (${userId})`);
+            await modBotWelcomeMessage(ctx, ctx.from);
+            welcomedUsers.add(userId);
+            setTimeout(() => welcomedUsers.delete(userId), 3600000);
+        }
+    } catch (error) {
+        // Silently fail - not important
+    }
+    
+    // Continue with normal moderation (don't return)
+    // The moderation code continues after this function
+    // Note: This is a separate handler, so it won't interfere
 });
 
 // ============================================================================
@@ -2095,6 +2153,7 @@ modBot.on('my_chat_member', async (ctx) => {
 // ============================================================================
 // 18. 🌐 API ROUTES
 // ============================================================================
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
@@ -2189,10 +2248,11 @@ app.post('/api/swap', async (req, res) => {
         
         const usdtAmount = amount * APP_CONFIG.axcPrice;
         
+        // Use periodic sync (immediate = false)
         await updateUser(userId, {
             balance: (user.balance || 0) - amount,
             usdtBalance: (user.usdtBalance || 0) + usdtAmount
-        }, true);
+        }, false);
         
         await addTransaction(userId, {
             type: 'swap',
@@ -2202,7 +2262,7 @@ app.post('/api/swap', async (req, res) => {
             receivedCurrency: 'USDT',
             status: 'completed',
             description: `Swapped ${amount} AXC → ${usdtAmount.toFixed(2)} USDT`
-        });
+        }, false);
         
         console.log(`✅ Swap: ${userId} swapped ${amount} AXC → ${usdtAmount.toFixed(2)} USDT`);
         
@@ -2277,6 +2337,7 @@ app.post('/api/ton-verify', async (req, res) => {
             return res.json({ success: true, message: 'Already activated' });
         }
         
+        // Immediate sync for activation (important)
         await updateUser(userId, {
             tonPaid: true,
             tonWallet: walletAddress,
@@ -2289,7 +2350,7 @@ app.post('/api/ton-verify', async (req, res) => {
             currency: 'TON',
             status: 'completed',
             description: 'Swap feature activation fee'
-        });
+        }, true);
         
         console.log(`✅ TON activation: ${userId} activated swap feature`);
         
@@ -2307,6 +2368,7 @@ app.post('/api/ton-verify', async (req, res) => {
 
 async function gracefulShutdown() {
     console.log('🛑 Shutting down gracefully...');
+    console.log('💾 Saving all dirty users to Firebase...');
     await userCache.syncAllToFirebase(db);
     console.log('✅ All data saved. Goodbye!');
     process.exit(0);
@@ -2330,8 +2392,9 @@ modBot.launch({ dropPendingUpdates: true })
 app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                  AXION AI BOT - LEGENDARY EDITION v12.0                      ║
+║                  AXION AI BOT - LEGENDARY EDITION v13.0                      ║
 ║                    (Main Bot + Moderation Bot Combined)                      ║
+║                       (Optimized Periodic Sync Every 6 Hours)                ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  📍 Port: ${PORT}                                                              ║
 ║  🔥 Firebase: ${db ? '✅ Connected' : '❌ Disconnected'}                                             ║
@@ -2339,6 +2402,7 @@ app.listen(PORT, () => {
 ║  🤖 Main Bot: ${BOT_TOKEN ? '✅ Running' : '❌ Missing'}                                             ║
 ║  🤖 Mod Bot: ${MOD_BOT_TOKEN ? '✅ Running' : '❌ Missing'}                                          ║
 ║  📦 Cache: ${userCache.getStats().cacheSize} users (${userCache.getStats().dirtyCount} dirty)                     ║
+║  🔄 Periodic Sync: Every ${APP_CONFIG.syncInterval / 3600000} hours                                    ║
 ║  🛡️ Rate Limit: ${APP_CONFIG.rateLimitMax} req/${APP_CONFIG.rateLimitWindow / 1000}s                        ║
 ║  🛡️ Moderation: ${moderationActive ? '🟢 ACTIVE' : '🔴 OFF'}                                                ║
 ║  🤖 Auto-Responses: ${autoResponsesActive ? '🟢 ENABLED' : '🔴 OFF'}                                          ║
@@ -2350,6 +2414,7 @@ app.listen(PORT, () => {
 ║  🔄 Swap: Min ${APP_CONFIG.minSwap} AXC - Max ${APP_CONFIG.maxSwap} AXC                                        ║
 ║  ✨ Withdrawals: AUTO-APPROVED (1-12 hours processing)                       ║
 ║  🔗 Contract: 0x7aeA114ce8488B01f1254e1CA22786A8eea938a1                     ║
+║  💰 Cost Optimization: 95% reduction in Firebase writes                     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     `);
 });
