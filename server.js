@@ -1365,7 +1365,7 @@ mainBot.hears('🔄 SWAP STATION', async (ctx) => {
     const swapUrl = `${APP_URL}/index.html?userId=${userId}`;
     const message = formatProfessionalMessage(
         '⚡ AXION SWAP STATION',
-        `💰 AXC: ${formatAXC(user.balance || 0)}\n💵 USDT: ${formatUSD(user.usdtBalance || 0)}\n\n${user.tonPaid ? '✅ Swap Active' : '🔒 Activate swap to unlock swapping $AXC <--> USDT'}`,
+        `💰 AXC: ${formatAXC(user.balance || 0)}\n💵 USDT: ${formatUSD(user.usdtBalance || 0)}\n\n${user.tonPaid ? '✅ Swap Active' : '🔒 Activate swap to unlock swapping USDT'}`,
         `Click below to open:`
     );
     
