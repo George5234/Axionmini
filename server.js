@@ -2029,11 +2029,14 @@ modBot.on('text', async (ctx) => {
 });
 
 // ============================================================================
-// 17.4 👋 Welcome New Members - PROFESSIONAL EDITION (CLEAN VERSION)
+// 17.4 👋 Welcome New Members - PROFESSIONAL EDITION (OPTIMIZED)
 // ============================================================================
 
 // Store welcomed users to avoid duplicate welcomes
 const welcomedUsers = new Set();
+
+// Store last welcome message per chat (to delete previous)
+const lastWelcomeMessage = new Map(); // chatId → messageId
 
 // ============================================================================
 // 17.4.1 🎯 Main Welcome Handler - new_chat_members (FOR BOTS & BACKUP)
@@ -2047,7 +2050,7 @@ modBot.on('new_chat_members', async (ctx) => {
         return;
     }
     
-    // Get bot ID dynamically (no global variable conflict)
+    // Get bot ID dynamically
     let botId = null;
     try {
         const botInfo = await modBot.telegram.getMe();
@@ -2056,6 +2059,8 @@ modBot.on('new_chat_members', async (ctx) => {
         console.error('❌ Cannot get bot ID:', e.message);
         return;
     }
+    
+    const chatId = ctx.chat.id;
     
     for (const member of ctx.message.new_chat_members) {
         // Skip bot itself
@@ -2074,6 +2079,17 @@ modBot.on('new_chat_members', async (ctx) => {
         // Handle regular users
         if (!welcomedUsers.has(member.id)) {
             console.log(`👋 New user detected via new_chat_members: ${member.first_name} (${member.id})`);
+            
+            // Delete previous welcome message if exists
+            const previousMsg = lastWelcomeMessage.get(chatId);
+            if (previousMsg) {
+                try {
+                    await ctx.telegram.deleteMessage(chatId, previousMsg);
+                    console.log(`🗑️ Deleted previous welcome message in chat ${chatId}`);
+                } catch (e) {
+                    console.log('Could not delete previous message:', e.message);
+                }
+            }
             
             const welcomeMsg = `
 ╔════════════════════════════════════════╗
@@ -2111,7 +2127,11 @@ modBot.on('new_chat_members', async (ctx) => {
                 ]
             };
             
-            await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
+            const sentMsg = await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
+            
+            // Store new welcome message ID
+            lastWelcomeMessage.set(chatId, sentMsg.message_id);
+            
             welcomedUsers.add(member.id);
             setTimeout(() => welcomedUsers.delete(member.id), 3600000);
             console.log(`✅ Welcome sent to ${member.first_name}`);
@@ -2138,17 +2158,19 @@ modBot.on('chat_member', async (ctx) => {
         return;
     }
     
-    const { old_chat_member, new_chat_member, chat } = chatMember;
-    if (!old_chat_member || !new_chat_member) {
+    const { old_chat_member: old, new_chat_member: newMember } = chatMember;
+    if (!old || !newMember) {
         console.log('❌ Missing old or new chat member data');
         return;
     }
     
-    const user = new_chat_member.user;
+    const user = newMember.user;
     if (!user) {
         console.log('❌ No user data');
         return;
     }
+    
+    const chatId = chatMember.chat.id;
     
     // Get bot ID dynamically
     let botId = null;
@@ -2167,16 +2189,16 @@ modBot.on('chat_member', async (ctx) => {
     }
     
     // ✅ CORRECT: Check if user just joined (was not member, now is member)
-    const wasMember = ['member', 'administrator', 'creator'].includes(old_chat_member.status);
-    const isMember = ['member', 'administrator', 'creator'].includes(new_chat_member.status);
+    const wasNotMember = !['member', 'administrator', 'creator'].includes(old.status);
+    const isNowMember = ['member', 'administrator', 'creator'].includes(newMember.status);
     
     // User joined if: was not member, now is member
-    if (wasMember || !isMember) {
-        console.log(`⏭️ Not a join event: ${old_chat_member.status} → ${new_chat_member.status}`);
+    if (!wasNotMember || !isNowMember) {
+        console.log(`⏭️ Not a join event: ${old.status} → ${newMember.status}`);
         return;
     }
     
-    console.log(`👋 User join detected: ${old_chat_member.status} → ${new_chat_member.status}`);
+    console.log(`👋 User join detected: ${old.status} → ${newMember.status}`);
     
     // Handle bots
     if (user.is_bot) {
@@ -2193,6 +2215,17 @@ modBot.on('chat_member', async (ctx) => {
     console.log(`👋 New user joined via chat_member: ${user.first_name} (${user.id})`);
     
     try {
+        // ✅ Delete previous welcome message if exists
+        const previousMsg = lastWelcomeMessage.get(chatId);
+        if (previousMsg) {
+            try {
+                await ctx.telegram.deleteMessage(chatId, previousMsg);
+                console.log(`🗑️ Deleted previous welcome message in chat ${chatId}`);
+            } catch (e) {
+                console.log('Could not delete previous message:', e.message);
+            }
+        }
+        
         const welcomeMsg = `
 ╔════════════════════════════════════════╗
 ║     ✨ <b>WELCOME TO AXION AI</b> ✨      ║
@@ -2229,10 +2262,14 @@ modBot.on('chat_member', async (ctx) => {
             ]
         };
         
-        await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
+        const sentMsg = await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
+        
+        // ✅ Store new welcome message ID
+        lastWelcomeMessage.set(chatId, sentMsg.message_id);
+        
         welcomedUsers.add(user.id);
         setTimeout(() => welcomedUsers.delete(user.id), 3600000);
-        console.log(`✅ Welcome sent to ${user.first_name} via chat_member`);
+        console.log(`✅ Welcome sent to ${user.first_name} via chat_member (previous deleted)`);
         
     } catch (error) {
         console.error(`❌ Failed to welcome ${user.first_name}:`, error.message);
