@@ -2035,13 +2035,6 @@ modBot.on('text', async (ctx) => {
 // Store welcomed users to avoid duplicate welcomes
 const welcomedUsers = new Set();
 
-// Get bot ID once
-let modBotId = null;
-modBot.telegram.getMe().then((botInfo) => {
-    modBotId = botInfo.id;
-    console.log(`🤖 Mod Bot ID: ${modBotId}`);
-}).catch(() => {});
-
 // ============================================================================
 // 17.4.1 🎯 Main Welcome Handler - new_chat_members (FOR BOTS & BACKUP)
 // ============================================================================
@@ -2054,17 +2047,14 @@ modBot.on('new_chat_members', async (ctx) => {
         return;
     }
     
-    // Ensure bot ID is available
-    let botId = modBotId;
-    if (!botId) {
-        try {
-            const botInfo = await modBot.telegram.getMe();
-            botId = botInfo.id;
-            modBotId = botId;
-        } catch (e) {
-            console.error('❌ Cannot get bot ID:', e.message);
-            return;
-        }
+    // Get bot ID dynamically (no global variable conflict)
+    let botId = null;
+    try {
+        const botInfo = await modBot.telegram.getMe();
+        botId = botInfo.id;
+    } catch (e) {
+        console.error('❌ Cannot get bot ID:', e.message);
+        return;
     }
     
     for (const member of ctx.message.new_chat_members) {
@@ -2160,17 +2150,14 @@ modBot.on('chat_member', async (ctx) => {
         return;
     }
     
-    // Ensure bot ID is available
-    let botId = modBotId;
-    if (!botId) {
-        try {
-            const botInfo = await modBot.telegram.getMe();
-            botId = botInfo.id;
-            modBotId = botId;
-        } catch (e) {
-            console.error('❌ Cannot get bot ID:', e.message);
-            return;
-        }
+    // Get bot ID dynamically
+    let botId = null;
+    try {
+        const botInfo = await modBot.telegram.getMe();
+        botId = botInfo.id;
+    } catch (e) {
+        console.error('❌ Cannot get bot ID:', e.message);
+        return;
     }
     
     // Skip bot itself
