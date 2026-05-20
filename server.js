@@ -2021,112 +2021,102 @@ modBot.on('text', async (ctx) => {
 });
 
 // ============================================================================
-// 17.4 👋 Welcome New Members (GUARANTEED WORKING SOLUTION)
+// 17.4 👋 Welcome New Members - PROFESSIONAL EDITION (CLEAN VERSION)
 // ============================================================================
 
 // Store welcomed users to avoid duplicate welcomes
 const welcomedUsers = new Set();
 
-// Method 1: new_chat_members - For bots
+// Get bot ID once at startup
+let modBotId = null;
+modBot.telegram.getMe().then((botInfo) => {
+    modBotId = botInfo.id;
+    console.log(`🤖 Mod Bot ID: ${modBotId}`);
+}).catch(() => console.error('❌ Failed to get mod bot info'));
+
+// ============================================================================
+// 17.4.1 🎯 Main Welcome Handler - new_chat_members (MOST RELIABLE)
+// ============================================================================
+
 modBot.on('new_chat_members', async (ctx) => {
-    console.log('📢 [new_chat_members] Event triggered');
-    if (!welcomeActive) return;
+    console.log('📢 [new_chat_members] Event triggered in chat:', ctx.chat.id);
+    
+    if (!welcomeActive) {
+        console.log('⏭️ Welcome is disabled');
+        return;
+    }
+    
+    // Ensure bot ID is available
+    if (!modBotId) {
+        try {
+            const botInfo = await modBot.telegram.getMe();
+            modBotId = botInfo.id;
+        } catch (e) {
+            console.error('❌ Cannot get bot ID:', e.message);
+            return;
+        }
+    }
     
     for (const member of ctx.message.new_chat_members) {
-        if (member.id === modBot.botInfo.id) {
-            console.log('🤖 Bot joined the group');
+        // Skip bot itself
+        if (member.id === modBotId) {
+            console.log('🤖 Skipping bot itself');
             continue;
         }
         
-        // Only for bots (handled here)
+        // Handle bots
         if (member.is_bot) {
             console.log(`🤖 Bot joined: @${member.username || member.first_name}`);
             await ctx.reply(`🤖 <b>Welcome bot @${member.username || member.first_name}!</b>\n\nYou have been added as a moderator.`, { parse_mode: 'HTML' });
-        } else {
-            // Also handle regular users here as fallback
-            if (!welcomedUsers.has(member.id)) {
-                console.log(`👋 [new_chat_members] New user: ${member.first_name} (${member.id})`);
-                await modBotWelcomeMessage(ctx, member);
-                welcomedUsers.add(member.id);
-                setTimeout(() => welcomedUsers.delete(member.id), 3600000);
-            }
-        }
-    }
-});
-
-// Method 2: chat_member - For regular users (main method)
-modBot.on('chat_member', async (ctx) => {
-    console.log('📢 [chat_member] Event triggered');
-    
-    if (!welcomeActive) return;
-    
-    const newMember = ctx.chatMember.new_chat_member;
-    const oldMember = ctx.chatMember.old_chat_member;
-    
-    const wasMember = oldMember && ['member', 'administrator', 'creator'].includes(oldMember.status);
-    const isMember = ['member', 'administrator', 'creator'].includes(newMember.status);
-    
-    // User just joined (was not member, now is member)
-    if (!wasMember && isMember) {
-        const user = newMember.user;
-        
-        // Skip bots (handled by new_chat_members)
-        if (user.is_bot) {
-            console.log(`🤖 Bot ${user.first_name} joined (handled by new_chat_members)`);
-            return;
+            continue;
         }
         
-        // Avoid duplicate welcomes
-        if (welcomedUsers.has(user.id)) {
-            console.log(`👋 User ${user.first_name} already welcomed, skipping`);
-            return;
-        }
-        
-        console.log(`👋 [chat_member] New user joined: ${user.first_name} (${user.id})`);
-        
-        try {
-            await modBotWelcomeMessage(ctx, user);
-            welcomedUsers.add(user.id);
-            console.log(`✅ Welcome message sent to ${user.first_name}`);
+        // Handle regular users
+        if (!welcomedUsers.has(member.id)) {
+            console.log(`👋 New user detected: ${member.first_name} (${member.id})`);
             
-            // Remove from cache after 1 hour
-            setTimeout(() => welcomedUsers.delete(user.id), 3600000);
-        } catch (error) {
-            console.error(`❌ Failed to send welcome to ${user.first_name}:`, error.message);
+            const welcomeMsg = `
+╔════════════════════════════════════════╗
+║     ✨ <b>WELCOME TO AXION AI</b> ✨      ║
+╠════════════════════════════════════════╣
+║                                        ║
+║  🎉 <b>${escapeHtml(member.first_name)}</b> joined!     ║
+║                                        ║
+║  🚀 The future of DeFi is here!       ║
+║                                        ║
+║  🎁 <b>Get 100 AXC FREE!</b>            ║
+║                                        ║
+║  📌 <b>Quick Start:</b>                 ║
+║    1️⃣ Join our required channels       ║
+║    2️⃣ Click VERIFY in the main bot    ║
+║    3️⃣ Receive 100 AXC instantly!      ║
+║                                        ║
+║  📜 <b>Rules:</b>                       ║
+║    • No spam or flood                 ║
+║    • No external links                ║
+║    • No inappropriate content         ║
+║    • Respect all members              ║
+║                                        ║
+║  💡 Type <b>help</b> for commands       ║
+║                                        ║
+╠════════════════════════════════════════╣
+║  <tg-spoiler>⚠️ Admin NEVER DMs first</tg-spoiler>
+╚════════════════════════════════════════╝
+            `;
+            
+            const keyboard = {
+                inline_keyboard: [
+                    [{ text: '✅ VERIFY NOW', url: 'https://t.me/AxionBep20Airdropbot' }],
+                    [{ text: '📢 JOIN CHANNELS', url: 'https://t.me/AxionAiSignal' }]
+                ]
+            };
+            
+            await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
+            welcomedUsers.add(member.id);
+            setTimeout(() => welcomedUsers.delete(member.id), 3600000);
+            console.log(`✅ Welcome sent to ${member.first_name}`);
         }
     }
-});
-
-// Method 3: Fallback - Check on first message
-modBot.on('text', async (ctx) => {
-    const isGroup = ctx.chat.type === 'supergroup' || ctx.chat.type === 'group';
-    if (!isGroup) return;
-    if (!welcomeActive) return;
-    
-    const userId = ctx.from.id;
-    
-    // If already welcomed, skip
-    if (welcomedUsers.has(userId)) return;
-    
-    try {
-        const chatMember = await ctx.getChatMember(userId);
-        const joinedDate = chatMember.joined_date;
-        const now = Math.floor(Date.now() / 1000);
-        
-        // If joined in the last 2 minutes
-        if (joinedDate && (now - joinedDate) < 120) {
-            console.log(`👋 [fallback] New user detected via message: ${ctx.from.first_name} (${userId})`);
-            await modBotWelcomeMessage(ctx, ctx.from);
-            welcomedUsers.add(userId);
-            setTimeout(() => welcomedUsers.delete(userId), 3600000);
-        }
-    } catch (error) {
-        // Silently fail - not important
-    }
-    
-    // Continue with normal moderation (don't return)
-    // The moderation code continues after this function
-    // Note: This is a separate handler, so it won't interfere
 });
 
 // ============================================================================
@@ -2138,7 +2128,7 @@ modBot.on('my_chat_member', async (ctx) => {
     console.log(`🤖 Bot status in ${ctx.chat.title || 'group'}: ${status}`);
     
     if (status === 'administrator') {
-        console.log('✅ Bot is admin! Welcome messages should work properly.');
+        console.log('✅ Bot is admin! Welcome messages will work properly.');
     } else if (status === 'member') {
         console.log('⚠️ Bot is only a member! Add as admin for welcome messages to work.');
     }
