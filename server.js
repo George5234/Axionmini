@@ -1906,13 +1906,21 @@ mainBot.on('text', async (ctx) => {
 // ============================================================================
 // 17. 🤖 MODERATION BOT HANDLERS (Group Only)
 // ============================================================================
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
-// Create moderation bot instance
 const modBot = new Telegraf(MOD_BOT_TOKEN);
 
-modBot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
-modBot.telegram.getMe().then((botInfo) => { console.log(`🤖 Mod Bot: @${botInfo.username}`); }).catch(() => {});
 
+let modBotId = null;
+modBot.telegram.getMe().then((botInfo) => { 
+    modBotId = botInfo.id;
+    console.log(`🤖 Mod Bot: @${botInfo.username} (ID: ${modBotId})`);
+}).catch(() => {});
+
+modBot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
 // ============================================================================
 // 17.1 🛠️ Helper Functions for Mod Bot
 // ============================================================================
@@ -2035,7 +2043,7 @@ modBot.telegram.getMe().then((botInfo) => {
 }).catch(() => console.error('❌ Failed to get mod bot info'));
 
 // ============================================================================
-// 17.4.1 🎯 Main Welcome Handler - new_chat_members (MOST RELIABLE)
+// 17.4.1 🎯 Main Welcome Handler - new_chat_members (FOR BOTS & BACKUP)
 // ============================================================================
 
 modBot.on('new_chat_members', async (ctx) => {
@@ -2115,6 +2123,109 @@ modBot.on('new_chat_members', async (ctx) => {
             welcomedUsers.add(member.id);
             setTimeout(() => welcomedUsers.delete(member.id), 3600000);
             console.log(`✅ Welcome sent to ${member.first_name}`);
+        }
+    }
+});
+
+// ============================================================================
+// 17.4.2 🔄 chat_member Handler - FOR SUPERGROUPS (PRIMARY)
+// ============================================================================
+
+modBot.on('chat_member', async (ctx) => {
+    console.log('📢 [chat_member] Event triggered');
+    
+    if (!welcomeActive) {
+        console.log('⏭️ Welcome is disabled');
+        return;
+    }
+    
+    // ✅ CORRECT: Use ctx.update.chat_member (not ctx.chatMember)
+    const update = ctx.update?.chat_member;
+    if (!update) {
+        console.log('❌ No chat_member data in update');
+        return;
+    }
+    
+    const newMember = update.new_chat_member;
+    const oldMember = update.old_chat_member;
+    const chat = update.chat;
+    
+    if (!newMember || !newMember.user) {
+        console.log('❌ No user data in new_chat_member');
+        return;
+    }
+    
+    const user = newMember.user;
+    const chatId = chat?.id;
+    
+    const wasMember = oldMember && ['member', 'administrator', 'creator'].includes(oldMember.status);
+    const isMember = ['member', 'administrator', 'creator'].includes(newMember.status);
+    
+    // User just joined (was not member, now is member)
+    if (!wasMember && isMember) {
+        // Skip bots
+        if (user.is_bot) {
+            console.log(`🤖 Bot ${user.first_name} joined, skipping`);
+            return;
+        }
+        
+        // Skip bot itself
+        if (user.id === modBotId) {
+            console.log('🤖 Skipping bot itself');
+            return;
+        }
+        
+        // Avoid duplicate welcomes
+        if (welcomedUsers.has(user.id)) {
+            console.log(`⏭️ ${user.first_name} already welcomed`);
+            return;
+        }
+        
+        console.log(`👋 New user joined via chat_member: ${user.first_name} (${user.id})`);
+        
+        try {
+            const welcomeMsg = `
+╔════════════════════════════════════════╗
+║     ✨ <b>WELCOME TO AXION AI</b> ✨      ║
+╠════════════════════════════════════════╣
+║                                        ║
+║  🎉 <b>${escapeHtml(user.first_name)}</b> joined!     ║
+║                                        ║
+║  🚀 The future of DeFi is here!       ║
+║                                        ║
+║  🎁 <b>Get 100 AXC FREE!</b>            ║
+║                                        ║
+║  📌 <b>Quick Start:</b>                 ║
+║    1️⃣ Join our required channels       ║
+║    2️⃣ Click VERIFY in the main bot    ║
+║    3️⃣ Receive 100 AXC instantly!      ║
+║                                        ║
+║  📜 <b>Rules:</b>                       ║
+║    • No spam or flood                 ║
+║    • No external links                ║
+║    • No inappropriate content         ║
+║    • Respect all members              ║
+║                                        ║
+║  💡 Type <b>help</b> for commands       ║
+║                                        ║
+╠════════════════════════════════════════╣
+║  <tg-spoiler>⚠️ Admin NEVER DMs first</tg-spoiler>
+╚════════════════════════════════════════╝
+            `;
+            
+            const keyboard = {
+                inline_keyboard: [
+                    [{ text: '✅ VERIFY NOW', url: 'https://t.me/AxionBep20Airdropbot' }],
+                    [{ text: '📢 JOIN CHANNELS', url: 'https://t.me/AxionAiSignal' }]
+                ]
+            };
+            
+            await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
+            welcomedUsers.add(user.id);
+            setTimeout(() => welcomedUsers.delete(user.id), 3600000);
+            console.log(`✅ Welcome sent to ${user.first_name} via chat_member`);
+        } catch (error) {
+            console.error(`❌ Failed to welcome ${user.first_name}:`, error.message);
         }
     }
 });
