@@ -2035,6 +2035,13 @@ modBot.on('text', async (ctx) => {
 // Store welcomed users to avoid duplicate welcomes
 const welcomedUsers = new Set();
 
+// Get bot ID once
+let modBotId = null;
+modBot.telegram.getMe().then((botInfo) => {
+    modBotId = botInfo.id;
+    console.log(`🤖 Mod Bot ID: ${modBotId}`);
+}).catch(() => {});
+
 // ============================================================================
 // 17.4.1 🎯 Main Welcome Handler - new_chat_members (FOR BOTS & BACKUP)
 // ============================================================================
@@ -2047,14 +2054,17 @@ modBot.on('new_chat_members', async (ctx) => {
         return;
     }
     
-    // Get bot ID (without redeclaring variable)
-    let botId = null;
-    try {
-        const botInfo = await modBot.telegram.getMe();
-        botId = botInfo.id;
-    } catch (e) {
-        console.error('❌ Cannot get bot ID:', e.message);
-        return;
+    // Ensure bot ID is available
+    let botId = modBotId;
+    if (!botId) {
+        try {
+            const botInfo = await modBot.telegram.getMe();
+            botId = botInfo.id;
+            modBotId = botId;
+        } catch (e) {
+            console.error('❌ Cannot get bot ID:', e.message);
+            return;
+        }
     }
     
     for (const member of ctx.message.new_chat_members) {
@@ -2073,7 +2083,7 @@ modBot.on('new_chat_members', async (ctx) => {
         
         // Handle regular users
         if (!welcomedUsers.has(member.id)) {
-            console.log(`👋 New user detected: ${member.first_name} (${member.id})`);
+            console.log(`👋 New user detected via new_chat_members: ${member.first_name} (${member.id})`);
             
             const welcomeMsg = `
 ╔════════════════════════════════════════╗
@@ -2125,69 +2135,78 @@ modBot.on('new_chat_members', async (ctx) => {
 
 modBot.on('chat_member', async (ctx) => {
     console.log('📢 [chat_member] Event triggered');
-    console.log('📝 Timestamp:', new Date().toISOString());
-    console.log('🔍 Full update:', JSON.stringify(ctx.update, null, 2));
     
     if (!welcomeActive) {
         console.log('⏭️ Welcome is disabled');
         return;
     }
     
-    // Get bot ID dynamically
-    let botId = null;
-    try {
-        const botInfo = await modBot.telegram.getMe();
-        botId = botInfo.id;
-    } catch (e) {
-        console.error('❌ Cannot get bot ID:', e.message);
+    // ✅ CORRECT: Use ctx.chatMember (not ctx.update?.chat_member)
+    const chatMember = ctx.chatMember;
+    if (!chatMember) {
+        console.log('❌ No chat_member data');
         return;
     }
     
-    // ✅ CORRECT: Use ctx.update.chat_member (not ctx.chatMember)
-    const update = ctx.update?.chat_member;
-    if (!update) {
-        console.log('❌ No chat_member data in update');
+    const { old_chat_member, new_chat_member, chat } = chatMember;
+    if (!old_chat_member || !new_chat_member) {
+        console.log('❌ Missing old or new chat member data');
         return;
     }
     
-    const newMember = update.new_chat_member;
-    const oldMember = update.old_chat_member;
-    const chat = update.chat;
-    
-    if (!newMember || !newMember.user) {
-        console.log('❌ No user data in new_chat_member');
+    const user = new_chat_member.user;
+    if (!user) {
+        console.log('❌ No user data');
         return;
     }
     
-    const user = newMember.user;
-    
-    const wasMember = oldMember && ['member', 'administrator', 'creator'].includes(oldMember.status);
-    const isMember = ['member', 'administrator', 'creator'].includes(newMember.status);
-    
-    // User just joined (was not member, now is member)
-    if (!wasMember && isMember) {
-        // Skip bots
-        if (user.is_bot) {
-            console.log(`🤖 Bot ${user.first_name} joined, skipping`);
-            return;
-        }
-        
-        // Skip bot itself
-        if (user.id === botId) {
-            console.log('🤖 Skipping bot itself');
-            return;
-        }
-        
-        // Avoid duplicate welcomes
-        if (welcomedUsers.has(user.id)) {
-            console.log(`⏭️ ${user.first_name} already welcomed`);
-            return;
-        }
-        
-        console.log(`👋 New user joined via chat_member: ${user.first_name} (${user.id})`);
-        
+    // Ensure bot ID is available
+    let botId = modBotId;
+    if (!botId) {
         try {
-            const welcomeMsg = `
+            const botInfo = await modBot.telegram.getMe();
+            botId = botInfo.id;
+            modBotId = botId;
+        } catch (e) {
+            console.error('❌ Cannot get bot ID:', e.message);
+            return;
+        }
+    }
+    
+    // Skip bot itself
+    if (user.id === botId) {
+        console.log('🤖 Skipping bot itself');
+        return;
+    }
+    
+    // ✅ CORRECT: Check if user just joined (was not member, now is member)
+    const wasMember = ['member', 'administrator', 'creator'].includes(old_chat_member.status);
+    const isMember = ['member', 'administrator', 'creator'].includes(new_chat_member.status);
+    
+    // User joined if: was not member, now is member
+    if (wasMember || !isMember) {
+        console.log(`⏭️ Not a join event: ${old_chat_member.status} → ${new_chat_member.status}`);
+        return;
+    }
+    
+    console.log(`👋 User join detected: ${old_chat_member.status} → ${new_chat_member.status}`);
+    
+    // Handle bots
+    if (user.is_bot) {
+        console.log(`🤖 Bot ${user.first_name} joined, skipping`);
+        return;
+    }
+    
+    // Avoid duplicate welcomes
+    if (welcomedUsers.has(user.id)) {
+        console.log(`⏭️ ${user.first_name} already welcomed`);
+        return;
+    }
+    
+    console.log(`👋 New user joined via chat_member: ${user.first_name} (${user.id})`);
+    
+    try {
+        const welcomeMsg = `
 ╔════════════════════════════════════════╗
 ║     ✨ <b>WELCOME TO AXION AI</b> ✨      ║
 ╠════════════════════════════════════════╣
@@ -2214,22 +2233,23 @@ modBot.on('chat_member', async (ctx) => {
 ╠════════════════════════════════════════╣
 ║  <tg-spoiler>⚠️ Admin NEVER DMs first</tg-spoiler>
 ╚════════════════════════════════════════╝
-            `;
-            
-            const keyboard = {
-                inline_keyboard: [
-                    [{ text: '✅ VERIFY NOW', url: 'https://t.me/AxionBep20Airdropbot' }],
-                    [{ text: '📢 JOIN CHANNELS', url: 'https://t.me/AxionAiSignal' }]
-                ]
-            };
-            
-            await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
-            welcomedUsers.add(user.id);
-            setTimeout(() => welcomedUsers.delete(user.id), 3600000);
-            console.log(`✅ Welcome sent to ${user.first_name} via chat_member`);
-        } catch (error) {
-            console.error(`❌ Failed to welcome ${user.first_name}:`, error.message);
-        }
+        `;
+        
+        const keyboard = {
+            inline_keyboard: [
+                [{ text: '✅ VERIFY NOW', url: 'https://t.me/AxionBep20Airdropbot' }],
+                [{ text: '📢 JOIN CHANNELS', url: 'https://t.me/AxionAiSignal' }]
+            ]
+        };
+        
+        await ctx.reply(welcomeMsg, { parse_mode: 'HTML', reply_markup: keyboard });
+        welcomedUsers.add(user.id);
+        setTimeout(() => welcomedUsers.delete(user.id), 3600000);
+        console.log(`✅ Welcome sent to ${user.first_name} via chat_member`);
+        
+    } catch (error) {
+        console.error(`❌ Failed to welcome ${user.first_name}:`, error.message);
+        welcomedUsers.delete(user.id);
     }
 });
 
@@ -2482,7 +2502,11 @@ mainBot.launch({ dropPendingUpdates: true })
     .then(() => console.log('🚀 Axion AI Main Bot Started'))
     .catch(err => console.error('❌ Main Bot error:', err));
 
-modBot.launch({ dropPendingUpdates: true })
+// ✅ التعديل: إضافة allowedUpdates لاستقبال أحداث chat_member
+modBot.launch({ 
+    dropPendingUpdates: true,
+    allowedUpdates: ['message', 'chat_member', 'my_chat_member']
+})
     .then(() => console.log('🚀 Axion AI Moderation Bot Started'))
     .catch(err => console.error('❌ Mod Bot error:', err));
 
