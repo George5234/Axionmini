@@ -2125,6 +2125,8 @@ modBot.on('new_chat_members', async (ctx) => {
 
 modBot.on('chat_member', async (ctx) => {
     console.log('📢 [chat_member] Event triggered');
+    console.log('📝 Timestamp:', new Date().toISOString());
+    console.log('🔍 Full update:', JSON.stringify(ctx.update, null, 2));
     
     if (!welcomeActive) {
         console.log('⏭️ Welcome is disabled');
