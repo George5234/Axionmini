@@ -2035,13 +2035,6 @@ modBot.on('text', async (ctx) => {
 // Store welcomed users to avoid duplicate welcomes
 const welcomedUsers = new Set();
 
-// Get bot ID once at startup
-let modBotId = null;
-modBot.telegram.getMe().then((botInfo) => {
-    modBotId = botInfo.id;
-    console.log(`🤖 Mod Bot ID: ${modBotId}`);
-}).catch(() => console.error('❌ Failed to get mod bot info'));
-
 // ============================================================================
 // 17.4.1 🎯 Main Welcome Handler - new_chat_members (FOR BOTS & BACKUP)
 // ============================================================================
@@ -2054,20 +2047,19 @@ modBot.on('new_chat_members', async (ctx) => {
         return;
     }
     
-    // Ensure bot ID is available
-    if (!modBotId) {
-        try {
-            const botInfo = await modBot.telegram.getMe();
-            modBotId = botInfo.id;
-        } catch (e) {
-            console.error('❌ Cannot get bot ID:', e.message);
-            return;
-        }
+    // Get bot ID (without redeclaring variable)
+    let botId = null;
+    try {
+        const botInfo = await modBot.telegram.getMe();
+        botId = botInfo.id;
+    } catch (e) {
+        console.error('❌ Cannot get bot ID:', e.message);
+        return;
     }
     
     for (const member of ctx.message.new_chat_members) {
         // Skip bot itself
-        if (member.id === modBotId) {
+        if (member.id === botId) {
             console.log('🤖 Skipping bot itself');
             continue;
         }
@@ -2139,6 +2131,16 @@ modBot.on('chat_member', async (ctx) => {
         return;
     }
     
+    // Get bot ID dynamically
+    let botId = null;
+    try {
+        const botInfo = await modBot.telegram.getMe();
+        botId = botInfo.id;
+    } catch (e) {
+        console.error('❌ Cannot get bot ID:', e.message);
+        return;
+    }
+    
     // ✅ CORRECT: Use ctx.update.chat_member (not ctx.chatMember)
     const update = ctx.update?.chat_member;
     if (!update) {
@@ -2156,7 +2158,6 @@ modBot.on('chat_member', async (ctx) => {
     }
     
     const user = newMember.user;
-    const chatId = chat?.id;
     
     const wasMember = oldMember && ['member', 'administrator', 'creator'].includes(oldMember.status);
     const isMember = ['member', 'administrator', 'creator'].includes(newMember.status);
@@ -2170,7 +2171,7 @@ modBot.on('chat_member', async (ctx) => {
         }
         
         // Skip bot itself
-        if (user.id === modBotId) {
+        if (user.id === botId) {
             console.log('🤖 Skipping bot itself');
             return;
         }
@@ -2248,7 +2249,6 @@ modBot.on('my_chat_member', async (ctx) => {
 // ============================================================================
 // 18. 🌐 API ROUTES
 // ============================================================================
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
