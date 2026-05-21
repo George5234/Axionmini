@@ -1358,7 +1358,15 @@ mainBot.hears('🔄 SWAP STATION', async (ctx) => {
     
     const isVerified = await isUserVerifiedInChannels(userId);
     if (!isVerified) {
-        await ctx.reply('⚠️ Please verify channel membership first.');
+        const missing = await getMissingChannels(userId);
+        let list = '';
+        for (const ch of missing) list += `📢 ${ch.name}\n`;
+        const message = formatProfessionalMessage(
+            '⚠️ VERIFICATION REQUIRED',
+            `You are not a member of all required channels.\n\n<b>Missing channels:</b>\n${list}`,
+            `Please join all channels and click VERIFY.`
+        );
+        await sendAndTrack(ctx, message, getChannelsKeyboard());
         return;
     }
     
