@@ -386,7 +386,21 @@ async function getUser(userId) {
     try {
         const userDoc = await db.collection('users').doc(userId).get();
         if (userDoc.exists) {
-            return userCache.set(userId, userDoc.data());
+            const userData = userDoc.data();
+            
+            // ✅ FALLBACK للمستخدمين القدامى (إضافة الحقول الناقصة)
+            const updates = {};
+            if (userData.referral_clicks === undefined) updates.referral_clicks = 0;
+            if (!userData.referrals) updates.referrals = [];
+            if (userData.inviteCount === undefined) updates.inviteCount = 0;
+            
+            if (Object.keys(updates).length > 0) {
+                await db.collection('users').doc(userId).update(updates);
+                Object.assign(userData, updates);
+                console.log(`🔄 Updated legacy user ${userId} with missing fields`);
+            }
+            
+            return userCache.set(userId, userData);
         }
         return null;
     } catch (error) {
@@ -395,7 +409,7 @@ async function getUser(userId) {
     }
 }
 
-async function getOrCreateUser(userId, userName, username, referredBy = null) {
+async function getOrCreateUser(userId, userName, username) {  // ✅ removed referredBy parameter
     let user = userCache.get(userId);
     if (user) return user;
     
@@ -416,8 +430,9 @@ async function getOrCreateUser(userId, userName, username, referredBy = null) {
             usdtBalance: 0,
             totalEarned: 0,
             inviteCount: 0,
-            referredBy: referredBy || null,
-            referrals: [],
+            referredBy: null,           // ✅ will be set later in start handler
+            referral_clicks: 0,         // ✅ NEW FIELD
+            referrals: [],              // ✅ already exists
             walletAddress: null,
             tonWallet: null,
             tonPaid: false,
@@ -523,31 +538,43 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
     if (referrerId === newUserId) return false;
 
     try {
+        console.log(`🎁 PROCESSING REFERRAL: ${referrerId} → ${newUserId}`);
+
         const referrer = await getUser(referrerId);
-        if (!referrer) return false;
+        if (!referrer) {
+            console.log(`❌ Referral failed: Referrer ${referrerId} not found`);
+            return false;
+        }
 
         const currentReferrals = referrer.referrals || [];
-        if (currentReferrals.includes(newUserId)) return false;
+        if (currentReferrals.includes(newUserId)) {
+            console.log(`❌ Duplicate referral blocked: ${referrerId} → ${newUserId}`);
+            return false;
+        }
 
-        // Use periodic sync (immediate = false)
+        const newInviteCount = (referrer.inviteCount || 0) + 1;
+
+        // ✅ IMMEDIATE SYNC (الأهم!)
         await updateUser(referrerId, {
             referrals: [...currentReferrals, newUserId],
-            inviteCount: (referrer.inviteCount || 0) + 1,
+            inviteCount: newInviteCount,
             balance: (referrer.balance || 0) + APP_CONFIG.referralBonus,
             totalEarned: (referrer.totalEarned || 0) + APP_CONFIG.referralBonus,
             lastReferralAt: new Date().toISOString()
-        }, false);
+        }, true);  // 🔥 changed from false to true
         
+        // ✅ Add transaction with immediate sync
         await addTransaction(referrerId, {
             type: 'referral',
             amount: APP_CONFIG.referralBonus,
             currency: 'AXC',
             status: 'completed',
             description: `Referral bonus for ${newUserName}`
-        }, false);
+        }, true);  // 🔥 changed from false to true
 
-        const newInviteCount = (referrer.inviteCount || 0) + 1;
-        
+        console.log(`✅ REFERRAL BONUS PAID: ${referrerId} +${APP_CONFIG.referralBonus} AXC (User ${newUserId})`);
+
+        // Send congratulations message
         const message = formatProfessionalMessage(
             '🎉 NEW REFERRAL!',
             `👤 <b>${escapeHtml(newUserName)}</b> joined and verified!\n\n💰 <b>+${APP_CONFIG.referralBonus} AXC</b>\n\n👥 <b>Total Referrals:</b> ${newInviteCount}`,
@@ -555,11 +582,14 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
         );
         
         await mainBot.telegram.sendMessage(referrerId, message, { parse_mode: 'HTML' }).catch(() => {});
+        
+        // Check milestone achievements
         await checkMilestoneAchievement(referrerId);
         
         return true;
+        
     } catch (error) {
-        console.error('Referral error:', error.message);
+        console.error(`❌ CRITICAL REFERRAL ERROR ${referrerId} → ${newUserId}:`, error.message);
         return false;
     }
 }
@@ -574,10 +604,11 @@ async function checkMilestoneAchievement(userId) {
 
         for (const milestone of REFERRAL_MILESTONES) {
             if (currentInvites >= milestone.count && !claimed.includes(milestone.count)) {
+                // ✅ Use immediate sync for milestones (important)
                 await updateUser(userId, {
                     usdtBalance: (user.usdtBalance || 0) + milestone.reward,
                     claimedMilestones: [...claimed, milestone.count]
-                }, false);
+                }, true);  // 🔥 changed from false to true
                 
                 await addTransaction(userId, {
                     type: 'milestone',
@@ -585,7 +616,7 @@ async function checkMilestoneAchievement(userId) {
                     currency: 'USDT',
                     status: 'completed',
                     description: `${milestone.name} milestone: ${milestone.count} referrals`
-                }, false);
+                }, true);  // 🔥 changed from false to true
 
                 const message = formatProfessionalMessage(
                     '🏆 MILESTONE UNLOCKED!',
@@ -593,6 +624,8 @@ async function checkMilestoneAchievement(userId) {
                     `✨ You're on fire! Keep going!`
                 );
                 await mainBot.telegram.sendMessage(userId, message, { parse_mode: 'HTML' }).catch(() => {});
+                
+                console.log(`🏆 MILESTONE: ${userId} unlocked ${milestone.name} (${milestone.count} referrals)`);
             }
         }
     } catch (error) {
@@ -953,13 +986,37 @@ mainBot.start(async (ctx) => {
         return;
     }
 
-    let user = await getOrCreateUser(userId, userName, userUsername, refCode);
+    // ✅ التعديل 1: إزالة refCode من getOrCreateUser
+    let user = await getOrCreateUser(userId, userName, userUsername);
     if (!user) return;
 
+    // ✅ التعديل 2: معالجة الإحالة بشكل محسن
     if (refCode && refCode !== userId && !user.referredBy) {
+        console.log(`🔗 REFERRAL CLICK: ${userId} ← ${refCode}`);
+        
+        // حفظ referredBy فوراً
         await updateUser(userId, { referredBy: refCode }, true);
+        
+        // زيادة عدد النقرات وإشعار المحيل
+        const referrer = await getUser(refCode);
+        if (referrer) {
+            const newClicks = (referrer.referral_clicks || 0) + 1;
+            await updateUser(refCode, { referral_clicks: newClicks }, true);
+            
+            const notifyMsg = formatProfessionalMessage(
+                '👀 NEW REFERRAL CLICK!',
+                `Someone used your referral link.\n\nThey will earn you ${APP_CONFIG.referralBonus} AXC after verification.`,
+                `Total clicks: ${newClicks}`
+            );
+            await mainBot.telegram.sendMessage(refCode, notifyMsg, { parse_mode: 'HTML' }).catch(() => {});
+            console.log(`✅ REFERRAL CLICK NOTIFIED: ${refCode} (Total: ${newClicks})`);
+        }
+        
+        // إعادة تحميل المستخدم بعد التحديث
+        user = await getUser(userId);
     }
 
+    // ✅ باقي الكود كما هو (بدون تغيير)
     const isVerified = await isUserVerifiedInChannels(userId);
     
     if (isVerified && !user.isVerified) {
