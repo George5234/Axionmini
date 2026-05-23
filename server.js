@@ -93,11 +93,11 @@ const APP_CONFIG = {
 };
 
 const REFERRAL_MILESTONES = [
-    { count: 5, reward: 1, name: '🥉 Bronze', rewardUnit: 'USDT' },
-    { count: 15, reward: 5, name: '🥈 Silver', rewardUnit: 'USDT' },
-    { count: 30, reward: 10, name: '🥇 Gold', rewardUnit: 'USDT' },
-    { count: 60, reward: 25, name: '👑 Platinum', rewardUnit: 'USDT' },
-    { count: 100, reward: 50, name: '💎 Diamond', rewardUnit: 'USDT' }
+    { count: 50, reward: 25, name: '🥉 Bronze', rewardUnit: 'USDT' },
+    { count: 100, reward: 50, name: '🥈 Silver', rewardUnit: 'USDT' },
+    { count: 250, reward: 150, name: '🥇 Gold', rewardUnit: 'USDT' },
+    { count: 500, reward: 250, name: '👑 Platinum', rewardUnit: 'USDT' },
+    { count: 1000, reward: 500, name: '💎 Diamond', rewardUnit: 'USDT' }
 ];
 
 const REQUIRED_CHANNELS = [
