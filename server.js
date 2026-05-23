@@ -101,10 +101,10 @@ const REFERRAL_MILESTONES = [
 ];
 
 const REQUIRED_CHANNELS = [
-    { name: 'Axion AI Signal', username: '@AxionAiSignal' },
-    { name: 'Axion AI Signals', username: '@AxionAiSignals' },
-    { name: 'Airdrop Master VIP', username: '@Airdrop_MasterVIP' },
-    { name: 'Daily Airdrop X', username: '@Daily_AirdropX' }
+    { name: 'Axion AI Channel', username: '@AxionAiSignal' },
+    { name: 'Axion AI Community', username: '@AxionAiSignals' },
+    //{ name: 'Airdrop Master VIP', username: '@Airdrop_MasterVIP' },
+    //{ name: 'Daily Airdrop X', username: '@Daily_AirdropX' }
 ];
 
 // ============================================================================
