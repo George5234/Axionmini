@@ -85,7 +85,7 @@ const APP_CONFIG = {
     withdrawCooldown: 86400000,
     sessionTTL: 3600000,
     adminSessionTTL: 86400000,
-    syncInterval: 21600000, // 6 hours - Periodic sync to Firebase
+    syncInterval: 3600000, // 6 hours - Periodic sync to Firebase
     cacheTTL: 3600000,
     rateLimitWindow: 60000,
     rateLimitMax: 30,
@@ -561,7 +561,7 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
             balance: (referrer.balance || 0) + APP_CONFIG.referralBonus,
             totalEarned: (referrer.totalEarned || 0) + APP_CONFIG.referralBonus,
             lastReferralAt: new Date().toISOString()
-        }, true);  // 🔥 changed from false to true
+        }, false);  // 🔥 changed from false to true
         
         // ✅ Add transaction with immediate sync
         await addTransaction(referrerId, {
@@ -570,7 +570,7 @@ async function processReferralAfterVerification(referrerId, newUserId, newUserNa
             currency: 'AXC',
             status: 'completed',
             description: `Referral bonus for ${newUserName}`
-        }, true);  // 🔥 changed from false to true
+        }, false);  // 🔥 changed from false to true
 
         console.log(`✅ REFERRAL BONUS PAID: ${referrerId} +${APP_CONFIG.referralBonus} AXC (User ${newUserId})`);
 
@@ -608,7 +608,7 @@ async function checkMilestoneAchievement(userId) {
                 await updateUser(userId, {
                     usdtBalance: (user.usdtBalance || 0) + milestone.reward,
                     claimedMilestones: [...claimed, milestone.count]
-                }, true);  // 🔥 changed from false to true
+                }, false);  // 🔥 changed from true to false
                 
                 await addTransaction(userId, {
                     type: 'milestone',
@@ -616,7 +616,7 @@ async function checkMilestoneAchievement(userId) {
                     currency: 'USDT',
                     status: 'completed',
                     description: `${milestone.name} milestone: ${milestone.count} referrals`
-                }, true);  // 🔥 changed from false to true
+                }, false);  // 🔥 changed from true to false
 
                 const message = formatProfessionalMessage(
                     '🏆 MILESTONE UNLOCKED!',
@@ -1001,7 +1001,7 @@ mainBot.start(async (ctx) => {
         const referrer = await getUser(refCode);
         if (referrer) {
             const newClicks = (referrer.referral_clicks || 0) + 1;
-            await updateUser(refCode, { referral_clicks: newClicks }, true);
+            await updateUser(refCode, { referral_clicks: newClicks }, false);
             
             const notifyMsg = formatProfessionalMessage(
                 '👀 NEW REFERRAL CLICK!',
