@@ -721,22 +721,18 @@ async function createWithdrawalRequest(userId, amount, currency, walletAddress) 
         await updateUser(userId, { withdrawals: userWithdrawals }, false);
 
         // Send notification to admin group (without buttons - just info)
-        if (WITHDRAWAL_GROUP_ID) {
-            const message = formatProfessionalMessage(
-                '💸 NEW WITHDRAWAL REQUEST (AUTO-APPROVED)',
-                `👤 <b>User:</b> ${escapeHtml(user.userName)}\n🆔 <b>ID:</b> ${userId}\n💰 <b>Amount:</b> ${currency === 'AXC' ? amount + ' AXC' : '$' + amount}\n💳 <b>Wallet:</b> <code>${walletAddress}</code>\n🆔 <b>Request ID:</b> <code>${requestId}</code>\n\n✅ <b>Status:</b> Auto-approved - Ready for manual transfer`,
-                `📌 Admin: Please verify user and send funds manually to the address above.`
-            );
-            await mainBot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, message, { parse_mode: 'HTML' }).catch(() => {});
-        }
-
-        return { success: true, requestId };
-    } catch (error) {
-        console.error('Withdrawal error:', error);
-        return { success: false, error: error.message };
-    }
+if (WITHDRAWAL_GROUP_ID) {
+    const referralCount = user.inviteCount || 0;
+    
+    const message = formatProfessionalMessage(
+        '💸 NEW WITHDRAWAL REQUEST (AUTO-APPROVED)',
+        `👤 <b>User:</b> ${escapeHtml(user.userName)}\n🆔 <b>ID:</b> ${userId}\n👥 <b>Referrals:</b> ${referralCount}\n💰 <b>Amount:</b> ${currency === 'AXC' ? amount + ' AXC' : '$' + amount}\n💳 <b>Wallet:</b> <code>${walletAddress}</code>\n🆔 <b>Request ID:</b> <code>${requestId}</code>\n\n✅ <b>Status:</b> Auto-approved - Ready for manual transfer`,
+        `📌 Admin: Please verify user and send funds manually to the address above.`
+    );
+    await mainBot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, message, { parse_mode: 'HTML' }).catch(() => {});
 }
 
+return { success: true, requestId };
 // ============================================================================
 // 11. 🎨 KEYBOARDS
 // ============================================================================
