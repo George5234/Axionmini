@@ -973,6 +973,14 @@ async function sendWelcomeMessage(ctx, member) {
 
 const mainBot = new Telegraf(BOT_TOKEN);
 
+// 🔥 منع mainBot من العمل في المجموعات
+mainBot.use((ctx, next) => {
+    if (ctx.chat?.type === 'private' || ctx.callbackQuery) {
+        return next();
+    }
+    return;
+});
+
 mainBot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
 mainBot.telegram.getMe().then((botInfo) => { BOT_USERNAME = botInfo.username; console.log(`🤖 Main Bot: @${BOT_USERNAME}`); }).catch(() => {});
 
