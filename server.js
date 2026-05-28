@@ -93,10 +93,10 @@ const APP_CONFIG = {
 };
 
 const REFERRAL_MILESTONES = [
-    { count: 50, reward: 25, name: '🥉 Bronze', rewardUnit: 'USDT' },
-    { count: 100, reward: 50, name: '🥈 Silver', rewardUnit: 'USDT' },
-    { count: 250, reward: 150, name: '🥇 Gold', rewardUnit: 'USDT' },
-    { count: 500, reward: 250, name: '👑 Platinum', rewardUnit: 'USDT' },
+    { count: 100, reward: 50, name: '🥉 Bronze', rewardUnit: 'USDT' },
+    { count: 250, reward: 100, name: '🥈 Silver', rewardUnit: 'USDT' },
+    { count: 500, reward: 200, name: '🥇 Gold', rewardUnit: 'USDT' },
+    { count: 750, reward: 300, name: '👑 Platinum', rewardUnit: 'USDT' },
     { count: 1000, reward: 500, name: '💎 Diamond', rewardUnit: 'USDT' }
 ];
 
