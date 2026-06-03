@@ -1185,7 +1185,7 @@ mainBot.hears('💸 WITHDRAW', async (ctx) => {
     if (!user.walletAddress) {
         const message = formatProfessionalMessage(
             '💳 SETUP WITHDRAWAL WALLET',
-            `Please send your BEP20 wallet address to continue.\n\n<i>Example:</i> <code>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</code>`,
+            `Please send your BEP20 wallet address to continue.\n\n<i>Example:</i> <code>0x...45fd</code>`,
             `Send your address now:`
         );
         await sendAndTrack(ctx, message, getCancelKeyboard());
@@ -1329,7 +1329,7 @@ mainBot.action('confirm_withdraw_final', async (ctx) => {
         const message = formatProfessionalMessage(
             '✅ WITHDRAWAL SUBMITTED!',
             `💰 Amount: ${session.currency === 'AXC' ? formatAXC(session.amount) : formatUSD(session.amount)}\n⏳ <b>Processing Time:</b> 1-12 hours\n🆔 <b>Request ID:</b> <code>${result.requestId}</code>\n\n<b>ℹ️ Your withdrawal has been auto-approved.</b>\nAn admin will review and send funds to your wallet.`,
-            `Thank you for trusting Axion AI!`
+            `Thank you for trusting Axion AI, Share a screenshot of your winnings and post it in the group to increase your chances of winning a 250 USDT prize. `
         );
         await ctx.reply(message, { parse_mode: 'HTML' });
     } else {
