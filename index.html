@@ -103,10 +103,13 @@
 
         <!-- ==================== EARN PAGE ==================== -->
         <div id="earnPage" class="page hidden">
-            <!-- Mining Card -->
+            <!-- Mining Card with Integrated Boost -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-microchip"></i> NEURAL MINING RIG</h3>
+                    <button class="boost-trigger-btn" id="boostTriggerBtn">
+                        <i class="fas fa-rocket"></i> BOOST
+                    </button>
                 </div>
                 <div class="mining-stats">
                     <div class="stat-card">
@@ -125,33 +128,30 @@
                     </div>
                     <div class="mining-rate">Next reward in: <span id="nextReward">2h 30m</span></div>
                 </div>
-            </div>
-
-            <!-- Boost Cards -->
-            <div class="neural-card">
-                <div class="section-header">
-                    <h3><i class="fas fa-rocket"></i> BOOST MINING</h3>
-                </div>
-                <div class="boost-option" data-boost="bronze">
-                    <div class="boost-info">
-                        <span class="boost-price">⚡ 2.5 TON</span>
-                        <span class="boost-rate">120 AXC / 2.5h</span>
+                
+                <!-- Boost Options (Hidden by default, shown when clicking BOOST button) -->
+                <div class="boost-options" id="boostOptions" style="display: none;">
+                    <div class="boost-option" data-boost="bronze">
+                        <div class="boost-info">
+                            <span class="boost-price">⚡ 2.5 TON</span>
+                            <span class="boost-rate">120 AXC / 2.5h</span>
+                        </div>
+                        <span class="boost-duration">3 days</span>
                     </div>
-                    <span class="boost-duration">3 days</span>
-                </div>
-                <div class="boost-option" data-boost="silver">
-                    <div class="boost-info">
-                        <span class="boost-price">⚡ 5 TON</span>
-                        <span class="boost-rate">250 AXC / 2.5h</span>
+                    <div class="boost-option" data-boost="silver">
+                        <div class="boost-info">
+                            <span class="boost-price">⚡ 5 TON</span>
+                            <span class="boost-rate">250 AXC / 2.5h</span>
+                        </div>
+                        <span class="boost-duration">7 days</span>
                     </div>
-                    <span class="boost-duration">7 days</span>
-                </div>
-                <div class="boost-option" data-boost="gold">
-                    <div class="boost-info">
-                        <span class="boost-price">⚡ 10 TON</span>
-                        <span class="boost-rate">500 AXC / 2.5h</span>
+                    <div class="boost-option" data-boost="gold">
+                        <div class="boost-info">
+                            <span class="boost-price">⚡ 10 TON</span>
+                            <span class="boost-rate">500 AXC / 2.5h</span>
+                        </div>
+                        <span class="boost-duration">30 days</span>
                     </div>
-                    <span class="boost-duration">30 days</span>
                 </div>
             </div>
 
@@ -200,18 +200,14 @@
         <div id="swapPage" class="page hidden">
             <div class="swap-container">
                 <div class="swap-card">
-                    <div class="status-bar">
-                        <div class="status-indicator">
-                            <div class="status-dot"></div>
-                            <span>System Online</span>
-                        </div>
-                        <div class="gas-price">
-                            <i class="fas fa-bolt"></i> TON Network
-                        </div>
+                    <!-- Swap Header -->
+                    <div class="swap-header-modern">
+                        <span class="swap-title">Swap</span>
+                        <button class="swap-settings"><i class="fas fa-sliders-h"></i></button>
                     </div>
 
-                    <!-- TON Connect -->
-                    <div class="wallet-section">
+                    <!-- TON Connect Status -->
+                    <div class="ton-status">
                         <div class="wallet-badge">
                             <div class="wallet-avatar">
                                 <i class="fab fa-telegram-plane"></i>
@@ -224,69 +220,50 @@
                         <div id="ton-connect"></div>
                     </div>
 
-                    <div class="swap-header">
-                        <h3><i class="fas fa-exchange-alt"></i> Swap</h3>
-                        <div class="ai-chip">
-                            <i class="fas fa-brain"></i> AI Route
-                        </div>
-                    </div>
-
-                    <!-- From Input -->
-                    <div class="swap-input-container">
-                        <div class="input-label">
-                            <span class="label-text"><i class="fas fa-arrow-up"></i> You Pay</span>
+                    <!-- From Input (You Pay) -->
+                    <div class="swap-box">
+                        <div class="swap-box-header">
+                            <span>You Pay</span>
                             <span class="balance-text">Balance: <span id="fromBalance">0</span> AXC</span>
                         </div>
-                        <div class="input-row">
-                            <input type="number" id="swapFrom" placeholder="0" step="1">
-                            <div class="token-selector">
-                                <div class="token-icon axc">A</div>
+                        <div class="swap-box-body">
+                            <input type="number" id="swapFrom" placeholder="0" value="0">
+                            <div class="token-select-modern">
+                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/38901.png" alt="AXC" width="24" height="24">
                                 <span>AXC</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="swap-divider">
-                        <div class="line"></div>
-                        <div class="swap-arrow-btn"><i class="fas fa-arrow-down"></i></div>
-                        <div class="line"></div>
+                    <!-- Swap Arrow -->
+                    <div class="swap-arrow-modern">
+                        <i class="fas fa-arrow-down"></i>
                     </div>
 
-                    <!-- To Input -->
-                    <div class="swap-input-container">
-                        <div class="input-label">
-                            <span class="label-text"><i class="fas fa-arrow-down"></i> You Receive</span>
+                    <!-- To Input (You Receive) -->
+                    <div class="swap-box">
+                        <div class="swap-box-header">
+                            <span>You Receive</span>
                             <span class="balance-text">Balance: <span id="toBalance">$0.00</span> USDT</span>
                         </div>
-                        <div class="input-row">
+                        <div class="swap-box-body">
                             <input type="text" id="swapTo" placeholder="0.00" readonly>
-                            <div class="token-selector">
-                                <div class="token-icon usdt">₮</div>
+                            <div class="token-select-modern">
+                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT" width="24" height="24">
                                 <span>USDT</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="rate-panel">
-                        <div class="rate-item">
-                            <div class="value" id="axcPrice">0.01</div>
-                            <div class="label">AXC/USDT</div>
-                        </div>
-                        <div class="rate-divider"></div>
-                        <div class="rate-item">
-                            <div class="value">5</div>
-                            <div class="label">TON Fee</div>
-                        </div>
-                        <div class="rate-divider"></div>
-                        <div class="rate-item">
-                            <div class="value" style="color: var(--ai-accent);">∞</div>
-                            <div class="label">Unlimited</div>
-                        </div>
+                    <!-- Rate Info -->
+                    <div class="swap-rate-info">
+                        <span>1 AXC = <span id="axcPrice">0.01</span> USDT</span>
+                        <span class="rate-fee">Fee: 0 AXC</span>
                     </div>
 
-                    <button class="btn-ai-swap locked" id="swapBtn">
-                        <i class="fas fa-lock"></i>
-                        <span>Unlock Neural Swap</span>
+                    <!-- Swap Button -->
+                    <button class="swap-button" id="swapBtn">
+                        <i class="fas fa-lock"></i> Unlock Neural Swap
                     </button>
 
                     <div id="swapStatus" class="ai-status"></div>
@@ -345,16 +322,23 @@
             </div>
         </div>
 
-        <!-- Withdraw Modal -->
+        <!-- Withdraw Modal (with Currency Selection) -->
         <div id="withdrawModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>💸 WITHDRAW AXC</h3>
+                    <h3>💸 WITHDRAW FUNDS</h3>
                     <button class="close-btn" onclick="closeModal('withdrawModal')"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>Amount (AXC)</label>
+                        <label>Select Currency</label>
+                        <select id="withdrawCurrency" class="form-select">
+                            <option value="AXC">AXC (Axion Coin)</option>
+                            <option value="USDT">USDT (Tether)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount</label>
                         <input type="number" id="withdrawAmountInput" class="ai-input" placeholder="Enter amount">
                     </div>
                     <div class="form-group">
@@ -362,9 +346,10 @@
                         <input type="text" id="withdrawAddressInput" class="ai-input" placeholder="0x...">
                     </div>
                     <div class="withdraw-info">
-                        <div class="info-row"><span>Min:</span><span>1,000 AXC</span></div>
-                        <div class="info-row"><span>Max:</span><span>50,000 AXC</span></div>
-                        <div class="info-row"><span>Fee:</span><span>0 AXC</span></div>
+                        <div class="info-row"><span>Min AXC:</span><span>1,000 AXC</span></div>
+                        <div class="info-row"><span>Min USDT:</span><span>10 USDT</span></div>
+                        <div class="info-row"><span>Max:</span><span>50,000 AXC / 1,000 USDT</span></div>
+                        <div class="info-row"><span>Fee:</span><span>0</span></div>
                     </div>
                     <button class="confirm-btn" id="submitWithdrawBtn">
                         <i class="fas fa-paper-plane"></i> CONFIRM WITHDRAWAL
