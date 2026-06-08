@@ -48,22 +48,6 @@
             <div class="tagline">
                 <i class="fas fa-microchip"></i> AI-Powered • Instant • Low Fee
             </div>
-            
-            <!-- Wallet Status Bar - Top Left (Compact) -->
-            <div class="wallet-status-bar" id="walletStatusBar">
-                <div class="wallet-info-compact" id="walletInfoCompact">
-                    <i class="fas fa-plug"></i>
-                    <span id="walletAddressShort">Not Connected</span>
-                </div>
-                <div class="wallet-actions-compact hidden" id="walletActionsCompact">
-                    <button class="icon-btn-small" id="copyWalletAddressBtn" title="Copy Address">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                    <button class="icon-btn-small" id="disconnectWalletBtn" title="Disconnect">
-                        <i class="fas fa-plug"></i>
-                    </button>
-                </div>
-            </div>
         </div>
 
         <!-- ==================== WALLET PAGE ==================== -->
@@ -192,7 +176,7 @@
                 </div>
             </div>
 
-            <!-- Referral Section (Moved from Wallet) -->
+            <!-- Referral Section -->
             <div class="neural-card referral-card">
                 <div class="section-header">
                     <h3><i class="fas fa-users"></i> REFERRAL SYSTEM</h3>
@@ -228,6 +212,7 @@
                         </div>
                     </div>
 
+                    <!-- TON Connect - Original Position -->
                     <div class="wallet-section">
                         <div class="wallet-badge">
                             <div class="wallet-avatar">
@@ -421,7 +406,7 @@
             </div>
         </div>
 
-        <!-- Verification Modal (TON Activation) -->
+        <!-- TON Activation Modal (Appears only when needed) -->
         <div class="ai-modal-overlay" id="verificationModal">
             <div class="ai-modal">
                 <div class="modal-ai-icon">
