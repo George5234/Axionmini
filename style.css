@@ -1389,3 +1389,135 @@ body {
         text-align: center;
     }
 }
+
+/* ============================================================================
+   TON ACTIVATION MODAL - FIXED
+   ============================================================================ */
+
+.ai-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.96);
+    backdrop-filter: blur(16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.ai-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.ai-modal {
+    background: linear-gradient(145deg, #0a180a, #051005);
+    border: 1px solid var(--ai-border);
+    border-radius: 32px;
+    padding: 28px 24px;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+    transform: scale(0.95);
+    transition: transform 0.3s ease;
+}
+
+.ai-modal-overlay.active .ai-modal {
+    transform: scale(1);
+}
+
+.modal-ai-icon {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 16px;
+    background: rgba(57, 255, 20, 0.1);
+    border: 1px solid var(--ai-border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--ai-green);
+}
+
+.ai-modal h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ai-green);
+    margin-bottom: 8px;
+}
+
+.ai-modal .fee-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--ai-green);
+    margin: 12px 0 4px;
+}
+
+.ai-modal .fee-sub {
+    color: var(--ai-muted);
+    font-size: 12px;
+    margin-bottom: 20px;
+}
+
+.ai-features {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 18px;
+    padding: 14px;
+    text-align: left;
+    margin: 16px 0;
+}
+
+.ai-features p {
+    color: var(--ai-muted);
+    font-size: 12px;
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-features i {
+    width: 20px;
+    color: var(--ai-green);
+    font-size: 14px;
+}
+
+.ai-modal-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.ai-modal-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 14px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-transform: uppercase;
+}
+
+.ai-modal-btn.primary {
+    background: linear-gradient(145deg, var(--ai-green), #1a7a2a);
+    color: #000;
+}
+
+.ai-modal-btn.secondary {
+    background: rgba(255, 68, 68, 0.1);
+    color: var(--ai-danger);
+    border: 1px solid rgba(255, 68, 68, 0.3);
+}
