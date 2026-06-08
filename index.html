@@ -171,9 +171,7 @@
                 <div class="section-header">
                     <h3><i class="fas fa-list-check"></i> DAILY TASKS</h3>
                 </div>
-                <div id="tasksContainer" class="tasks-container">
-                    <!-- Tasks will be rendered here -->
-                </div>
+                <div id="tasksContainer" class="tasks-container"></div>
             </div>
 
             <!-- Referral Section -->
@@ -212,7 +210,7 @@
                         </div>
                     </div>
 
-                    <!-- TON Connect - Original Position -->
+                    <!-- TON Connect -->
                     <div class="wallet-section">
                         <div class="wallet-badge">
                             <div class="wallet-avatar">
@@ -250,7 +248,7 @@
 
                     <div class="swap-divider">
                         <div class="line"></div>
-                        <div class="swap-arrow-btn" id="swapArrowBtn"><i class="fas fa-arrow-down"></i></div>
+                        <div class="swap-arrow-btn"><i class="fas fa-arrow-down"></i></div>
                         <div class="line"></div>
                     </div>
 
@@ -321,7 +319,7 @@
             </button>
         </nav>
 
-        <!-- ==================== MODALS ==================== -->
+        <!-- ==================== MODALS (Static - Work Fine) ==================== -->
         
         <!-- Deposit Modal -->
         <div id="depositModal" class="modal">
@@ -364,18 +362,9 @@
                         <input type="text" id="withdrawAddressInput" class="ai-input" placeholder="0x...">
                     </div>
                     <div class="withdraw-info">
-                        <div class="info-row">
-                            <span>Min:</span>
-                            <span>1,000 AXC</span>
-                        </div>
-                        <div class="info-row">
-                            <span>Max:</span>
-                            <span>50,000 AXC</span>
-                        </div>
-                        <div class="info-row">
-                            <span>Fee:</span>
-                            <span>0 AXC</span>
-                        </div>
+                        <div class="info-row"><span>Min:</span><span>1,000 AXC</span></div>
+                        <div class="info-row"><span>Max:</span><span>50,000 AXC</span></div>
+                        <div class="info-row"><span>Fee:</span><span>0 AXC</span></div>
                     </div>
                     <button class="confirm-btn" id="submitWithdrawBtn">
                         <i class="fas fa-paper-plane"></i> CONFIRM WITHDRAWAL
@@ -402,29 +391,6 @@
                     <div id="historyList" class="history-list">
                         <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TON Activation Modal (Appears only when needed) -->
-        <div class="ai-modal-overlay" id="verificationModal">
-            <div class="ai-modal">
-                <div class="modal-ai-icon">
-                    <i class="fas fa-brain"></i>
-                </div>
-                <h2>Neural Link</h2>
-                <div class="fee-display">5 TON</div>
-                <div class="fee-sub">One-time</div>
-                <div class="ai-features">
-                    <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
-                    <p><i class="fas fa-user-check"></i> Human-only access</p>
-                    <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
-                </div>
-                <div class="ai-modal-buttons">
-                    <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
-                    <button class="ai-modal-btn primary" id="modalProceedBtn">
-                        <i class="fas fa-bolt"></i> Activate
-                    </button>
                 </div>
             </div>
         </div>
