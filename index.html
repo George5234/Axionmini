@@ -5,821 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Axion AI • Neural DEX</title>
 
+    <!-- Telegram WebApp -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- TON Connect -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Ad Platforms (6 Networks) -->
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    <script src="https://richinfo.co/richpartners/telegram/js/tg-ob.js"></script>
+    <script src='//libtl.com/sdk.js' data-zone='11082910' data-sdk='show_11082910'></script>
+    <script src="https://sdk.taddy.pro/web/taddy.min.js" data-pub-id="cce0073fd96a4fb5280f4ba7cd370322"></script>
+    <script src="https://cdn.tgads.space/assets/js/adexium-widget.min.js"></script>
+    <script src="https://ad.gigapub.tech/script?id=6849"></script>
+    
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-        :root {
-            --ai-green: #39ff14;
-            --ai-green-dim: rgba(57, 255, 20, 0.12);
-            --ai-green-glow: rgba(57, 255, 20, 0.25);
-            --ai-dark: #050805;
-            --ai-card: rgba(8, 16, 8, 0.92);
-            --ai-border: rgba(57, 255, 20, 0.2);
-            --ai-text: #ffffff;
-            --ai-text-dim: #c0e0c0;
-            --ai-muted: #7a9e7a;
-            --ai-accent: #00ff88;
-            --ai-warning: #ffaa33;
-            --ai-danger: #ff5555;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            max-width: 100%;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--ai-dark);
-            min-height: 100vh;
-            color: var(--ai-text);
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        /* Subtle Neural Background */
-        .neural-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-            overflow: hidden;
-            opacity: 0.5;
-        }
-
-        .neural-node {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: var(--ai-green);
-            border-radius: 50%;
-            opacity: 0.3;
-            animation: pulse 4s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.3); }
-        }
-
-        /* Subtle Scanline */
-        .scanline {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--ai-green), transparent);
-            opacity: 0.15;
-            animation: scan 8s linear infinite;
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        @keyframes scan {
-            0% { top: -2px; }
-            100% { top: 100vh; }
-        }
-
-        .container {
-            position: relative;
-            z-index: 2;
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 16px 14px 32px;
-            overflow-x: hidden;
-        }
-
-        /* AI Header - Cleaner */
-        .ai-header {
-            text-align: center;
-            padding: 16px 0 24px;
-            position: relative;
-        }
-
-        .logo-ring {
-            width: 64px;
-            height: 64px;
-            margin: 0 auto 16px;
-            border: 1.5px solid var(--ai-green);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            animation: rotate 20s linear infinite;
-        }
-
-        .logo-ring::before {
-            content: '';
-            position: absolute;
-            inset: -6px;
-            border: 1px solid var(--ai-green);
-            border-radius: 50%;
-            opacity: 0.2;
-            animation: rotate 15s linear infinite reverse;
-        }
-
-        .logo-ring i {
-            font-size: 28px;
-            color: var(--ai-green);
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        .ai-header h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 26px;
-            font-weight: 800;
-            letter-spacing: 3px;
-            background: linear-gradient(135deg, var(--ai-green) 0%, var(--ai-accent) 50%, var(--ai-green) 100%);
-            background-size: 200% 200%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradientShift 4s ease infinite;
-        }
-
-        .ai-header .subtitle {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 10px;
-            color: var(--ai-muted);
-            letter-spacing: 4px;
-            margin-top: 6px;
-            text-transform: uppercase;
-        }
-
-        .ai-header .tagline {
-            font-size: 11px;
-            color: var(--ai-green);
-            margin-top: 10px;
-            opacity: 0.7;
-        }
-
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        /* Neural Card */
-        .neural-card {
-            background: var(--ai-card);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--ai-border);
-            border-radius: 24px;
-            padding: 18px;
-            margin-bottom: 16px;
-            position: relative;
-            transition: all 0.2s ease;
-        }
-
-        .neural-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--ai-green), transparent);
-            opacity: 0.4;
-        }
-
-        /* Status Bar */
-        .status-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid rgba(57, 255, 20, 0.08);
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--ai-green);
-            border-radius: 50%;
-            animation: blink 2s ease-in-out infinite;
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        .gas-price {
-            font-size: 11px;
-            color: var(--ai-muted);
-            font-family: 'Orbitron', monospace;
-        }
-
-        /* Wallet Section */
-        .wallet-section {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .wallet-badge {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-        }
-
-        .wallet-avatar {
-            width: 44px;
-            height: 44px;
-            background: linear-gradient(145deg, var(--ai-green), #1a6e2a);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-        }
-
-        .wallet-info h4 {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--ai-text);
-        }
-
-        .wallet-info p {
-            font-size: 11px;
-            color: var(--ai-muted);
-            margin-top: 2px;
-            font-family: 'Orbitron', monospace;
-        }
-
-        /* Swap Header */
-        .swap-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 18px;
-        }
-
-        .swap-header h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 14px;
-            letter-spacing: 2px;
-            color: var(--ai-green);
-        }
-
-        .ai-chip {
-            background: rgba(57, 255, 20, 0.08);
-            border: 1px solid var(--ai-border);
-            border-radius: 20px;
-            padding: 5px 12px;
-            font-size: 10px;
-            color: var(--ai-green);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        /* Input Containers */
-        .swap-input-container {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(57, 255, 20, 0.12);
-            border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 10px;
-            transition: all 0.2s ease;
-        }
-
-        .swap-input-container:focus-within {
-            border-color: var(--ai-green);
-        }
-
-        .input-label {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            font-size: 12px;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-
-        .input-label .label-text {
-            color: var(--ai-muted);
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .input-label .balance-text {
-            color: var(--ai-green);
-            font-family: 'Orbitron', monospace;
-            font-size: 11px;
-            font-weight: 500;
-        }
-
-        .input-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: nowrap;
-        }
-
-        .input-row input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--ai-text);
-            font-size: 28px;
-            font-weight: 700;
-            outline: none;
-            font-family: 'Orbitron', monospace;
-            min-width: 0;
-            letter-spacing: 1px;
-        }
-
-        .input-row input::placeholder {
-            color: rgba(107, 143, 107, 0.3);
-        }
-
-        .input-row input[type="number"] {
-            -moz-appearance: textfield;
-        }
-
-        .input-row input[type="number"]::-webkit-inner-spin-button,
-        .input-row input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        .token-selector {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(57, 255, 20, 0.08);
-            border: 1px solid var(--ai-border);
-            border-radius: 40px;
-            padding: 6px 14px;
-            flex-shrink: 0;
-        }
-
-        .token-selector span {
-            font-weight: 600;
-            font-size: 13px;
-            color: var(--ai-text);
-        }
-
-        .token-icon {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .token-icon.axc {
-            background: linear-gradient(145deg, #f1c40f, #d4ac0d);
-            color: #1a2a1a;
-        }
-
-        .token-icon.usdt {
-            background: linear-gradient(145deg, #2ecc71, #1e8a3e);
-            color: white;
-        }
-
-        /* Swap Divider */
-        .swap-divider {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 6px 0;
-        }
-
-        .swap-divider .line {
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--ai-green-dim), transparent);
-        }
-
-        .swap-arrow-btn {
-            width: 36px;
-            height: 36px;
-            background: rgba(57, 255, 20, 0.1);
-            border: 1px solid var(--ai-border);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--ai-green);
-            font-size: 12px;
-            margin: 0 12px;
-        }
-
-        /* Rate Panel */
-        .rate-panel {
-            background: rgba(0, 0, 0, 0.25);
-            border-radius: 16px;
-            padding: 12px;
-            margin: 14px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .rate-item {
-            text-align: center;
-        }
-
-        .rate-item .value {
-            font-family: 'Orbitron', monospace;
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--ai-green);
-        }
-
-        .rate-item .label {
-            font-size: 9px;
-            color: var(--ai-muted);
-            margin-top: 3px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .rate-divider {
-            width: 1px;
-            height: 24px;
-            background: linear-gradient(180deg, transparent, var(--ai-border), transparent);
-        }
-
-        /* Swap Button */
-        .btn-ai-swap {
-            width: 100%;
-            border: none;
-            border-radius: 20px;
-            padding: 16px;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: 1.5px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            text-transform: uppercase;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-ai-swap::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-            transition: left 0.4s;
-        }
-
-        .btn-ai-swap:hover::before {
-            left: 100%;
-        }
-
-        .btn-ai-swap.active {
-            background: linear-gradient(145deg, var(--ai-green), #1a7a2a);
-            color: #000;
-            font-weight: 800;
-        }
-
-        .btn-ai-swap.locked {
-            background: rgba(30, 40, 30, 0.9);
-            color: var(--ai-muted);
-            border: 1px solid rgba(57, 255, 20, 0.2);
-        }
-
-        .btn-ai-swap.locked i {
-            color: var(--ai-warning);
-        }
-
-        .btn-ai-swap:active {
-            transform: scale(0.98);
-        }
-
-        /* Status Messages */
-        .ai-status {
-            border-radius: 16px;
-            padding: 12px;
-            font-size: 12px;
-            text-align: center;
-            margin-top: 14px;
-            display: none;
-            animation: slideUp 0.25s ease;
-            border: 1px solid;
-            font-weight: 500;
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .ai-status.success {
-            background: rgba(57, 255, 20, 0.08);
-            color: var(--ai-green);
-            border-color: var(--ai-border);
-        }
-
-        .ai-status.error {
-            background: rgba(255, 68, 68, 0.08);
-            color: var(--ai-danger);
-            border-color: rgba(255, 68, 68, 0.2);
-        }
-
-        .ai-status.info {
-            background: rgba(0, 136, 255, 0.08);
-            color: #44aaff;
-            border-color: rgba(0, 136, 255, 0.2);
-        }
-
-        /* Withdraw Section */
-        .withdraw-card h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 13px;
-            letter-spacing: 2px;
-            color: var(--ai-green);
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .ai-input {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.45);
-            border: 1px solid rgba(57, 255, 20, 0.12);
-            border-radius: 16px;
-            padding: 14px 16px;
-            color: var(--ai-text);
-            font-size: 14px;
-            margin-bottom: 12px;
-            outline: none;
-            transition: all 0.2s;
-        }
-
-        .ai-input:focus {
-            border-color: var(--ai-green);
-        }
-
-        .ai-input::placeholder {
-            color: var(--ai-muted);
-        }
-
-        .btn-ai-withdraw {
-            width: 100%;
-            background: linear-gradient(145deg, #e67e22, #d35400);
-            border: none;
-            border-radius: 20px;
-            padding: 15px;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-            font-size: 13px;
-            letter-spacing: 1.5px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            text-transform: uppercase;
-        }
-
-        .btn-ai-withdraw:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn-ai-withdraw:active {
-            transform: scale(0.98);
-        }
-
-        /* AI Modal */
-        .ai-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.95);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .ai-modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .ai-modal {
-            background: linear-gradient(145deg, #0a180a, #051005);
-            border: 1px solid var(--ai-border);
-            border-radius: 28px;
-            padding: 28px 22px;
-            max-width: 340px;
-            width: 90%;
-            text-align: center;
-            transform: scale(0.95);
-            transition: transform 0.3s ease;
-        }
-
-        .ai-modal-overlay.active .ai-modal {
-            transform: scale(1);
-        }
-
-        .modal-ai-icon {
-            width: 60px;
-            height: 60px;
-            margin: 0 auto 16px;
-            background: rgba(57, 255, 20, 0.08);
-            border: 1.5px solid var(--ai-border);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            color: var(--ai-green);
-        }
-
-        .ai-modal h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--ai-green);
-            margin-bottom: 8px;
-            letter-spacing: 1px;
-        }
-
-        .ai-modal .fee-display {
-            font-family: 'Orbitron', monospace;
-            font-size: 30px;
-            font-weight: 800;
-            color: var(--ai-green);
-            margin: 12px 0 4px;
-        }
-
-        .ai-modal .fee-sub {
-            color: var(--ai-muted);
-            font-size: 12px;
-            margin-bottom: 20px;
-        }
-
-        .ai-features {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 18px;
-            padding: 14px;
-            text-align: left;
-            margin: 16px 0;
-        }
-
-        .ai-features p {
-            color: var(--ai-muted);
-            font-size: 12px;
-            margin: 8px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .ai-features i {
-            width: 20px;
-            color: var(--ai-green);
-            font-size: 12px;
-        }
-
-        .ai-note {
-            font-size: 11px;
-            color: var(--ai-warning);
-            margin: 14px 0;
-            padding: 10px;
-            background: rgba(255, 170, 0, 0.05);
-            border-radius: 12px;
-        }
-
-        .ai-modal-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 18px;
-        }
-
-        .ai-modal-btn {
-            flex: 1;
-            padding: 12px;
-            border-radius: 14px;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-            font-size: 11px;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-            text-transform: uppercase;
-        }
-
-        .ai-modal-btn.primary {
-            background: linear-gradient(145deg, var(--ai-green), #1a7a2a);
-            color: #000;
-        }
-
-        .ai-modal-btn.secondary {
-            background: rgba(255, 68, 68, 0.08);
-            color: var(--ai-danger);
-            border: 1px solid rgba(255, 68, 68, 0.2);
-        }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 16px 0;
-            color: var(--ai-muted);
-            font-size: 9px;
-            font-family: 'Orbitron', monospace;
-            letter-spacing: 1.5px;
-        }
-
-        /* Utilities */
-        .hidden { display: none !important; }
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.6s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        #confetti-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1000;
-        }
-
-        /* Responsive */
-        @media (max-width: 450px) {
-            .ai-header h1 { font-size: 22px; letter-spacing: 2px; }
-            .input-row input { font-size: 24px; }
-            .neural-card { padding: 14px; }
-            .logo-ring { width: 55px; height: 55px; }
-            .logo-ring i { font-size: 24px; }
-            .token-selector { padding: 5px 12px; }
-            .token-selector span { font-size: 12px; }
-        }
-    </style>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <canvas id="confetti-canvas"></canvas>
@@ -828,189 +36,461 @@
     <div class="neural-bg" id="neuralBg"></div>
     <div class="scanline"></div>
 
-    <div class="container">
-        <!-- AI Header -->
+    <div class="app-container">
+        
+        <!-- ==================== HEADER ==================== -->
         <div class="ai-header">
             <div class="logo-ring">
                 <i class="fas fa-brain"></i>
             </div>
             <h1>AXION AI</h1>
             <div class="subtitle">Neural DEX Protocol</div>
-            <div class="tagline">
-                <i class="fas fa-microchip" style="margin-right: 4px;"></i>
-                AI-Powered • Instant • Low Fee
-            </div>
-        </div>
-
-        <!-- Status & Wallet Card -->
-        <div class="neural-card">
-            <div class="status-bar">
-                <div class="status-indicator">
-                    <div class="status-dot"></div>
-                    <span>System Online</span>
-                </div>
-                <div class="gas-price">
-                    <i class="fas fa-bolt" style="margin-right: 4px;"></i>
-                    TON Network
-                </div>
-            </div>
-
-            <div class="wallet-section">
-                <div class="wallet-badge">
-                    <div class="wallet-avatar">
-                        <i class="fab fa-telegram-plane"></i>
-                    </div>
-                    <div class="wallet-info">
-                        <h4>Neural Wallet</h4>
-                        <p id="walletStatus">Not connected</p>
-                    </div>
-                </div>
-                <div id="ton-connect"></div>
-            </div>
-        </div>
-
-        <!-- Swap Interface -->
-        <div class="neural-card">
-            <div class="swap-header">
-                <h3><i class="fas fa-exchange-alt" style="margin-right: 6px;"></i>Swap</h3>
-                <div class="ai-chip">
-                    <i class="fas fa-brain"></i>
-                    AI Route
-                </div>
-            </div>
-
-            <!-- From Input -->
-            <div class="swap-input-container">
-                <div class="input-label">
-                    <span class="label-text">
-                        <i class="fas fa-arrow-up"></i>
-                        You Pay
-                    </span>
-                    <span class="balance-text">
-                        <i class="fas fa-wallet"></i>
-                        Balance: <span id="fromBalance">0</span> AXC
-                    </span>
-                </div>
-                <div class="input-row">
-                    <input type="number" id="swapFrom" placeholder="0" step="1">
-                    <div class="token-selector">
-                        <div class="token-icon axc">A</div>
-                        <span>AXC</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Swap Arrow -->
-            <div class="swap-divider">
-                <div class="line"></div>
-                <div class="swap-arrow-btn">
-                    <i class="fas fa-arrow-down"></i>
-                </div>
-                <div class="line"></div>
-            </div>
-
-            <!-- To Input -->
-            <div class="swap-input-container">
-                <div class="input-label">
-                    <span class="label-text">
-                        <i class="fas fa-arrow-down"></i>
-                        You Receive
-                    </span>
-                    <span class="balance-text">
-                        <i class="fas fa-wallet"></i>
-                        Balance: <span id="toBalance">$0.00</span> USDT
-                    </span>
-                </div>
-                <div class="input-row">
-                    <input type="text" id="swapTo" placeholder="0.00" readonly>
-                    <div class="token-selector">
-                        <div class="token-icon usdt">₮</div>
-                        <span>USDT</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Rate Panel -->
-            <div class="rate-panel">
-                <div class="rate-item">
-                    <div class="value" id="axcPrice">0.0099</div>
-                    <div class="label">AXC/USDT</div>
-                </div>
-                <div class="rate-divider"></div>
-                <div class="rate-item">
-                    <div class="value">5</div>
-                    <div class="label">TON Fee</div>
-                </div>
-                <div class="rate-divider"></div>
-                <div class="rate-item">
-                    <div class="value" style="color: var(--ai-accent);">∞</div>
-                    <div class="label">Unlimited</div>
-                </div>
-            </div>
-
-            <!-- Swap Button -->
-            <button class="btn-ai-swap locked" id="swapBtn">
-                <i class="fas fa-lock"></i>
-                <span>Unlock Neural Swap</span>
-            </button>
-
-            <div id="swapStatus" class="ai-status"></div>
-        </div>
-
-        <!-- Withdraw Section -->
-        <div class="neural-card withdraw-card">
-            <h3><i class="fas fa-money-bill-wave"></i> Withdraw USDT</h3>
-            <input type="text" id="withdrawAddress" class="ai-input" placeholder="BEP20 Address (0x...)" autocomplete="off">
-            <input type="number" id="withdrawAmount" class="ai-input" placeholder="Amount in USDT" step="0.01">
-            <button class="btn-ai-withdraw" id="withdrawBtn">
-                <i class="fas fa-paper-plane"></i>
-                <span>Withdraw</span>
-            </button>
-            <div id="withdrawStatus" class="ai-status"></div>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <i class="fas fa-shield-alt" style="margin-right: 4px;"></i>
-            Secured by AI Protocol
-        </div>
-    </div>
-
-    <!-- AI Verification Modal -->
-    <div class="ai-modal-overlay" id="verificationModal">
-        <div class="ai-modal">
-            <div class="modal-ai-icon">
-                <i class="fas fa-brain"></i>
-            </div>
-            <h2>Neural Link</h2>
-            <div class="fee-display">5 TON</div>
-            <div class="fee-sub">One-time</div>
-
-            <div class="ai-features">
-                <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
-                <p><i class="fas fa-user-check"></i> Human-only access</p>
-                <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
-            </div>
-
-            <div class="ai-note">
-                <i class="fas fa-info-circle"></i>
-                One-time fee to activate neural swap
-            </div>
-
-            <div class="ai-modal-buttons">
-                <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
-                <button class="ai-modal-btn primary" id="modalProceedBtn">
-                    <i class="fas fa-bolt"></i> Activate
+            <div class="header-actions">
+                <button class="icon-btn" id="languageBtn" onclick="toggleLanguage()">
+                    <span id="languageFlag">🇬🇧</span>
                 </button>
+                <button class="icon-btn" id="notificationBtn" onclick="showNotifications()">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="badge" id="notificationBadge">0</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== WALLET PAGE ==================== -->
+        <div id="walletPage" class="page">
+            <!-- Balance Card -->
+            <div class="neural-card balance-card">
+                <div class="balance-label">TOTAL BALANCE</div>
+                <div class="balance-amount" id="totalBalance">$0.00</div>
+                <div class="balance-breakdown">
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">AXC</span>
+                        <span class="breakdown-value" id="walletAxcBalance">0</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">USDT</span>
+                        <span class="breakdown-value" id="walletUsdtBalance">$0.00</span>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-btn" id="depositBtn">
+                        <i class="fas fa-arrow-down"></i>
+                        <span>Deposit</span>
+                    </button>
+                    <button class="action-btn" id="withdrawBtnWallet">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>Withdraw</span>
+                    </button>
+                    <button class="action-btn" id="historyBtn">
+                        <i class="fas fa-clock"></i>
+                        <span>History</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- My Assets -->
+            <div class="section-header">
+                <h3><i class="fas fa-star"></i> MY ASSETS</h3>
+                <button class="see-all-btn" onclick="showAllAssets()">See All <i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div id="assetsList" class="assets-list">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+
+            <!-- Top Cryptocurrencies -->
+            <div class="section-header">
+                <h3><i class="fas fa-chart-line"></i> TOP CRYPTOCURRENCIES</h3>
+                <button class="refresh-btn" onclick="refreshPrices()"><i class="fas fa-sync-alt"></i></button>
+            </div>
+            <div id="topCryptoList" class="top-crypto-list">
+                <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+
+            <!-- Referral Section -->
+            <div class="neural-card">
+                <div class="section-header">
+                    <h3><i class="fas fa-users"></i> REFERRAL SYSTEM</h3>
+                </div>
+                <div class="referral-stats">
+                    <div class="stat-card">
+                        <span class="stat-label">TOTAL REFERRALS</span>
+                        <span class="stat-value" id="referralCount">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">EARNED</span>
+                        <span class="stat-value" id="referralEarned">0 AXC</span>
+                    </div>
+                </div>
+                <div class="referral-link-container">
+                    <input type="text" id="referralLink" class="referral-link" readonly>
+                    <button class="copy-btn" id="copyReferralLink"><i class="fas fa-copy"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== EARN PAGE ==================== -->
+        <div id="earnPage" class="page hidden">
+            <!-- Mining Card -->
+            <div class="neural-card">
+                <div class="section-header">
+                    <h3><i class="fas fa-microchip"></i> NEURAL MINING RIG</h3>
+                </div>
+                <div class="mining-stats">
+                    <div class="stat-card">
+                        <span class="stat-label">MINING RATE</span>
+                        <span class="stat-value" id="miningRate">50 AXC</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">POWER</span>
+                        <span class="stat-value" id="miningPower">Standard</span>
+                    </div>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="miningProgress" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-label">
+                        <span>Next reward in:</span>
+                        <span id="nextReward">2h 30m</span>
+                    </div>
+                </div>
+                <div class="ready-tokens">
+                    <span>💎 Ready to claim:</span>
+                    <strong id="readyTokens">0</strong>
+                    <span>tokens</span>
+                </div>
+                <button class="confirm-btn" id="claimMiningBtn">
+                    <i class="fas fa-gem"></i> CLAIM REWARDS
+                </button>
+            </div>
+
+            <!-- Boost Cards -->
+            <div class="neural-card">
+                <div class="section-header">
+                    <h3><i class="fas fa-rocket"></i> BOOST MINING</h3>
+                </div>
+                <div class="boost-option" data-boost="bronze">
+                    <div class="boost-info">
+                        <span class="boost-price">⚡ 2.5 TON</span>
+                        <span class="boost-rate">120 AXC / 2.5h</span>
+                    </div>
+                    <span class="boost-duration">3 days</span>
+                </div>
+                <div class="boost-option" data-boost="silver">
+                    <div class="boost-info">
+                        <span class="boost-price">⚡ 5 TON</span>
+                        <span class="boost-rate">250 AXC / 2.5h</span>
+                    </div>
+                    <span class="boost-duration">7 days</span>
+                </div>
+                <div class="boost-option" data-boost="gold">
+                    <div class="boost-info">
+                        <span class="boost-price">⚡ 10 TON</span>
+                        <span class="boost-rate">500 AXC / 2.5h</span>
+                    </div>
+                    <span class="boost-duration">30 days</span>
+                </div>
+            </div>
+
+            <!-- Watch Ad -->
+            <div class="neural-card">
+                <div class="section-header">
+                    <h3><i class="fas fa-tv"></i> WATCH & EARN</h3>
+                </div>
+                <button class="confirm-btn" id="watchAdBtn">
+                    <i class="fas fa-play-circle"></i> WATCH AD (+10 AXC)
+                </button>
+            </div>
+
+            <!-- Tasks Section (Placeholder - Links will be added later) -->
+            <div class="neural-card">
+                <div class="section-header">
+                    <h3><i class="fas fa-list-check"></i> DAILY TASKS</h3>
+                </div>
+                <div id="tasksContainer" class="tasks-container">
+                    <!-- Tasks will be rendered here via JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SWAP PAGE (PRESERVED) ==================== -->
+        <div id="swapPage" class="page hidden">
+            <div class="swap-container">
+                <div class="swap-card">
+                    <div class="status-bar">
+                        <div class="status-indicator">
+                            <div class="status-dot"></div>
+                            <span>System Online</span>
+                        </div>
+                        <div class="gas-price">
+                            <i class="fas fa-bolt"></i> TON Network
+                        </div>
+                    </div>
+
+                    <div class="wallet-section">
+                        <div class="wallet-badge">
+                            <div class="wallet-avatar">
+                                <i class="fab fa-telegram-plane"></i>
+                            </div>
+                            <div class="wallet-info">
+                                <h4>Neural Wallet</h4>
+                                <p id="walletStatus">Not connected</p>
+                            </div>
+                        </div>
+                        <div id="ton-connect"></div>
+                    </div>
+
+                    <div class="swap-header">
+                        <h3><i class="fas fa-exchange-alt"></i> Swap</h3>
+                        <div class="ai-chip">
+                            <i class="fas fa-brain"></i> AI Route
+                        </div>
+                    </div>
+
+                    <!-- From Input -->
+                    <div class="swap-input-container">
+                        <div class="input-label">
+                            <span class="label-text"><i class="fas fa-arrow-up"></i> You Pay</span>
+                            <span class="balance-text">Balance: <span id="fromBalance">0</span> AXC</span>
+                        </div>
+                        <div class="input-row">
+                            <input type="number" id="swapFrom" placeholder="0" step="1">
+                            <div class="token-selector">
+                                <div class="token-icon axc">A</div>
+                                <span>AXC</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="swap-divider">
+                        <div class="line"></div>
+                        <div class="swap-arrow-btn" id="swapArrowBtn"><i class="fas fa-arrow-down"></i></div>
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- To Input -->
+                    <div class="swap-input-container">
+                        <div class="input-label">
+                            <span class="label-text"><i class="fas fa-arrow-down"></i> You Receive</span>
+                            <span class="balance-text">Balance: <span id="toBalance">$0.00</span> USDT</span>
+                        </div>
+                        <div class="input-row">
+                            <input type="text" id="swapTo" placeholder="0.00" readonly>
+                            <div class="token-selector">
+                                <div class="token-icon usdt">₮</div>
+                                <span>USDT</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rate-panel">
+                        <div class="rate-item">
+                            <div class="value" id="axcPrice">0.01</div>
+                            <div class="label">AXC/USDT</div>
+                        </div>
+                        <div class="rate-divider"></div>
+                        <div class="rate-item">
+                            <div class="value">5</div>
+                            <div class="label">TON Fee</div>
+                        </div>
+                        <div class="rate-divider"></div>
+                        <div class="rate-item">
+                            <div class="value" style="color: var(--ai-accent);">∞</div>
+                            <div class="label">Unlimited</div>
+                        </div>
+                    </div>
+
+                    <button class="btn-ai-swap locked" id="swapBtn">
+                        <i class="fas fa-lock"></i>
+                        <span>Unlock Neural Swap</span>
+                    </button>
+
+                    <div id="swapStatus" class="ai-status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== AXION AI PAGE ==================== -->
+        <div id="axionPage" class="page hidden">
+            <div id="axionContent">
+                <!-- Content will be rendered via JavaScript -->
+            </div>
+        </div>
+
+        <!-- ==================== BOTTOM NAVIGATION ==================== -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-page="wallet">
+                <i class="fas fa-wallet"></i>
+                <span>Wallet</span>
+            </button>
+            <button class="nav-item" data-page="earn">
+                <i class="fas fa-microchip"></i>
+                <span>Earn</span>
+            </button>
+            <button class="nav-item" data-page="swap">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Swap</span>
+            </button>
+            <button class="nav-item" data-page="axion">
+                <i class="fas fa-brain"></i>
+                <span>Axion AI</span>
+            </button>
+        </nav>
+
+        <!-- ==================== MODALS ==================== -->
+        
+        <!-- Deposit Modal -->
+        <div id="depositModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>💰 DEPOSIT AXC</h3>
+                    <button class="close-btn" onclick="closeModal('depositModal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="deposit-address">
+                        <label>Send AXC (BEP20) to:</label>
+                        <div class="address-box" id="depositAddress">0xbf70420f57342c6Bd4267430D4D3b7E946f09450</div>
+                        <button class="copy-btn" onclick="copyDepositAddress()"><i class="fas fa-copy"></i> COPY ADDRESS</button>
+                    </div>
+                    <div class="deposit-note">
+                        ⚠️ Minimum: 1,000 AXC<br>
+                        ⏱️ Confirmation: ~15 minutes
+                    </div>
+                    <button class="confirm-btn" id="confirmDepositBtn">
+                        <i class="fas fa-check-circle"></i> I HAVE SENT THE AXC
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Withdraw Modal -->
+        <div id="withdrawModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>💸 WITHDRAW AXC</h3>
+                    <button class="close-btn" onclick="closeModal('withdrawModal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Amount (AXC)</label>
+                        <input type="number" id="withdrawAmountInput" class="ai-input" placeholder="Enter amount">
+                    </div>
+                    <div class="form-group">
+                        <label>BEP20 Wallet Address</label>
+                        <input type="text" id="withdrawAddressInput" class="ai-input" placeholder="0x...">
+                    </div>
+                    <div class="withdraw-info">
+                        <div class="info-row">
+                            <span>Min:</span>
+                            <span>1,000 AXC</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Max:</span>
+                            <span>50,000 AXC</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Fee:</span>
+                            <span>0 AXC</span>
+                        </div>
+                    </div>
+                    <button class="confirm-btn" id="submitWithdrawBtn">
+                        <i class="fas fa-paper-plane"></i> CONFIRM WITHDRAWAL
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Modal (15 seconds countdown) -->
+        <div id="taskModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⏳ COMPLETE TASK</h3>
+                </div>
+                <div class="modal-body task-modal-body">
+                    <div class="task-icon">🎯</div>
+                    <p id="taskName">Complete the task</p>
+                    <div class="countdown-circle">
+                        <span id="taskCountdown">15</span>
+                        <span>seconds</span>
+                    </div>
+                    <p class="task-note">You will be rewarded automatically</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verification Modal (TON Activation) -->
+        <div class="ai-modal-overlay" id="verificationModal">
+            <div class="ai-modal">
+                <div class="modal-ai-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h2>Neural Link</h2>
+                <div class="fee-display">5 TON</div>
+                <div class="fee-sub">One-time</div>
+                <div class="ai-features">
+                    <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
+                    <p><i class="fas fa-user-check"></i> Human-only access</p>
+                    <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
+                </div>
+                <div class="ai-modal-buttons">
+                    <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
+                    <button class="ai-modal-btn primary" id="modalProceedBtn">
+                        <i class="fas fa-bolt"></i> Activate
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Modal -->
+        <div id="historyModal" class="modal">
+            <div class="modal-content history-modal">
+                <div class="modal-header">
+                    <h3>📜 Transaction History</h3>
+                    <button class="close-btn" onclick="closeModal('historyModal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div class="history-tabs">
+                        <button class="history-tab active" data-filter="all">All</button>
+                        <button class="history-tab" data-filter="deposit">Deposits</button>
+                        <button class="history-tab" data-filter="withdraw">Withdrawals</button>
+                        <button class="history-tab" data-filter="swap">Swaps</button>
+                        <button class="history-tab" data-filter="earn">Earn</button>
+                    </div>
+                    <div id="historyList" class="history-list">
+                        <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Modal -->
+        <div id="notificationsModal" class="modal">
+            <div class="modal-content notifications-modal">
+                <div class="modal-header">
+                    <h3>🔔 Notifications</h3>
+                    <button class="close-btn" onclick="closeModal('notificationsModal')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div id="notificationsList" class="notifications-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div id="toast" class="toast hidden">
+            <div class="toast-content">
+                <i class="fas fa-circle-info"></i>
+                <span id="toastMessage">Message</span>
             </div>
         </div>
     </div>
 
     <script src="app.js"></script>
+    
+    <!-- Neural Background Generator -->
     <script>
-        // Generate subtle neural background (reduced count for performance)
         const neuralBg = document.getElementById('neuralBg');
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 35; i++) {
             const node = document.createElement('div');
             node.className = 'neural-node';
             node.style.left = Math.random() * 100 + '%';
