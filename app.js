@@ -1,5 +1,5 @@
 // ============================================================================
-// AXION AI - PROFESSIONAL EDITION v10.0 (DYNAMIC MODAL)
+// AXION AI - PROFESSIONAL EDITION v11.0 (DYNAMIC MODAL - FINAL)
 // ============================================================================
 // جميع الميزات المطلوبة:
 // ✅ 6 منصات إعلانية
@@ -86,7 +86,7 @@ let isActivating = false;
 let isSwapping = false;
 let adSequenceActive = false;
 let miningTimerInterval = null;
-let activeModal = null; // للتتبع
+let activeModal = null;
 
 // ============================================================================
 // 4. DOM ELEMENTS
@@ -683,24 +683,7 @@ async function startTask(taskId) {
         window.open(task.url, '_blank');
     }
     
-    showTaskCountdownModal(task, async () => {
-        task.completed = true;
-        saveToLocalStorage('tasks', tasksData);
-        
-        const success = await addBalanceToUser(task.reward, 'AXC');
-        
-        if (success) {
-            renderTasks(tasksData);
-            showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
-        } else {
-            showToast('❌ FAILED TO ADD REWARD', 'error');
-        }
-    });
-}
-
-function showTaskCountdownModal(task, onComplete) {
     let countdown = 15;
-    
     const modal = document.createElement('div');
     modal.className = 'task-countdown-modal';
     modal.innerHTML = `
@@ -724,7 +707,17 @@ function showTaskCountdownModal(task, onComplete) {
         if (countdown <= 0) {
             clearInterval(interval);
             modal.remove();
-            onComplete();
+            task.completed = true;
+            saveToLocalStorage('tasks', tasksData);
+            
+            const success = await addBalanceToUser(task.reward, 'AXC');
+            
+            if (success) {
+                renderTasks(tasksData);
+                showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
+            } else {
+                showToast('❌ FAILED TO ADD REWARD', 'error');
+            }
         }
     }, 1000);
 }
@@ -886,21 +879,16 @@ function showActivationModal() {
     // إنشاء المودال إذا لم يكن موجوداً
     if (!activeModal) {
         createActivationModal();
-    } else {
-        activeModal.classList.remove('active');
-        // نضيف الكلاس مرة أخرى بعد إعادة التعيين
-        setTimeout(() => {
-            if (activeModal) activeModal.classList.add('active');
-        }, 10);
     }
     
-    if (activeModal) activeModal.classList.add('active');
+    if (activeModal) {
+        activeModal.classList.add('active');
+    }
 }
 
 function hideActivationModal() {
     if (activeModal) {
         activeModal.classList.remove('active');
-        // لا نحذفها، فقط نخفيها. يمكن إعادة استخدامها لاحقاً
     }
 }
 
@@ -1162,7 +1150,7 @@ function showPage(pageName) {
 // ============================================================================
 
 async function init() {
-    console.log('🚀 AXION AI - PROFESSIONAL EDITION v10.0 INITIALIZING...');
+    console.log('🚀 AXION AI - PROFESSIONAL EDITION v11.0 INITIALIZING...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -1214,7 +1202,7 @@ async function init() {
     });
     
     showPage('wallet');
-    console.log('✅ AXION AI v10.0 READY! 🚀');
+    console.log('✅ AXION AI v11.0 READY! 🚀');
 }
 
 // EXPOSE GLOBALS
