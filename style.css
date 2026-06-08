@@ -1068,3 +1068,324 @@ body {
     .logo-ring { width: 55px; height: 55px; }
     .logo-ring i { font-size: 24px; }
 }
+
+/* ============================================================================
+   ADDITIONAL STYLES FOR NEW FEATURES
+   ============================================================================ */
+
+/* Wallet Status Bar - Compact */
+.wallet-status-bar {
+    position: absolute;
+    top: 20px;
+    left: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(57, 255, 20, 0.08);
+    border: 1px solid var(--ai-border);
+    border-radius: 40px;
+    padding: 6px 12px;
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 100;
+}
+
+.wallet-status-bar:hover {
+    border-color: var(--ai-green);
+    background: rgba(57, 255, 20, 0.12);
+}
+
+.wallet-info-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: 'Orbitron', monospace;
+    color: var(--ai-text);
+}
+
+.wallet-info-compact i {
+    color: var(--ai-green);
+    font-size: 10px;
+}
+
+.wallet-actions-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 4px;
+}
+
+.icon-btn-small {
+    background: transparent;
+    border: none;
+    color: var(--ai-muted);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.icon-btn-small:hover {
+    color: var(--ai-green);
+    background: rgba(57, 255, 20, 0.1);
+}
+
+/* Mining Timer */
+.mining-timer-card {
+    text-align: center;
+    margin-top: 16px;
+}
+
+.mining-timer-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--ai-green);
+    margin: 16px 0;
+}
+
+.mining-progress-bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 16px 0;
+}
+
+.mining-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ai-green), var(--ai-accent));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.mining-rate {
+    font-size: 12px;
+    color: var(--ai-muted);
+}
+
+/* Ads Counter */
+.ads-counter {
+    text-align: center;
+    font-size: 12px;
+    color: var(--ai-muted);
+    margin-top: 12px;
+    padding: 8px;
+    background: rgba(57, 255, 20, 0.05);
+    border-radius: 20px;
+}
+
+/* Task Countdown Modal */
+.task-countdown-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.task-countdown-content {
+    background: linear-gradient(145deg, #0a180a, #051005);
+    border: 1px solid var(--ai-border);
+    border-radius: 32px;
+    padding: 32px;
+    text-align: center;
+    max-width: 300px;
+    width: 90%;
+}
+
+.task-countdown-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.task-countdown-content h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    margin-bottom: 20px;
+    color: var(--ai-green);
+}
+
+.task-countdown-timer {
+    font-family: 'Orbitron', monospace;
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--ai-green);
+    margin: 20px 0;
+}
+
+.task-countdown-timer span:last-child {
+    font-size: 16px;
+    color: var(--ai-muted);
+}
+
+.task-countdown-note {
+    font-size: 12px;
+    color: var(--ai-muted);
+}
+
+/* Referral Card */
+.referral-card {
+    margin-top: 20px;
+}
+
+.referral-stats {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.referral-stats .stat-card {
+    flex: 1;
+    background: rgba(57, 255, 20, 0.05);
+    border: 1px solid var(--ai-border);
+    border-radius: 16px;
+    padding: 12px;
+    text-align: center;
+}
+
+.referral-link-container {
+    display: flex;
+    gap: 8px;
+}
+
+.referral-link {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--ai-border);
+    border-radius: 12px;
+    padding: 12px;
+    color: var(--ai-text);
+    font-size: 12px;
+    font-family: monospace;
+    outline: none;
+}
+
+.copy-btn {
+    background: rgba(57, 255, 20, 0.08);
+    border: 1px solid var(--ai-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    color: var(--ai-green);
+    transition: all 0.2s;
+}
+
+.copy-btn:hover {
+    border-color: var(--ai-green);
+    background: rgba(57, 255, 20, 0.15);
+}
+
+/* Boost Options */
+.boost-option {
+    background: rgba(57, 255, 20, 0.05);
+    border: 1px solid var(--ai-border);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.boost-option:hover {
+    border-color: var(--ai-green);
+    transform: translateX(4px);
+    background: rgba(57, 255, 20, 0.1);
+}
+
+.boost-price {
+    font-weight: 700;
+    color: var(--ai-green);
+}
+
+.boost-rate {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.boost-duration {
+    font-size: 11px;
+    color: var(--ai-muted);
+}
+
+/* Task Items */
+.task-item {
+    background: rgba(57, 255, 20, 0.05);
+    border: 1px solid var(--ai-border);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.task-item.completed {
+    opacity: 0.6;
+}
+
+.task-info .task-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.task-info .task-reward {
+    font-size: 11px;
+    color: var(--ai-green);
+}
+
+.task-btn {
+    background: linear-gradient(145deg, var(--ai-green), #1a7a2a);
+    border: none;
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #000;
+}
+
+.task-completed-badge {
+    color: var(--ai-green);
+    font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 450px) {
+    .wallet-status-bar {
+        top: 16px;
+        left: 12px;
+        padding: 4px 10px;
+    }
+    
+    .wallet-info-compact {
+        font-size: 9px;
+    }
+    
+    .mining-timer-display {
+        font-size: 28px;
+    }
+    
+    .boost-option {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+}
