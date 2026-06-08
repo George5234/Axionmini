@@ -1,13 +1,11 @@
 // ============================================================================
-// AXION AI - PROFESSIONAL EDITION v17.0 (FULLY CORRECTED)
+// AXION AI - PROFESSIONAL EDITION v19.0 (FULLY OPTIMIZED)
 // ============================================================================
-// الإصلاحات:
-// ✅ إصلاح السحب: إضافة اختيار العملة (AXC/USDT)
-// ✅ إصلاح مكافأة الإعلانات: إضافة fallback للتخزين المحلي
-// ✅ إصلاح نافذة المهام: إزالة النافذة المنبثقة المزعجة
-// ✅ إصلاح تصميم Swap: تحسين واجهة المستخدم
-// ✅ إصلاح Boost: دمج الخيارات داخل كرت التعدين
-// ✅ جميع الميزات الأخرى تعمل بكفاءة
+// نظام التشغيل الجديد:
+// ✅ التعدين والإعلانات = تخزين محلي فقط (بدون API)
+// ✅ زر CLAIM يظهر عند اكتمال 100%
+// ✅ API واحد فقط عند المطالبة
+// ✅ إشعار للمشرف عند الإيداع فقط
 // ============================================================================
 
 // ============================================================================
@@ -20,7 +18,7 @@ if (tg) {
     tg.expand();
     tg.setHeaderColor('#0a0c0f');
     tg.setBackgroundColor('#0a0c0f');
-    console.log('✅ AXION AI - Professional Edition v17.0 Ready');
+    console.log('✅ AXION AI - Professional Edition v19.0 Ready');
 }
 
 // ============================================================================
@@ -28,26 +26,20 @@ if (tg) {
 // ============================================================================
 
 const CONFIG = {
-    // Swap
     axcPrice: 0.01,
     swapFeeTON: 5,
     minSwap: 100,
     maxSwap: 100000,
     ownerWallet: null,
     botUsername: 'AxionBep20Airdropbot',
-    // Mining
-    miningInterval: 2.5 * 60 * 60 * 1000,
-    baseMiningRate: 50,
-    boosts: {
-        bronze: { price: 2.5, rate: 120, duration: 3, name: 'BRONZE' },
-        silver: { price: 5, rate: 250, duration: 7, name: 'SILVER' },
-        gold: { price: 10, rate: 500, duration: 30, name: 'GOLD' }
+    // Mining System
+    ADS_PER_CLAIM: 40,
+    REWARD_PER_CLAIM: 2000,  // 40 إعلان × 50 AXC
+    BOOST_MULTIPLIERS: {
+        bronze: 2.4,   // 50 × 2.4 = 120 AXC/2.5h
+        silver: 5,     // 50 × 5 = 250 AXC/2.5h
+        gold: 10       // 50 × 10 = 500 AXC/2.5h
     },
-    // Earn (Ads)
-    ADS_PER_CYCLE: 40,
-    RESET_HOURS: 6,
-    ADS_PER_SEQUENCE: 2,
-    // Tasks
     tasks: [
         { id: 1, name: 'Join Telegram Channel', url: 'https://t.me/AxionAiSignal', reward: 100, completed: false },
         { id: 2, name: 'Follow on Twitter', url: 'https://twitter.com/AxionAI', reward: 100, completed: false },
@@ -56,7 +48,6 @@ const CONFIG = {
     ]
 };
 
-// CoinMarketCap Icons
 const CMC_ICONS = {
     BTC: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png',
     ETH: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png',
@@ -74,17 +65,21 @@ let currentPage = 'wallet';
 let currentUser = null;
 let userId = null;
 let db = null;
-let miningData = null;
-let earnData = null;
 let livePrices = {};
 let tonConnected = false;
 let tonWalletAddress = null;
 let isActivating = false;
 let isSwapping = false;
+let isClaiming = false;
 let adSequenceActive = false;
-let miningTimerInterval = null;
-let activeModal = null;
-let boostOptionsVisible = false;
+
+// Mining State (Local Storage)
+let miningState = {
+    adsWatched: 0,        // عدد الإعلانات المشاهدة (0-40)
+    boostType: null,      // 'bronze', 'silver', 'gold'
+    boostExpiry: null,    // تاريخ انتهاء البوست
+    totalMined: 0         // إجمالي ما تم تعدينه
+};
 
 // ============================================================================
 // 4. DOM ELEMENTS
@@ -111,14 +106,16 @@ const earnEls = {
     miningProgress: document.getElementById('miningProgress'),
     miningTimer: document.getElementById('miningTimer'),
     nextReward: document.getElementById('nextReward'),
+    adsCount: document.getElementById('adsCount'),
+    claimBtn: document.getElementById('claimMiningBtn'),
+    boostBtn: document.getElementById('boostTriggerBtn'),
+    boostOptions: document.getElementById('boostOptions'),
     watchAdBtn: document.getElementById('watchAdBtn'),
     tasksContainer: document.getElementById('tasksContainer'),
     referralCount: document.getElementById('referralCount'),
     referralEarned: document.getElementById('referralEarned'),
     referralLink: document.getElementById('referralLink'),
-    copyReferralBtn: document.getElementById('copyReferralLink'),
-    boostTriggerBtn: document.getElementById('boostTriggerBtn'),
-    boostOptions: document.getElementById('boostOptions')
+    copyReferralBtn: document.getElementById('copyReferralLink')
 };
 
 const swapEls = {
@@ -130,13 +127,9 @@ const swapEls = {
     swapTo: document.getElementById('swapTo'),
     swapBtn: document.getElementById('swapBtn'),
     walletStatus: document.getElementById('walletStatus'),
-    axcPrice: document.getElementById('axcPrice')
+    axcPrice: document.getElementById('axcPrice'),
+    swapStatus: document.getElementById('swapStatus')
 };
-
-// Withdraw elements
-const withdrawCurrency = document.getElementById('withdrawCurrency');
-const withdrawAddressInput = document.getElementById('withdrawAddressInput');
-const withdrawAmountInput = document.getElementById('withdrawAmountInput');
 
 // ============================================================================
 // 5. UTILITIES
@@ -161,10 +154,25 @@ function formatNumber(num) {
     return num.toFixed(2);
 }
 
-function formatTime(ms) {
-    const hours = Math.floor(ms / (60 * 60 * 1000));
-    const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
-    return `${hours}h ${minutes}m`;
+function saveMiningState() {
+    localStorage.setItem(`axion_mining_${userId}`, JSON.stringify(miningState));
+}
+
+function loadMiningState() {
+    const saved = localStorage.getItem(`axion_mining_${userId}`);
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            miningState = { ...miningState, ...data };
+        } catch(e) {}
+    }
+    
+    // التحقق من انتهاء البوست
+    if (miningState.boostExpiry && Date.now() > miningState.boostExpiry) {
+        miningState.boostType = null;
+        miningState.boostExpiry = null;
+        saveMiningState();
+    }
 }
 
 function saveToLocalStorage(key, data) {
@@ -180,13 +188,311 @@ function loadFromLocalStorage(key, defaultValue) {
     return defaultValue;
 }
 
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.classList.remove('show');
+function getCurrentMiningRate() {
+    let baseRate = 50;
+    if (miningState.boostType && CONFIG.BOOST_MULTIPLIERS[miningState.boostType]) {
+        baseRate = 50 * CONFIG.BOOST_MULTIPLIERS[miningState.boostType];
+    }
+    return baseRate;
+}
+
+function getClaimReward() {
+    let reward = CONFIG.REWARD_PER_CLAIM;
+    if (miningState.boostType && CONFIG.BOOST_MULTIPLIERS[miningState.boostType]) {
+        reward = Math.floor(CONFIG.REWARD_PER_CLAIM * CONFIG.BOOST_MULTIPLIERS[miningState.boostType] / 2.4);
+    }
+    return reward;
 }
 
 // ============================================================================
-// 6. API CALLS & PRICES
+// 6. MINING UI UPDATE (LOCAL ONLY)
+// ============================================================================
+
+function updateMiningUI() {
+    const progressPercent = (miningState.adsWatched / CONFIG.ADS_PER_CLAIM) * 100;
+    const isReady = miningState.adsWatched >= CONFIG.ADS_PER_CLAIM;
+    const currentRate = getCurrentMiningRate();
+    const claimReward = getClaimReward();
+    
+    // تحديث شريط التقدم
+    if (earnEls.miningProgress) {
+        earnEls.miningProgress.style.width = `${Math.min(100, progressPercent)}%`;
+    }
+    
+    // تحديث النص
+    if (earnEls.miningTimer) {
+        earnEls.miningTimer.textContent = isReady ? 'READY!' : `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    }
+    
+    if (earnEls.nextReward) {
+        earnEls.nextReward.textContent = isReady ? 'Click CLAIM!' : `${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads remaining`;
+    }
+    
+    if (earnEls.miningRate) {
+        earnEls.miningRate.textContent = `${currentRate} AXC`;
+    }
+    
+    if (earnEls.miningPower) {
+        if (miningState.boostType) {
+            earnEls.miningPower.textContent = `${miningState.boostType.toUpperCase()} (×${CONFIG.BOOST_MULTIPLIERS[miningState.boostType]})`;
+        } else {
+            earnEls.miningPower.textContent = 'STANDARD';
+        }
+    }
+    
+    if (earnEls.adsCount) {
+        earnEls.adsCount.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    }
+    
+    // إظهار/إخفاء زر CLAIM
+    if (earnEls.claimBtn) {
+        if (isReady && !isClaiming) {
+            earnEls.claimBtn.style.display = 'flex';
+            earnEls.claimBtn.disabled = false;
+            earnEls.claimBtn.innerHTML = `<i class="fas fa-gem"></i> CLAIM ${claimReward} AXC`;
+        } else if (isClaiming) {
+            earnEls.claimBtn.disabled = true;
+            earnEls.claimBtn.innerHTML = '<span class="spinner"></span> CLAIMING...';
+        } else {
+            earnEls.claimBtn.style.display = 'none';
+        }
+    }
+}
+
+// ============================================================================
+// 7. CLAIM REWARD (API CALL ONLY HERE)
+// ============================================================================
+
+async function claimMiningReward() {
+    if (miningState.adsWatched < CONFIG.ADS_PER_CLAIM) {
+        showToast(`Watch ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} more ads!`, 'warning');
+        return;
+    }
+    
+    if (isClaiming) return;
+    isClaiming = true;
+    updateMiningUI();
+    
+    const reward = getClaimReward();
+    
+    try {
+        const res = await fetch('/api/add-balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, amount: reward, currency: 'AXC' })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            // إعادة تعيين العداد
+            miningState.adsWatched = 0;
+            miningState.totalMined += reward;
+            saveMiningState();
+            await loadUserData();
+            updateMiningUI();
+            showToast(`🎉 +${reward} AXC CLAIMED!`, 'success');
+            showConfetti();
+        } else {
+            showToast('⚠️ Claim failed, try again', 'error');
+        }
+    } catch(e) {
+        showToast('Network error, try again', 'error');
+    } finally {
+        isClaiming = false;
+        updateMiningUI();
+    }
+}
+
+// ============================================================================
+// 8. WATCH AD (LOCAL ONLY, NO API)
+// ============================================================================
+
+const AD_PLATFORMS = [
+    { name: 'adsgram', init: () => window.Adsgram, show: (ctrl) => ctrl.init({ blockId: "int-33659" }).show() },
+    { name: 'taddy', init: () => window.Taddy, show: (ctrl) => new Promise((resolve) => {
+        ctrl.showRewardedVideo({ onReward: () => resolve(true), onError: () => resolve(false), onClose: () => resolve(false) });
+    }) },
+    { name: 'monetag', init: () => typeof window.show_11082910 === 'function' ? window.show_11082910 : null, show: (ctrl) => ctrl().then(() => true).catch(() => false) },
+    { name: 'richads', init: () => window.TelegramAdsController, show: (ctrl) => new Promise((resolve) => {
+        if (!ctrl.initialized) { ctrl.initialize({ pubId: "1009657", appId: "7614" }); ctrl.initialized = true; }
+        ctrl.showRewardedVideo({ onReward: () => resolve(true), onError: () => resolve(false) });
+    }) },
+    { name: 'adexium', init: () => window.AdexiumWidget, show: (ctrl) => new Promise((resolve) => {
+        const widget = new ctrl({ wid: '63f66ba6-7410-4f47-adc1-0da3259f4c40', adFormat: 'rewarded', debug: false });
+        let resolved = false;
+        widget.on('adPlaybackCompleted', () => { if (!resolved) { resolved = true; resolve(true); } });
+        widget.on('noAdFound', () => { if (!resolved) { resolved = true; resolve(false); } });
+        widget.on('adReceived', (ad) => widget.displayAd(ad));
+        widget.requestAd('rewarded');
+    }) },
+    { name: 'gigapub', init: () => typeof window.showGiga === 'function' ? window.showGiga : null, show: (ctrl) => ctrl('main').then(() => true).catch(() => false) }
+];
+
+async function tryShowAd(platform) {
+    try {
+        const controller = platform.init();
+        if (!controller) return false;
+        const result = await platform.show(controller);
+        return result === true;
+    } catch(e) {
+        return false;
+    }
+}
+
+async function watchAd() {
+    if (miningState.adsWatched >= CONFIG.ADS_PER_CLAIM) {
+        showToast('Mining complete! Click CLAIM first.', 'warning');
+        return;
+    }
+    
+    if (adSequenceActive) {
+        showToast('Ad in progress...', 'warning');
+        return;
+    }
+    
+    adSequenceActive = true;
+    const btn = earnEls.watchAdBtn;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> LOADING AD...';
+    }
+    
+    // تجربة منصات الإعلانات
+    let adSuccess = false;
+    for (const platform of AD_PLATFORMS) {
+        adSuccess = await tryShowAd(platform);
+        if (adSuccess) break;
+    }
+    
+    if (adSuccess) {
+        // إضافة +1 إلى العداد (محلياً فقط)
+        miningState.adsWatched = Math.min(miningState.adsWatched + 1, CONFIG.ADS_PER_CLAIM);
+        saveMiningState();
+        updateMiningUI();
+        
+        const remaining = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
+        if (remaining === 0) {
+            showToast(`🎉 Mining complete! Click CLAIM for ${getClaimReward()} AXC!`, 'success');
+        } else {
+            showToast(`✅ +1 ad! ${remaining} ads to claim`, 'success');
+        }
+    } else {
+        showToast('❌ Failed to load ad, try again', 'error');
+    }
+    
+    adSequenceActive = false;
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play-circle"></i> WATCH AD';
+    }
+}
+
+// ============================================================================
+// 9. BOOST SYSTEM (TON PAYMENT)
+// ============================================================================
+
+async function activateBoost(boostKey) {
+    const boostConfig = {
+        bronze: { price: 2.5, multiplier: 2.4, duration: 3, name: 'BRONZE' },
+        silver: { price: 5, multiplier: 5, duration: 7, name: 'SILVER' },
+        gold: { price: 10, multiplier: 10, duration: 30, name: 'GOLD' }
+    };
+    
+    const boost = boostConfig[boostKey];
+    if (!boost) return;
+    
+    if (!tonConnected || !tonWalletAddress) {
+        showToast('CONNECT TON WALLET FIRST', 'warning');
+        return;
+    }
+    
+    if (!CONFIG.ownerWallet) {
+        showToast('OWNER WALLET NOT CONFIGURED', 'error');
+        return;
+    }
+    
+    const amountNano = (boost.price * 1000000000).toString();
+    const transaction = {
+        validUntil: Math.floor(Date.now() / 1000) + 600,
+        messages: [{ address: CONFIG.ownerWallet, amount: amountNano }]
+    };
+    
+    try {
+        showToast('⏳ PROCESSING PAYMENT...', 'info');
+        await window.tonConnectUI.sendTransaction(transaction);
+        
+        miningState.boostType = boostKey;
+        miningState.boostExpiry = Date.now() + (boost.duration * 24 * 60 * 60 * 1000);
+        saveMiningState();
+        updateMiningUI();
+        showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
+        
+        if (earnEls.boostOptions) earnEls.boostOptions.style.display = 'none';
+    } catch(error) {
+        showToast('PAYMENT CANCELLED', 'error');
+    }
+}
+
+// ============================================================================
+// 10. TASKS SYSTEM
+// ============================================================================
+
+function initTasksSystem() {
+    const tasksData = loadFromLocalStorage('tasks', CONFIG.tasks);
+    renderTasks(tasksData);
+}
+
+function renderTasks(tasksData) {
+    if (!earnEls.tasksContainer) return;
+    earnEls.tasksContainer.innerHTML = tasksData.map(task => `
+        <div class="task-item ${task.completed ? 'completed' : ''}">
+            <div class="task-info">
+                <div class="task-name">${task.name}</div>
+                <div class="task-reward">+${task.reward} AXC</div>
+            </div>
+            ${!task.completed ? 
+                `<button class="task-btn" onclick="window.startTask(${task.id})">COMPLETE</button>` :
+                '<span class="task-completed-badge">✓ COMPLETED</span>'
+            }
+        </div>
+    `).join('');
+}
+
+async function startTask(taskId) {
+    const tasksData = loadFromLocalStorage('tasks', CONFIG.tasks);
+    const task = tasksData.find(t => t.id === taskId);
+    if (!task || task.completed) return;
+    
+    if (task.url && task.url.trim() !== '') {
+        window.open(task.url, '_blank');
+    }
+    
+    showToast(`📋 TASK: ${task.name}. +${task.reward} AXC will be added in 15 seconds...`, 'info');
+    
+    setTimeout(async () => {
+        task.completed = true;
+        saveToLocalStorage('tasks', tasksData);
+        
+        const res = await fetch('/api/add-balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, amount: task.reward, currency: 'AXC' })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            await loadUserData();
+            renderTasks(tasksData);
+            showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
+        } else {
+            showToast(`⚠️ +${task.reward} AXC will be added later`, 'warning');
+            renderTasks(tasksData);
+        }
+    }, 15000);
+}
+
+// ============================================================================
+// 11. API CALLS & USER DATA
 // ============================================================================
 
 async function loadConfig() {
@@ -229,26 +535,17 @@ async function loadUserData() {
 }
 
 async function addBalanceToUser(amount, currency = 'AXC') {
-    try {
-        const res = await fetch('/api/add-balance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, amount, currency })
-        });
-        const data = await res.json();
-        if (data.success) {
-            await loadUserData();
-            return true;
-        }
-        return false;
-    } catch(e) {
-        console.error('Add balance error:', e);
-        // Fallback: تخزين مؤقت في localStorage
-        let pendingRewards = JSON.parse(localStorage.getItem('axion_pending_rewards') || '[]');
-        pendingRewards.push({ amount, currency, timestamp: Date.now() });
-        localStorage.setItem('axion_pending_rewards', JSON.stringify(pendingRewards));
-        return false;
+    const res = await fetch('/api/add-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount, currency })
+    });
+    const data = await res.json();
+    if (data.success) {
+        await loadUserData();
+        return true;
     }
+    return false;
 }
 
 async function fetchLivePrices() {
@@ -278,7 +575,7 @@ async function fetchLivePrices() {
 }
 
 // ============================================================================
-// 7. ASSETS & CRYPTOCURRENCIES RENDERING
+// 12. ASSETS & CRYPTOCURRENCIES RENDERING
 // ============================================================================
 
 const ASSETS = [
@@ -359,10 +656,10 @@ function updateAllBalances() {
     if (walletEls.totalBalance) walletEls.totalBalance.textContent = `$${totalValue.toFixed(2)}`;
     if (walletEls.axcBalance) walletEls.axcBalance.textContent = balance.toLocaleString();
     if (walletEls.usdtBalance) walletEls.usdtBalance.textContent = `$${usdtBalance.toFixed(2)}`;
-    if (swapEls.axcBalance) swapEls.axcBalance.innerHTML = balance.toLocaleString();
-    if (swapEls.usdtBalance) swapEls.usdtBalance.innerHTML = `$${usdtBalance.toFixed(2)}`;
-    if (swapEls.fromBalance) swapEls.fromBalance.innerHTML = balance;
-    if (swapEls.toBalance) swapEls.toBalance.innerHTML = `$${usdtBalance.toFixed(2)}`;
+    if (swapEls.axcBalance) swapEls.axcBalance.textContent = balance.toLocaleString();
+    if (swapEls.usdtBalance) swapEls.usdtBalance.textContent = `$${usdtBalance.toFixed(2)}`;
+    if (swapEls.fromBalance) swapEls.fromBalance.textContent = balance;
+    if (swapEls.toBalance) swapEls.toBalance.textContent = `$${usdtBalance.toFixed(2)}`;
 }
 
 function updateReferralUI() {
@@ -377,358 +674,7 @@ function updateReferralUI() {
 }
 
 // ============================================================================
-// 8. MINING SYSTEM (AUTO CLAIM EVERY 2.5 HOURS)
-// ============================================================================
-
-function initMiningSystem() {
-    const defaultData = {
-        miningRate: CONFIG.baseMiningRate,
-        boostType: null,
-        boostExpiry: null,
-        lastClaimTime: Date.now(),
-        totalMined: 0
-    };
-    miningData = loadFromLocalStorage('mining', defaultData);
-    
-    if (miningData.boostExpiry && Date.now() > miningData.boostExpiry) {
-        miningData.boostType = null;
-        miningData.miningRate = CONFIG.baseMiningRate;
-        miningData.boostExpiry = null;
-        saveMiningData();
-    }
-    
-    updateMiningUI();
-    startMiningTimer();
-    
-    // ✅ Boost Trigger Button (دمج داخل كرت التعدين)
-    if (earnEls.boostTriggerBtn) {
-        earnEls.boostTriggerBtn.addEventListener('click', () => {
-            boostOptionsVisible = !boostOptionsVisible;
-            if (earnEls.boostOptions) {
-                earnEls.boostOptions.style.display = boostOptionsVisible ? 'flex' : 'none';
-            }
-        });
-    }
-}
-
-function saveMiningData() { saveToLocalStorage('mining', miningData); }
-
-function updateMiningUI() {
-    if (!earnEls.miningRate) return;
-    
-    earnEls.miningRate.textContent = `${miningData.miningRate} AXC`;
-    
-    if (miningData.boostType && earnEls.miningPower) {
-        earnEls.miningPower.textContent = `${miningData.boostType} (×${miningData.miningRate / CONFIG.baseMiningRate})`;
-    } else if (earnEls.miningPower) {
-        earnEls.miningPower.textContent = 'STANDARD';
-    }
-    
-    const timeSinceLastClaim = Date.now() - miningData.lastClaimTime;
-    const remaining = Math.max(0, CONFIG.miningInterval - timeSinceLastClaim);
-    const progress = (timeSinceLastClaim / CONFIG.miningInterval) * 100;
-    
-    if (earnEls.miningTimer) earnEls.miningTimer.textContent = formatTime(remaining);
-    if (earnEls.miningProgress) earnEls.miningProgress.style.width = `${Math.min(100, progress)}%`;
-    if (earnEls.nextReward) earnEls.nextReward.textContent = formatTime(remaining);
-}
-
-function startMiningTimer() {
-    if (miningTimerInterval) clearInterval(miningTimerInterval);
-    
-    miningTimerInterval = setInterval(() => {
-        updateMiningUI();
-        
-        const timeSinceLastClaim = Date.now() - miningData.lastClaimTime;
-        if (timeSinceLastClaim >= CONFIG.miningInterval) {
-            autoClaimMiningReward();
-        }
-    }, 60000);
-}
-
-async function autoClaimMiningReward() {
-    if (Date.now() - miningData.lastClaimTime < CONFIG.miningInterval) return;
-    
-    const reward = miningData.miningRate;
-    const success = await addBalanceToUser(reward, 'AXC');
-    
-    if (success) {
-        miningData.lastClaimTime = Date.now();
-        miningData.totalMined += reward;
-        saveMiningData();
-        updateMiningUI();
-        showToast(`🎉 +${reward} AXC MINED!`, 'success');
-    }
-}
-
-// ============================================================================
-// 9. BOOST SYSTEM (TON PAYMENT)
-// ============================================================================
-
-async function activateBoost(boostKey) {
-    const boost = CONFIG.boosts[boostKey];
-    if (!boost) return;
-    if (!tonConnected || !tonWalletAddress) {
-        showToast('CONNECT TON WALLET FIRST', 'warning');
-        return;
-    }
-    if (!CONFIG.ownerWallet) {
-        showToast('OWNER WALLET NOT CONFIGURED', 'error');
-        return;
-    }
-    
-    const amountNano = (boost.price * 1000000000).toString();
-    const transaction = {
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{ address: CONFIG.ownerWallet, amount: amountNano }]
-    };
-    
-    try {
-        showToast('⏳ PROCESSING PAYMENT...', 'info');
-        await window.tonConnectUI.sendTransaction(transaction);
-        miningData.boostType = boost.name;
-        miningData.miningRate = boost.rate;
-        miningData.boostExpiry = Date.now() + (boost.duration * 24 * 60 * 60 * 1000);
-        saveMiningData();
-        updateMiningUI();
-        showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
-        // إخفاء الخيارات بعد التفعيل
-        if (earnEls.boostOptions) earnEls.boostOptions.style.display = 'none';
-        boostOptionsVisible = false;
-    } catch(error) {
-        showToast('PAYMENT CANCELLED', 'error');
-    }
-}
-
-// ============================================================================
-// 10. EARN SYSTEM - ADS (40 ADS = 6 HOURS COOLDOWN)
-// ============================================================================
-
-function initEarnSystem() {
-    const defaultData = {
-        totalAdsWatched: 0,
-        isOnCooldown: false,
-        cooldownEndTime: null
-    };
-    earnData = loadFromLocalStorage('earn', defaultData);
-    
-    if (earnData.isOnCooldown && earnData.cooldownEndTime && Date.now() > earnData.cooldownEndTime) {
-        earnData.totalAdsWatched = 0;
-        earnData.isOnCooldown = false;
-        earnData.cooldownEndTime = null;
-        saveEarnData();
-    }
-    
-    updateEarnUI();
-}
-
-function saveEarnData() { saveToLocalStorage('earn', earnData); }
-
-function updateEarnUI() {
-    const btn = earnEls.watchAdBtn;
-    if (!btn) return;
-    
-    const counterEl = document.getElementById('adsCounter');
-    if (counterEl) {
-        counterEl.innerHTML = `<i class="fas fa-chart-line"></i> ${earnData.totalAdsWatched} / ${CONFIG.ADS_PER_CYCLE}`;
-    }
-    
-    if (earnData.isOnCooldown && earnData.cooldownEndTime && Date.now() < earnData.cooldownEndTime) {
-        const remainingMs = earnData.cooldownEndTime - Date.now();
-        const hours = Math.floor(remainingMs / (60 * 60 * 1000));
-        const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
-        btn.disabled = true;
-        btn.innerHTML = `<i class="fas fa-hourglass-half"></i> COOLDOWN: ${hours}h ${minutes}m`;
-        btn.style.opacity = '0.6';
-    } else {
-        if (earnData.isOnCooldown) {
-            earnData.totalAdsWatched = 0;
-            earnData.isOnCooldown = false;
-            earnData.cooldownEndTime = null;
-            saveEarnData();
-        }
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-play-circle"></i> WATCH AD';
-        btn.style.opacity = '1';
-    }
-}
-
-// ============================================================================
-// 11. AD PLATFORMS - 6 NETWORKS
-// ============================================================================
-
-const AD_PLATFORMS = {
-    adsgram: { name: 'AdsGram', init: () => window.Adsgram, show: (ctrl) => ctrl.init({ blockId: "int-33659" }).show() },
-    taddy: { name: 'Taddy', init: () => window.Taddy, show: (ctrl) => new Promise((resolve) => {
-        ctrl.showRewardedVideo({ onReward: () => resolve(true), onError: () => resolve(false), onClose: () => resolve(false) });
-    }) },
-    monetag: { name: 'Monetag', init: () => typeof window.show_11082910 === 'function' ? window.show_11082910 : null, show: (ctrl) => ctrl().then(() => true).catch(() => false) },
-    richads: { name: 'RichAds', init: () => window.TelegramAdsController, show: (ctrl) => new Promise((resolve) => {
-        if (!ctrl.initialized) { ctrl.initialize({ pubId: "1009657", appId: "7614" }); ctrl.initialized = true; }
-        ctrl.showRewardedVideo({ onReward: () => resolve(true), onError: () => resolve(false) });
-    }) },
-    adexium: { name: 'Adexium', init: () => window.AdexiumWidget, show: (ctrl) => new Promise((resolve) => {
-        const widget = new ctrl({ wid: '63f66ba6-7410-4f47-adc1-0da3259f4c40', adFormat: 'rewarded', debug: false });
-        let resolved = false;
-        widget.on('adPlaybackCompleted', () => { if (!resolved) { resolved = true; resolve(true); } });
-        widget.on('noAdFound', () => { if (!resolved) { resolved = true; resolve(false); } });
-        widget.on('adReceived', (ad) => widget.displayAd(ad));
-        widget.requestAd('rewarded');
-    }) },
-    gigapub: { name: 'GigaPub', init: () => typeof window.showGiga === 'function' ? window.showGiga : null, show: (ctrl) => ctrl('main').then(() => true).catch(() => false) }
-};
-
-async function tryShowAd(platformKey) {
-    const platform = AD_PLATFORMS[platformKey];
-    if (!platform) return false;
-    try {
-        const controller = platform.init();
-        if (!controller) return false;
-        const result = await platform.show(controller);
-        return result === true;
-    } catch(e) {
-        console.log(`❌ ${platform.name} failed:`, e);
-        return false;
-    }
-}
-
-async function watchAd() {
-    if (earnData.isOnCooldown && earnData.cooldownEndTime && Date.now() < earnData.cooldownEndTime) {
-        const remainingMs = earnData.cooldownEndTime - Date.now();
-        const hours = Math.ceil(remainingMs / (60 * 60 * 1000));
-        showToast(`⏳ COOLDOWN: ${hours} HOURS REMAINING`, 'warning');
-        return;
-    }
-    
-    if (earnData.totalAdsWatched >= CONFIG.ADS_PER_CYCLE) {
-        earnData.isOnCooldown = true;
-        earnData.cooldownEndTime = Date.now() + (CONFIG.RESET_HOURS * 60 * 60 * 1000);
-        saveEarnData();
-        updateEarnUI();
-        showToast(`🎯 LIMIT REACHED! COME BACK IN ${CONFIG.RESET_HOURS} HOURS`, 'info');
-        return;
-    }
-    
-    if (adSequenceActive) {
-        showToast('⏳ AD IN PROGRESS...', 'warning');
-        return;
-    }
-    
-    adSequenceActive = true;
-    const btn = earnEls.watchAdBtn;
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> LOADING AD...';
-    }
-    
-    const firstPlatforms = ['adsgram', 'taddy', 'monetag'];
-    let firstSuccess = false;
-    for (const platform of firstPlatforms) {
-        firstSuccess = await tryShowAd(platform);
-        if (firstSuccess) break;
-    }
-    
-    if (!firstSuccess) {
-        showToast('❌ FAILED TO LOAD AD', 'error');
-        resetAdSequence();
-        return;
-    }
-    
-    const secondPlatforms = ['richads', 'adexium', 'gigapub'];
-    let secondSuccess = false;
-    for (const platform of secondPlatforms) {
-        secondSuccess = await tryShowAd(platform);
-        if (secondSuccess) break;
-    }
-    
-    if (secondSuccess) {
-        const reward = miningData.miningRate * CONFIG.ADS_PER_SEQUENCE;
-        const success = await addBalanceToUser(reward, 'AXC');
-        
-        if (success) {
-            earnData.totalAdsWatched += CONFIG.ADS_PER_SEQUENCE;
-            saveEarnData();
-            updateEarnUI();
-            showToast(`🎬 +${reward} AXC ADDED!`, 'success');
-        } else {
-            showToast('⚠️ REWARD SAVED LOCALLY (WILL SYNC LATER)', 'warning');
-            earnData.totalAdsWatched += CONFIG.ADS_PER_SEQUENCE;
-            saveEarnData();
-            updateEarnUI();
-        }
-    } else {
-        showToast('⚠️ AD SEQUENCE INCOMPLETE', 'warning');
-    }
-    
-    resetAdSequence();
-}
-
-function resetAdSequence() {
-    adSequenceActive = false;
-    const btn = earnEls.watchAdBtn;
-    if (btn && !earnData.isOnCooldown) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-play-circle"></i> WATCH AD';
-    } else if (btn && earnData.isOnCooldown) {
-        updateEarnUI();
-    }
-}
-
-// ============================================================================
-// 12. TASKS SYSTEM (بدون نافذة منبثقة مزعجة)
-// ============================================================================
-
-function initTasksSystem() {
-    const tasksData = loadFromLocalStorage('tasks', CONFIG.tasks);
-    renderTasks(tasksData);
-}
-
-function renderTasks(tasksData) {
-    if (!earnEls.tasksContainer) return;
-    earnEls.tasksContainer.innerHTML = tasksData.map(task => `
-        <div class="task-item ${task.completed ? 'completed' : ''}">
-            <div class="task-info">
-                <div class="task-name">${task.name}</div>
-                <div class="task-reward">+${task.reward} AXC</div>
-            </div>
-            ${!task.completed ? 
-                `<button class="task-btn" onclick="window.startTask(${task.id})">COMPLETE</button>` :
-                '<span class="task-completed-badge">✓ COMPLETED</span>'
-            }
-        </div>
-    `).join('');
-}
-
-async function startTask(taskId) {
-    const tasksData = loadFromLocalStorage('tasks', CONFIG.tasks);
-    const task = tasksData.find(t => t.id === taskId);
-    if (!task || task.completed) return;
-    
-    if (task.url && task.url.trim() !== '') {
-        window.open(task.url, '_blank');
-    }
-    
-    // ✅ إزالة النافذة المنبثقة المزعجة، نعرض فقط رسالة
-    showToast(`📋 TASK: ${task.name}. +${task.reward} AXC will be added in 15 seconds...`, 'info');
-    
-    setTimeout(async () => {
-        task.completed = true;
-        saveToLocalStorage('tasks', tasksData);
-        
-        const success = await addBalanceToUser(task.reward, 'AXC');
-        
-        if (success) {
-            renderTasks(tasksData);
-            showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
-        } else {
-            showToast(`⚠️ +${task.reward} AXC SAVED LOCALLY`, 'warning');
-            renderTasks(tasksData);
-        }
-    }, 15000);
-}
-
-// ============================================================================
-// 13. WALLET MODALS (مع إصلاح السحب - اختيار العملة)
+// 13. WALLET MODALS
 // ============================================================================
 
 function showDepositModal() {
@@ -752,59 +698,6 @@ async function confirmDeposit() {
     } catch(e) {}
     showToast('✅ ADMIN NOTIFIED! AXC WILL BE ADDED WITHIN 15 MINUTES.', 'success');
     closeModal('depositModal');
-}
-
-function showWithdrawModal() {
-    const modal = document.getElementById('withdrawModal');
-    if (modal) modal.classList.add('show');
-}
-
-async function submitWithdraw() {
-    // ✅ إصلاح السحب: تحديد العملة المختارة
-    const currency = withdrawCurrency ? withdrawCurrency.value : 'AXC';
-    const address = withdrawAddressInput?.value;
-    const amount = parseFloat(withdrawAmountInput?.value || '0');
-    
-    if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
-        showToast('INVALID BEP20 ADDRESS', 'error');
-        return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-        showToast('INVALID AMOUNT', 'error');
-        return;
-    }
-    
-    // ✅ التحقق من الرصيد حسب العملة المختارة
-    const balance = currency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    if (amount > balance) {
-        showToast(`INSUFFICIENT ${currency} BALANCE`, 'error');
-        return;
-    }
-    
-    // ✅ التحقق من الحد الأدنى حسب العملة
-    const minAmount = currency === 'AXC' ? 1000 : 10;
-    if (amount < minAmount) {
-        showToast(`MINIMUM WITHDRAWAL IS ${minAmount} ${currency}`, 'error');
-        return;
-    }
-    
-    try {
-        const res = await fetch('/api/withdraw-usdt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, amount, address, currency })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast(`✅ ${amount} ${currency} WITHDRAWAL SUBMITTED (AUTO-APPROVED)`, 'success');
-            closeModal('withdrawModal');
-            await loadUserData();
-        } else {
-            showToast(data.error || 'WITHDRAWAL FAILED', 'error');
-        }
-    } catch(e) {
-        showToast('NETWORK ERROR', 'error');
-    }
 }
 
 function showHistoryModal() {
@@ -833,81 +726,176 @@ function renderHistory() {
     `).join('');
 }
 
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('show');
+}
+
 // ============================================================================
-// 14. DYNAMIC TON ACTIVATION MODAL
+// 14. WITHDRAW BOTTOM SHEET
 // ============================================================================
 
-function createActivationModal() {
-    if (activeModal) {
-        activeModal.remove();
-        activeModal = null;
-    }
+let withdrawModal = null;
+let withdrawCurrency = 'AXC';
 
-    const overlay = document.createElement('div');
-    overlay.className = 'ai-modal-overlay';
-    overlay.id = 'verificationModal';
+function createWithdrawModal() {
+    const existing = document.getElementById('withdrawBottomSheet');
+    if (existing) existing.remove();
     
-    overlay.innerHTML = `
-        <div class="ai-modal">
-            <div class="modal-ai-icon">
-                <i class="fas fa-brain"></i>
-            </div>
-            <h2>Neural Link</h2>
-            <div class="fee-display">5 TON</div>
-            <div class="fee-sub">One-time</div>
-            <div class="ai-features">
-                <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
-                <p><i class="fas fa-user-check"></i> Human-only access</p>
-                <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
-            </div>
-            <div class="ai-modal-buttons">
-                <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
-                <button class="ai-modal-btn primary" id="modalProceedBtn">
-                    <i class="fas fa-bolt"></i> Activate
-                </button>
+    const modalHTML = `
+        <div id="withdrawBottomSheet" class="bottom-sheet">
+            <div class="bottom-sheet-overlay"></div>
+            <div class="bottom-sheet-content">
+                <div class="bottom-sheet-header">
+                    <h3>💸 Withdraw Funds</h3>
+                    <button class="close-sheet-btn" id="closeWithdrawSheet">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="sheet-currency-toggle">
+                    <button class="currency-option ${withdrawCurrency === 'AXC' ? 'active' : ''}" data-currency="AXC">
+                        <img src="${CMC_ICONS.AXC}" alt="AXC" width="24" height="24">
+                        <span>AXC</span>
+                    </button>
+                    <button class="currency-option ${withdrawCurrency === 'USDT' ? 'active' : ''}" data-currency="USDT">
+                        <img src="${CMC_ICONS.USDT}" alt="USDT" width="24" height="24">
+                        <span>USDT</span>
+                    </button>
+                </div>
+                <div class="sheet-balance-info">
+                    <span class="balance-label">Available Balance</span>
+                    <span class="balance-value" id="sheetBalanceValue">
+                        ${withdrawCurrency === 'AXC' ? (currentUser?.balance || 0).toLocaleString() + ' AXC' : '$' + (currentUser?.usdtBalance || 0).toFixed(2)}
+                    </span>
+                </div>
+                <div class="sheet-amount-input">
+                    <label>Amount</label>
+                    <div class="amount-input-wrapper">
+                        <input type="number" id="sheetAmountInput" placeholder="0" value="" step="${withdrawCurrency === 'AXC' ? '100' : '1'}">
+                        <span class="amount-currency">${withdrawCurrency}</span>
+                    </div>
+                    <div class="quick-amounts">
+                        <button class="quick-amount" data-percent="25">25%</button>
+                        <button class="quick-amount" data-percent="50">50%</button>
+                        <button class="quick-amount" data-percent="75">75%</button>
+                        <button class="quick-amount" data-percent="100">100%</button>
+                    </div>
+                </div>
+                <div class="sheet-address-input">
+                    <label>BEP20 Wallet Address</label>
+                    <input type="text" id="sheetAddressInput" placeholder="0x..." value="${currentUser?.walletAddress || ''}">
+                </div>
+                <div class="sheet-info-row">
+                    <div class="info-item"><span>Minimum</span><strong id="sheetMinAmount">${withdrawCurrency === 'AXC' ? '1,000 AXC' : '10 USDT'}</strong></div>
+                    <div class="info-item"><span>Maximum</span><strong id="sheetMaxAmount">${withdrawCurrency === 'AXC' ? '50,000 AXC' : '1,000 USDT'}</strong></div>
+                    <div class="info-item"><span>Fee</span><strong>0</strong></div>
+                </div>
+                <button class="sheet-submit-btn" id="submitWithdrawSheet"><i class="fas fa-paper-plane"></i> Confirm Withdrawal</button>
+                <p class="sheet-note">⚠️ Withdrawals are auto-approved and processed within 1-12 hours.</p>
             </div>
         </div>
     `;
     
-    document.body.appendChild(overlay);
-    activeModal = overlay;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    withdrawModal = document.getElementById('withdrawBottomSheet');
     
-    const cancelBtn = document.getElementById('modalCancelBtn');
-    const proceedBtn = document.getElementById('modalProceedBtn');
+    document.getElementById('closeWithdrawSheet')?.addEventListener('click', () => withdrawModal.classList.remove('show'));
     
-    if (cancelBtn) {
-        cancelBtn.onclick = () => hideActivationModal();
-    }
+    document.querySelectorAll('.currency-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            withdrawCurrency = btn.dataset.currency;
+            updateSheetForCurrency();
+            document.querySelectorAll('.currency-option').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
     
-    if (proceedBtn) {
-        proceedBtn.onclick = async () => {
-            hideActivationModal();
-            await handleActivation();
-        };
-    }
+    document.querySelectorAll('.quick-amount').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const percent = parseInt(btn.dataset.percent) / 100;
+            const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
+            const amount = Math.floor(balance * percent);
+            const input = document.getElementById('sheetAmountInput');
+            if (input) input.value = amount;
+        });
+    });
     
-    return overlay;
+    document.getElementById('submitWithdrawSheet')?.addEventListener('click', submitWithdrawFromSheet);
 }
 
-function showActivationModal() {
-    if (currentPage !== 'swap') return;
-    if (currentUser?.tonPaid) return;
+function updateSheetForCurrency() {
+    const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
+    const balanceEl = document.getElementById('sheetBalanceValue');
+    const minEl = document.getElementById('sheetMinAmount');
+    const maxEl = document.getElementById('sheetMaxAmount');
+    const inputEl = document.getElementById('sheetAmountInput');
+    const currencySpan = document.querySelector('.amount-currency');
     
-    if (!activeModal) {
-        createActivationModal();
-    }
-    
-    if (activeModal) activeModal.classList.add('active');
+    if (balanceEl) balanceEl.textContent = withdrawCurrency === 'AXC' ? balance.toLocaleString() + ' AXC' : '$' + balance.toFixed(2);
+    if (minEl) minEl.textContent = withdrawCurrency === 'AXC' ? '1,000 AXC' : '10 USDT';
+    if (maxEl) maxEl.textContent = withdrawCurrency === 'AXC' ? '50,000 AXC' : '1,000 USDT';
+    if (currencySpan) currencySpan.textContent = withdrawCurrency;
+    if (inputEl) { inputEl.step = withdrawCurrency === 'AXC' ? '100' : '1'; inputEl.value = ''; }
 }
 
-function hideActivationModal() {
-    if (activeModal) {
-        activeModal.classList.remove('active');
+function showWithdrawModal() {
+    if (!withdrawModal) createWithdrawModal();
+    withdrawCurrency = 'AXC';
+    updateSheetForCurrency();
+    document.querySelectorAll('.currency-option').forEach(b => b.classList.remove('active'));
+    document.querySelector('.currency-option[data-currency="AXC"]')?.classList.add('active');
+    withdrawModal.classList.add('show');
+}
+
+async function submitWithdrawFromSheet() {
+    const amount = parseFloat(document.getElementById('sheetAmountInput')?.value || '0');
+    const address = document.getElementById('sheetAddressInput')?.value || '';
+    
+    const isValidBEP20 = /^0x[a-fA-F0-9]{40}$/i.test(address);
+    if (!address || !isValidBEP20) {
+        showToast('Invalid BEP20 address', 'error');
+        return;
+    }
+    
+    const minAmount = withdrawCurrency === 'AXC' ? 1000 : 10;
+    const maxAmount = withdrawCurrency === 'AXC' ? 50000 : 1000;
+    
+    if (isNaN(amount) || amount < minAmount) {
+        showToast(`Minimum withdrawal is ${minAmount} ${withdrawCurrency}`, 'error');
+        return;
+    }
+    if (amount > maxAmount) {
+        showToast(`Maximum withdrawal is ${maxAmount} ${withdrawCurrency}`, 'error');
+        return;
+    }
+    
+    const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
+    if (amount > balance) {
+        showToast(`Insufficient ${withdrawCurrency} balance`, 'error');
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/withdraw-usdt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, amount, address, currency: withdrawCurrency })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`✅ ${amount} ${withdrawCurrency} withdrawal submitted!`, 'success');
+            withdrawModal.classList.remove('show');
+            await loadUserData();
+        } else {
+            showToast(data.error || 'Withdrawal failed', 'error');
+        }
+    } catch(e) {
+        showToast('Network error', 'error');
     }
 }
 
 // ============================================================================
-// 15. SWAP MODULE (محسن)
+// 15. SWAP MODULE
 // ============================================================================
 
 function showConfetti() {
@@ -960,22 +948,6 @@ function showConfetti() {
     animate();
 }
 
-function updateSwapButtonState(isActive) {
-    const btn = swapEls.swapBtn;
-    if (!btn) return;
-    if (isActive) {
-        btn.disabled = false;
-        btn.classList.remove('locked');
-        btn.classList.add('active');
-        btn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
-    } else {
-        btn.disabled = false;
-        btn.classList.remove('active');
-        btn.classList.add('locked');
-        btn.innerHTML = '<i class="fas fa-lock"></i> 🔒 SWAP LOCKED';
-    }
-}
-
 function initTonConnect() {
     const container = document.getElementById('ton-connect');
     if (!container) return;
@@ -995,24 +967,72 @@ function initTonConnect() {
                 if (swapEls.walletStatus) {
                     swapEls.walletStatus.innerHTML = `<i class="fas fa-check-circle"></i> ${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
                 }
-                if (currentUser?.tonPaid) updateSwapButtonState(true);
             } else {
                 tonConnected = false;
                 tonWalletAddress = null;
                 if (swapEls.walletStatus) swapEls.walletStatus.innerHTML = 'Not connected';
-                updateSwapButtonState(false);
             }
         });
     } catch(e) { console.error('[TON] ERROR:', e); }
 }
 
+function showSwapStatus(message, type) {
+    if (!swapEls.swapStatus) return;
+    swapEls.swapStatus.textContent = message;
+    swapEls.swapStatus.className = `ai-status ${type}`;
+    swapEls.swapStatus.style.display = 'block';
+    if (type !== 'error') setTimeout(() => swapEls.swapStatus.style.display = 'none', 5000);
+}
+
+// TON Activation Modal
+let activeModal = null;
+
+function createActivationModal() {
+    if (activeModal) { activeModal.remove(); activeModal = null; }
+    const overlay = document.createElement('div');
+    overlay.className = 'ai-modal-overlay';
+    overlay.id = 'verificationModal';
+    overlay.innerHTML = `
+        <div class="ai-modal">
+            <div class="modal-ai-icon"><i class="fas fa-brain"></i></div>
+            <h2>Neural Link</h2>
+            <div class="fee-display">5 TON</div>
+            <div class="fee-sub">One-time</div>
+            <div class="ai-features">
+                <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
+                <p><i class="fas fa-user-check"></i> Human-only access</p>
+                <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
+            </div>
+            <div class="ai-modal-buttons">
+                <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
+                <button class="ai-modal-btn primary" id="modalProceedBtn"><i class="fas fa-bolt"></i> Activate</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    activeModal = overlay;
+    document.getElementById('modalCancelBtn')?.addEventListener('click', () => hideActivationModal());
+    document.getElementById('modalProceedBtn')?.addEventListener('click', async () => { hideActivationModal(); await handleActivation(); });
+}
+
+function showActivationModal() {
+    if (currentPage !== 'swap') return;
+    if (currentUser?.tonPaid) return;
+    if (!activeModal) createActivationModal();
+    if (activeModal) activeModal.classList.add('active');
+}
+
+function hideActivationModal() {
+    if (activeModal) activeModal.classList.remove('active');
+}
+
 async function handleActivation() {
     if (!tonConnected || !tonWalletAddress) {
-        showStatus('swapStatus', '❌ CONNECT TON WALLET FIRST', 'error');
+        showSwapStatus('❌ CONNECT TON WALLET FIRST', 'error');
         return false;
     }
     if (!CONFIG.ownerWallet) {
-        showStatus('swapStatus', '❌ OWNER WALLET NOT CONFIGURED', 'error');
+        showSwapStatus('❌ OWNER WALLET NOT CONFIGURED', 'error');
         return false;
     }
     if (isActivating) return false;
@@ -1025,41 +1045,29 @@ async function handleActivation() {
     };
     
     try {
-        showStatus('swapStatus', '⏳ WAITING FOR PAYMENT...', 'info');
-        const result = await window.tonConnectUI.sendTransaction(transaction);
+        showSwapStatus('⏳ WAITING FOR PAYMENT...', 'info');
+        await window.tonConnectUI.sendTransaction(transaction);
         const verifyRes = await fetch('/api/ton-verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, txHash: result.boc, walletAddress: tonWalletAddress })
+            body: JSON.stringify({ userId, walletAddress: tonWalletAddress })
         });
         const verifyData = await verifyRes.json();
         if (verifyData.success) {
             await loadUserData();
-            showStatus('swapStatus', '✅ SWAP UNLOCKED!', 'success');
+            showSwapStatus('✅ SWAP UNLOCKED!', 'success');
             showConfetti();
-            updateSwapButtonState(true);
             return true;
         } else {
-            showStatus('swapStatus', '❌ VERIFICATION FAILED', 'error');
-            updateSwapButtonState(false);
+            showSwapStatus('❌ VERIFICATION FAILED', 'error');
             return false;
         }
     } catch(error) {
-        showStatus('swapStatus', '❌ PAYMENT CANCELLED', 'error');
-        updateSwapButtonState(false);
+        showSwapStatus('❌ PAYMENT CANCELLED', 'error');
         return false;
     } finally {
         isActivating = false;
     }
-}
-
-function showStatus(elementId, message, type) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    el.textContent = message;
-    el.className = `ai-status ${type}`;
-    el.style.display = 'block';
-    if (type !== 'error') setTimeout(() => el.style.display = 'none', 5000);
 }
 
 // Swap Event Listeners
@@ -1077,15 +1085,12 @@ if (swapEls.swapFrom) {
 
 if (swapEls.swapBtn) {
     swapEls.swapBtn.addEventListener('click', async () => {
-        if (!currentUser?.tonPaid) { 
-            showActivationModal(); 
-            return; 
-        }
+        if (!currentUser?.tonPaid) { showActivationModal(); return; }
         const amount = parseFloat(swapEls.swapFrom?.value || '0');
         if (isSwapping) return;
-        if (amount < CONFIG.minSwap) { showStatus('swapStatus', `❌ MIN ${CONFIG.minSwap} AXC`, 'error'); return; }
-        if (amount > CONFIG.maxSwap) { showStatus('swapStatus', `❌ MAX ${CONFIG.maxSwap} AXC`, 'error'); return; }
-        if (amount > (currentUser?.balance || 0)) { showStatus('swapStatus', '❌ INSUFFICIENT BALANCE', 'error'); return; }
+        if (amount < CONFIG.minSwap) { showSwapStatus(`❌ MIN ${CONFIG.minSwap} AXC`, 'error'); return; }
+        if (amount > CONFIG.maxSwap) { showSwapStatus(`❌ MAX ${CONFIG.maxSwap} AXC`, 'error'); return; }
+        if (amount > (currentUser?.balance || 0)) { showSwapStatus('❌ INSUFFICIENT BALANCE', 'error'); return; }
         
         try {
             isSwapping = true;
@@ -1097,11 +1102,11 @@ if (swapEls.swapBtn) {
                 await loadUserData();
                 if (swapEls.swapFrom) swapEls.swapFrom.value = '';
                 if (swapEls.swapTo) swapEls.swapTo.value = '';
-                showStatus('swapStatus', `✅ SWAPPED ${amount.toLocaleString()} AXC → $${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
+                showSwapStatus(`✅ SWAPPED ${amount.toLocaleString()} AXC → $${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
                 showConfetti();
-            } else showStatus('swapStatus', '❌ ' + (data.error || 'SWAP FAILED'), 'error');
-        } catch(error) { showStatus('swapStatus', '❌ NETWORK ERROR', 'error'); }
-        finally { isSwapping = false; swapEls.swapBtn.disabled = false; updateSwapButtonState(true); }
+            } else showSwapStatus('❌ ' + (data.error || 'SWAP FAILED'), 'error');
+        } catch(error) { showSwapStatus('❌ NETWORK ERROR', 'error'); }
+        finally { isSwapping = false; swapEls.swapBtn.disabled = false; }
     });
 }
 
@@ -1164,7 +1169,7 @@ function showPage(pageName) {
 // ============================================================================
 
 async function init() {
-    console.log('🚀 AXION AI - PROFESSIONAL EDITION v17.0 INITIALIZING...');
+    console.log('🚀 AXION AI - PROFESSIONAL EDITION v19.0 INITIALIZING...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -1183,8 +1188,10 @@ async function init() {
     await loadUserData();
     await fetchLivePrices();
     
-    initMiningSystem();
-    initEarnSystem();
+    // Load mining state from localStorage
+    loadMiningState();
+    updateMiningUI();
+    
     initTasksSystem();
     renderAxionPage();
     renderAssets();
@@ -1196,7 +1203,14 @@ async function init() {
     document.getElementById('historyBtn')?.addEventListener('click', showHistoryModal);
     document.getElementById('watchAdBtn')?.addEventListener('click', watchAd);
     document.getElementById('confirmDepositBtn')?.addEventListener('click', confirmDeposit);
-    document.getElementById('submitWithdrawBtn')?.addEventListener('click', submitWithdraw);
+    document.getElementById('claimMiningBtn')?.addEventListener('click', claimMiningReward);
+    
+    if (earnEls.boostBtn) {
+        earnEls.boostBtn.addEventListener('click', () => {
+            const isVisible = earnEls.boostOptions?.style.display === 'flex';
+            if (earnEls.boostOptions) earnEls.boostOptions.style.display = isVisible ? 'none' : 'flex';
+        });
+    }
     
     if (earnEls.copyReferralBtn) {
         earnEls.copyReferralBtn.addEventListener('click', () => {
@@ -1207,21 +1221,27 @@ async function init() {
         });
     }
     
-    // Boost options are already handled in initMiningSystem
-    
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => showPage(item.dataset.page));
     });
     
+    // Hide boost options on click outside
+    document.addEventListener('click', (e) => {
+        if (earnEls.boostOptions && earnEls.boostBtn) {
+            if (!earnEls.boostBtn.contains(e.target) && !earnEls.boostOptions.contains(e.target)) {
+                earnEls.boostOptions.style.display = 'none';
+            }
+        }
+    });
+    
     showPage('wallet');
-    console.log('✅ AXION AI v17.0 READY! 🚀');
+    console.log('✅ AXION AI v19.0 READY! 🚀');
 }
 
 // EXPOSE GLOBALS
 window.showPage = showPage;
 window.copyDepositAddress = copyDepositAddress;
 window.confirmDeposit = confirmDeposit;
-window.submitWithdraw = submitWithdraw;
 window.showWithdrawModal = showWithdrawModal;
 window.closeModal = closeModal;
 window.startTask = startTask;
