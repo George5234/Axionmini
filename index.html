@@ -319,7 +319,7 @@
             </button>
         </nav>
 
-        <!-- ==================== MODALS (Static - Work Fine) ==================== -->
+        <!-- ==================== MODALS ==================== -->
         
         <!-- Deposit Modal -->
         <div id="depositModal" class="modal">
@@ -400,6 +400,29 @@
             <div class="toast-content">
                 <i class="fas fa-info-circle"></i>
                 <span id="toastMessage">Message</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TON ACTIVATION MODAL (يظهر فقط عند الحاجة) ==================== -->
+    <div class="ai-modal-overlay" id="verificationModal">
+        <div class="ai-modal">
+            <div class="modal-ai-icon">
+                <i class="fas fa-brain"></i>
+            </div>
+            <h2>Neural Link</h2>
+            <div class="fee-display">5 TON</div>
+            <div class="fee-sub">One-time</div>
+            <div class="ai-features">
+                <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
+                <p><i class="fas fa-user-check"></i> Human-only access</p>
+                <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
+            </div>
+            <div class="ai-modal-buttons">
+                <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
+                <button class="ai-modal-btn primary" id="modalProceedBtn">
+                    <i class="fas fa-bolt"></i> Activate
+                </button>
             </div>
         </div>
     </div>
