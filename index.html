@@ -102,7 +102,7 @@
 
         <!-- ==================== EARN PAGE ==================== -->
         <div id="earnPage" class="page hidden">
-            <!-- Mining Card with Integrated Boost -->
+            <!-- Mining Card - مع شريط التعدين ورصيد AXC -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-microchip"></i> NEURAL MINING RIG</h3>
@@ -110,6 +110,13 @@
                         <i class="fas fa-bolt"></i>
                     </button>
                 </div>
+                
+                <!-- عرض رصيد AXC الحالي لتحفيز المستخدم -->
+                <div style="background: rgba(57,255,20,0.1); border-radius: 16px; padding: 12px; margin-bottom: 16px; text-align: center;">
+                    <span style="font-size: 12px; color: #7a9e7a;">💰 YOUR AXC BALANCE</span>
+                    <div style="font-size: 28px; font-weight: 800; font-family: 'Orbitron', monospace; color: #39ff14;" id="miningAxcBalance">0</div>
+                </div>
+                
                 <div class="mining-stats">
                     <div class="stat-card">
                         <span class="stat-label">MINING RATE</span>
@@ -120,15 +127,17 @@
                         <span class="stat-value" id="miningPower">STANDARD</span>
                     </div>
                 </div>
+                
+                <!-- شريط التعدين -->
                 <div class="mining-timer-card">
-                    <div class="mining-timer-display" id="miningTimer">0 / 40</div>
                     <div class="mining-progress-bar">
                         <div class="mining-progress-fill" id="miningProgress" style="width: 0%"></div>
                     </div>
-                    <div class="mining-rate">Next reward in: <span id="nextReward">40 ads</span></div>
+                    <div class="mining-timer-display" id="miningTimer">0 / 40</div>
+                    <div class="mining-rate">🎬 Ads watched: <span id="nextReward">0</span> / 40</div>
                 </div>
                 
-                <!-- زر Claim الجديد -->
+                <!-- زر Claim -->
                 <button class="claim-mining-btn" id="claimMiningBtn" style="display: none;">
                     <i class="fas fa-gem"></i> CLAIM REWARD
                 </button>
@@ -167,7 +176,7 @@
                 <button class="watch-ad-btn" id="watchAdBtn">
                     <i class="fas fa-play-circle"></i> WATCH AD
                 </button>
-                <div id="adsCounter" class="ads-counter">📊 0 / 40</div>
+                <div id="adsCounter" class="ads-counter">📊 Progress: 0 / 40</div>
             </div>
 
             <!-- Tasks Section -->
