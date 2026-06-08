@@ -1,19 +1,16 @@
 // ============================================================================
-// AXION AI - PROFESSIONAL MINI APP v8.0 (FULLY CORRECTED)
+// AXION AI - PROFESSIONAL EDITION v10.0 (DYNAMIC MODAL)
 // ============================================================================
 // جميع الميزات المطلوبة:
-// ✅ 6 منصات إعلانية (AdsGram, Taddy, Monetag, RichAds, Adexium, GigaPub)
-// ✅ إعلانين متتاليين بنقرة واحدة (المستخدم لا يشعر)
+// ✅ 6 منصات إعلانية
+// ✅ إعلانين متتاليين بنقرة واحدة
 // ✅ 40 إعلان = كول داون 6 ساعات
-// ✅ تعدين وهمي + Boost بـ TON (3 خطط)
-// ✅ مهام مع عداد 15 ثانية (بدون زر إغلاق)
+// ✅ تعدين وهمي + Boost بـ TON
+// ✅ مهام مع عداد 15 ثانية
 // ✅ محفظة متكاملة (رصيد + إيداع + سحب + تاريخ)
-// ✅ إحالات (منقولة إلى صفحة Earn)
+// ✅ إحالات في صفحة Earn
 // ✅ Swap كامل (TON Connect + تفعيل 5 TON)
-// ✅ صفحة Axion AI (GitBook)
-// ✅ أيقونات CoinMarketCap الحقيقية
-// ✅ أسعار حية من CoinGecko (AXC ثابت 0.01$)
-// ✅ نافذة التفعيل (5 TON) تظهر فقط عند الحاجة
+// ✅ نافذة التفعيل (5 TON) يتم إنشاؤها ديناميكياً (تظهر فقط عند الحاجة)
 // ============================================================================
 
 // ============================================================================
@@ -89,6 +86,7 @@ let isActivating = false;
 let isSwapping = false;
 let adSequenceActive = false;
 let miningTimerInterval = null;
+let activeModal = null; // للتتبع
 
 // ============================================================================
 // 4. DOM ELEMENTS
@@ -244,7 +242,6 @@ async function addBalanceToUser(amount, currency = 'AXC') {
     }
 }
 
-// CoinGecko API for live prices
 async function fetchLivePrices() {
     try {
         const ids = ['bitcoin', 'ethereum', 'binancecoin', 'the-open-network'];
@@ -261,7 +258,6 @@ async function fetchLivePrices() {
         renderTopCryptos();
     } catch(e) {
         console.error('Price fetch error:', e);
-        // Fallback prices
         livePrices = {
             BTC: { price: 68500, change: 2.4 },
             ETH: { price: 3200, change: 1.2 },
@@ -372,7 +368,7 @@ function updateReferralUI() {
 }
 
 // ============================================================================
-// 8. MINING SYSTEM (ONE CLAIM EVERY 2.5 HOURS)
+// 8. MINING SYSTEM (AUTO CLAIM EVERY 2.5 HOURS)
 // ============================================================================
 
 function initMiningSystem() {
@@ -381,7 +377,6 @@ function initMiningSystem() {
         boostType: null,
         boostExpiry: null,
         lastClaimTime: Date.now(),
-        accumulatedTokens: 0,
         totalMined: 0
     };
     miningData = loadFromLocalStorage('mining', defaultData);
@@ -825,22 +820,93 @@ function renderHistory() {
 }
 
 // ============================================================================
-// 14. SWAP MODULE (PRESERVED & CORRECTED)
+// 14. DYNAMIC TON ACTIVATION MODAL (يتم إنشاؤها ديناميكياً)
 // ============================================================================
 
-const swapModal = document.getElementById('verificationModal');
-const modalProceedBtn = document.getElementById('modalProceedBtn');
-const modalCancelBtn = document.getElementById('modalCancelBtn');
+function createActivationModal() {
+    // إزالة أي مودال موجود مسبقاً
+    if (activeModal) {
+        activeModal.remove();
+        activeModal = null;
+    }
 
-function showSwapModal() {
+    // إنشاء عناصر المودال
+    const overlay = document.createElement('div');
+    overlay.className = 'ai-modal-overlay';
+    overlay.id = 'verificationModal';
+    
+    overlay.innerHTML = `
+        <div class="ai-modal">
+            <div class="modal-ai-icon">
+                <i class="fas fa-brain"></i>
+            </div>
+            <h2>Neural Link</h2>
+            <div class="fee-display">5 TON</div>
+            <div class="fee-sub">One-time</div>
+            <div class="ai-features">
+                <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
+                <p><i class="fas fa-user-check"></i> Human-only access</p>
+                <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
+            </div>
+            <div class="ai-modal-buttons">
+                <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
+                <button class="ai-modal-btn primary" id="modalProceedBtn">
+                    <i class="fas fa-bolt"></i> Activate
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    activeModal = overlay;
+    
+    // ربط الأحداث
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const proceedBtn = document.getElementById('modalProceedBtn');
+    
+    if (cancelBtn) {
+        cancelBtn.onclick = () => hideActivationModal();
+    }
+    
+    if (proceedBtn) {
+        proceedBtn.onclick = async () => {
+            hideActivationModal();
+            await handleActivation();
+        };
+    }
+    
+    return overlay;
+}
+
+function showActivationModal() {
+    // ✅ شروط الظهور: فقط في صفحة Swap والمستخدم غير مفعل
     if (currentPage !== 'swap') return;
     if (currentUser?.tonPaid) return;
-    if (swapModal) swapModal.classList.add('active');
+    
+    // إنشاء المودال إذا لم يكن موجوداً
+    if (!activeModal) {
+        createActivationModal();
+    } else {
+        activeModal.classList.remove('active');
+        // نضيف الكلاس مرة أخرى بعد إعادة التعيين
+        setTimeout(() => {
+            if (activeModal) activeModal.classList.add('active');
+        }, 10);
+    }
+    
+    if (activeModal) activeModal.classList.add('active');
 }
 
-function hideSwapModal() {
-    if (swapModal) swapModal.classList.remove('active');
+function hideActivationModal() {
+    if (activeModal) {
+        activeModal.classList.remove('active');
+        // لا نحذفها، فقط نخفيها. يمكن إعادة استخدامها لاحقاً
+    }
 }
+
+// ============================================================================
+// 15. SWAP MODULE
+// ============================================================================
 
 function showConfetti() {
     const canvas = document.getElementById('confetti-canvas');
@@ -994,6 +1060,7 @@ function showStatus(elementId, message, type) {
     if (type !== 'error') setTimeout(() => el.style.display = 'none', 5000);
 }
 
+// Swap Event Listeners
 if (swapEls.swapFrom) {
     swapEls.swapFrom.addEventListener('input', function() {
         const amount = parseFloat(this.value);
@@ -1008,7 +1075,10 @@ if (swapEls.swapFrom) {
 
 if (swapEls.swapBtn) {
     swapEls.swapBtn.addEventListener('click', async () => {
-        if (!currentUser?.tonPaid) { showSwapModal(); return; }
+        if (!currentUser?.tonPaid) { 
+            showActivationModal(); 
+            return; 
+        }
         const amount = parseFloat(swapEls.swapFrom?.value || '0');
         if (isSwapping) return;
         if (amount < CONFIG.minSwap) { showStatus('swapStatus', `❌ MIN ${CONFIG.minSwap} AXC`, 'error'); return; }
@@ -1033,11 +1103,8 @@ if (swapEls.swapBtn) {
     });
 }
 
-if (modalProceedBtn) modalProceedBtn.addEventListener('click', async () => { hideSwapModal(); await handleActivation(); });
-if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => hideSwapModal());
-
 // ============================================================================
-// 15. AXION AI PAGE
+// 16. AXION AI PAGE
 // ============================================================================
 
 function renderAxionPage() {
@@ -1077,7 +1144,7 @@ function renderAxionPage() {
 }
 
 // ============================================================================
-// 16. PAGE NAVIGATION
+// 17. PAGE NAVIGATION
 // ============================================================================
 
 function showPage(pageName) {
@@ -1091,11 +1158,11 @@ function showPage(pageName) {
 }
 
 // ============================================================================
-// 17. INITIALIZATION
+// 18. INITIALIZATION
 // ============================================================================
 
 async function init() {
-    console.log('🚀 AXION AI - PROFESSIONAL EDITION INITIALIZING...');
+    console.log('🚀 AXION AI - PROFESSIONAL EDITION v10.0 INITIALIZING...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -1147,7 +1214,7 @@ async function init() {
     });
     
     showPage('wallet');
-    console.log('✅ AXION AI READY! 🚀');
+    console.log('✅ AXION AI v10.0 READY! 🚀');
 }
 
 // EXPOSE GLOBALS
@@ -1163,4 +1230,5 @@ window.refreshPrices = refreshPrices;
 window.showAllAssets = showAllAssets;
 window.showHistoryModal = showHistoryModal;
 
+// LAUNCH
 init();
