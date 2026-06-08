@@ -1,16 +1,17 @@
 // ============================================================================
-// AXION AI - LEGENDARY MINI APP v6.0 (FULL INTEGRATION)
+// AXION AI - LEGENDARY MINI APP v7.0 (FULLY CORRECTED)
 // ============================================================================
-// جميع الميزات المطلوبة:
-// ✅ 6 منصات إعلانية (AdsGram, Taddy, Monetag, RichAds, Adexium, GigaPub)
-// ✅ إعلانين متتاليين بنقرة واحدة (المستخدم لا يشعر)
-// ✅ 40 إعلان ثم كول داون 6 ساعات
-// ✅ تعدين وهمي + Boost بـ TON (3 خطط)
-// ✅ مهام مع عداد 15 ثانية
-// ✅ محفظة متكاملة (رصيد + إيداع + سحب + تاريخ + إحالات)
-// ✅ Swap كامل (TON Connect + تفعيل 5 TON)
-// ✅ صفحة Axion AI (GitBook)
-// ✅ تصميم أسطوري
+// جميع الإصلاحات:
+// ✅ تصحيح رابط الإحالة (يستخدم اسم البوت من الـ API)
+// ✅ إصلاح تحميل My Assets و Top Cryptocurrencies
+// ✅ إصلاح Modal التفعيل (يظهر فقط عند الحاجة)
+// ✅ إصلاح نظام التعدين (مطالبة واحدة كل 2.5 ساعة)
+// ✅ إضافة /api/add-balance للتعدين والمهام والإعلانات
+// ✅ إصلاح المهام (فتح الرابط + نافذة عداد بدون إغلاق)
+// ✅ إزالة أيقونة اللغة والإشعارات
+// ✅ نقل الإحالة إلى صفحة Earn
+// ✅ تصميم مضغوط لمحفظة TON في الزاوية اليسرى
+// ✅ تصميم احترافي لكل قسم
 // ============================================================================
 
 // ============================================================================
@@ -23,7 +24,6 @@ if (tg) {
     tg.expand();
     tg.setHeaderColor('#0a0c0f');
     tg.setBackgroundColor('#0a0c0f');
-    tg.enableClosingConfirmation?.();
     console.log('✅ AXION AI - Legendary Edition Ready');
 }
 
@@ -38,25 +38,25 @@ const CONFIG = {
     minSwap: 100,
     maxSwap: 100000,
     ownerWallet: null,
+    botUsername: 'AxionBep20Airdropbot',
     // Mining
-    miningInterval: 2.5 * 60 * 60 * 1000,
+    miningInterval: 2.5 * 60 * 60 * 1000, // 2.5 ساعات
     baseMiningRate: 50,
     boosts: {
-        bronze: { price: 2.5, rate: 120, duration: 3, name: '⚡ BRONZE' },
-        silver: { price: 5, rate: 250, duration: 7, name: '⚡ SILVER' },
-        gold: { price: 10, rate: 500, duration: 30, name: '⚡ GOLD' }
+        bronze: { price: 2.5, rate: 120, duration: 3, name: 'BRONZE' },
+        silver: { price: 5, rate: 250, duration: 7, name: 'SILVER' },
+        gold: { price: 10, rate: 500, duration: 30, name: 'GOLD' }
     },
     // Earn (Ads)
     ADS_PER_CYCLE: 40,
     RESET_HOURS: 6,
     ADS_PER_SEQUENCE: 2,
-    REWARD_PER_SEQUENCE: 2,
     // Tasks
     tasks: [
-        { id: 1, name: 'Join Telegram Channel', url: '', reward: 100, completed: false },
-        { id: 2, name: 'Follow on Twitter', url: '', reward: 100, completed: false },
-        { id: 3, name: 'Visit Website', url: '', reward: 100, completed: false },
-        { id: 4, name: 'Join Community', url: '', reward: 100, completed: false }
+        { id: 1, name: 'Join Telegram Channel', url: 'https://t.me/AxionAiSignal', reward: 100, completed: false },
+        { id: 2, name: 'Follow on Twitter', url: 'https://twitter.com/AxionAI', reward: 100, completed: false },
+        { id: 3, name: 'Visit Website', url: 'https://axionai.io', reward: 100, completed: false },
+        { id: 4, name: 'Join Community', url: 'https://t.me/AxionAiCommunity', reward: 100, completed: false }
     ]
 };
 
@@ -75,6 +75,7 @@ let tonWalletAddress = null;
 let isActivating = false;
 let isSwapping = false;
 let adSequenceActive = false;
+let miningTimerInterval = null;
 
 // ============================================================================
 // 4. DOM ELEMENTS
@@ -91,9 +92,6 @@ const walletEls = {
     totalBalance: document.getElementById('totalBalance'),
     axcBalance: document.getElementById('walletAxcBalance'),
     usdtBalance: document.getElementById('walletUsdtBalance'),
-    referralCount: document.getElementById('referralCount'),
-    referralEarned: document.getElementById('referralEarned'),
-    referralLink: document.getElementById('referralLink'),
     assetsList: document.getElementById('assetsList'),
     topCryptoList: document.getElementById('topCryptoList')
 };
@@ -102,12 +100,17 @@ const earnEls = {
     miningRate: document.getElementById('miningRate'),
     miningPower: document.getElementById('miningPower'),
     miningProgress: document.getElementById('miningProgress'),
-    nextReward: document.getElementById('nextReward'),
+    miningTimer: document.getElementById('miningTimer'),
     readyTokens: document.getElementById('readyTokens'),
     claimMiningBtn: document.getElementById('claimMiningBtn'),
     watchAdBtn: document.getElementById('watchAdBtn'),
     adsCounter: null,
-    tasksContainer: document.getElementById('tasksContainer')
+    tasksContainer: document.getElementById('tasksContainer'),
+    // Referral elements (moved from Wallet)
+    referralCount: document.getElementById('referralCount'),
+    referralEarned: document.getElementById('referralEarned'),
+    referralLink: document.getElementById('referralLink'),
+    copyReferralBtn: document.getElementById('copyReferralLink')
 };
 
 const swapEls = {
@@ -120,6 +123,16 @@ const swapEls = {
     swapBtn: document.getElementById('swapBtn'),
     walletStatus: document.getElementById('walletStatus'),
     axcPrice: document.getElementById('axcPrice')
+};
+
+// Wallet status bar elements (top left)
+const walletStatusBar = {
+    container: document.getElementById('walletStatusBar'),
+    info: document.getElementById('walletInfoCompact'),
+    addressShort: document.getElementById('walletAddressShort'),
+    actions: document.getElementById('walletActionsCompact'),
+    copyBtn: document.getElementById('copyWalletAddressBtn'),
+    disconnectBtn: document.getElementById('disconnectWalletBtn')
 };
 
 // ============================================================================
@@ -178,6 +191,7 @@ async function loadConfig() {
         const res = await fetch('/api/config');
         const data = await res.json();
         CONFIG.ownerWallet = data.ownerWallet;
+        CONFIG.botUsername = data.botUsername || CONFIG.botUsername;
         if (data.config) {
             CONFIG.axcPrice = data.config.axcPrice || CONFIG.axcPrice;
             CONFIG.minSwap = data.config.minSwap || CONFIG.minSwap;
@@ -198,23 +212,39 @@ async function initFirebase() {
 }
 
 async function loadUserData() {
-    if (!db || !userId) return;
+    if (!userId) return;
     try {
-        const userDoc = await db.collection('users').doc(userId).get();
-        if (userDoc.exists) {
-            currentUser = userDoc.data();
+        const res = await fetch(`/api/user/${userId}`);
+        const data = await res.json();
+        if (data.success) {
+            currentUser = data.user;
             updateAllBalances();
+            renderAssets();
+            renderTopCryptos();
             updateReferralUI();
         } else {
-            const res = await fetch(`/api/user/${userId}`);
-            const data = await res.json();
-            if (data.success) {
-                currentUser = data.user;
-                updateAllBalances();
-                updateReferralUI();
-            }
+            console.error('User not found');
         }
     } catch(e) { console.error('[API] Load error:', e); }
+}
+
+async function addBalanceToUser(amount, currency = 'AXC') {
+    try {
+        const res = await fetch('/api/add-balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, amount, currency })
+        });
+        const data = await res.json();
+        if (data.success) {
+            await loadUserData();
+            return true;
+        }
+        return false;
+    } catch(e) {
+        console.error('Add balance error:', e);
+        return false;
+    }
 }
 
 function updateAllBalances() {
@@ -236,14 +266,96 @@ function updateReferralUI() {
     if (!currentUser) return;
     const inviteCount = currentUser.inviteCount || 0;
     const earned = inviteCount * 100;
-    if (walletEls.referralCount) walletEls.referralCount.textContent = inviteCount;
-    if (walletEls.referralEarned) walletEls.referralEarned.textContent = `${earned.toLocaleString()} AXC`;
-    const botUsername = tg?.initDataUnsafe?.user?.username || 'AxionBot';
-    if (walletEls.referralLink) walletEls.referralLink.value = `https://t.me/${botUsername}?start=${userId}`;
+    if (earnEls.referralCount) earnEls.referralCount.textContent = inviteCount;
+    if (earnEls.referralEarned) earnEls.referralEarned.textContent = `${earned.toLocaleString()} AXC`;
+    if (earnEls.referralLink) {
+        earnEls.referralLink.value = `https://t.me/${CONFIG.botUsername}?start=${userId}`;
+    }
 }
 
 // ============================================================================
-// 7. MINING SYSTEM
+// 7. ASSETS & CRYPTOCURRENCIES
+// ============================================================================
+
+const ASSETS = [
+    { symbol: 'AXC', name: 'Axion Coin', icon: '🔮' },
+    { symbol: 'USDT', name: 'Tether', icon: '💵' }
+];
+
+const TOP_CRYPTOS = [
+    { symbol: 'BTC', name: 'Bitcoin', price: 0, change: 0 },
+    { symbol: 'ETH', name: 'Ethereum', price: 0, change: 0 },
+    { symbol: 'BNB', name: 'BNB', price: 0, change: 0 },
+    { symbol: 'TON', name: 'Toncoin', price: 0, change: 0 }
+];
+
+async function renderAssets() {
+    if (!walletEls.assetsList || !currentUser) return;
+    
+    walletEls.assetsList.innerHTML = ASSETS.map(asset => {
+        const balance = asset.symbol === 'AXC' ? (currentUser.balance || 0) : (currentUser.usdtBalance || 0);
+        const value = asset.symbol === 'AXC' ? balance * CONFIG.axcPrice : balance;
+        return `
+            <div class="asset-item">
+                <div class="asset-left">
+                    <div class="asset-icon">${asset.icon}</div>
+                    <div class="asset-info">
+                        <h4>${asset.name}</h4>
+                        <p>${asset.symbol}</p>
+                    </div>
+                </div>
+                <div class="asset-right">
+                    <div class="asset-balance">${balance.toLocaleString()} ${asset.symbol === 'AXC' ? 'AXC' : 'USDT'}</div>
+                    <div class="asset-value">$${formatNumber(value)}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function renderTopCryptos() {
+    if (!walletEls.topCryptoList) return;
+    
+    // Simple static data for now
+    const cryptos = [
+        { symbol: 'BTC', name: 'Bitcoin', price: 68500, change: 2.4 },
+        { symbol: 'ETH', name: 'Ethereum', price: 3200, change: 1.2 },
+        { symbol: 'BNB', name: 'BNB', price: 580, change: -0.8 },
+        { symbol: 'TON', name: 'Toncoin', price: 5.5, change: -0.5 }
+    ];
+    
+    walletEls.topCryptoList.innerHTML = cryptos.map(crypto => {
+        const changeClass = crypto.change >= 0 ? 'positive' : 'negative';
+        const changeSymbol = crypto.change >= 0 ? '+' : '';
+        return `
+            <div class="crypto-item">
+                <div class="crypto-left">
+                    <div class="crypto-icon">${crypto.symbol === 'BTC' ? '₿' : crypto.symbol === 'ETH' ? 'Ξ' : crypto.symbol === 'BNB' ? 'ⓑ' : 'Ⓣ'}</div>
+                    <div class="crypto-info">
+                        <h4>${crypto.name}</h4>
+                        <p>${crypto.symbol}</p>
+                    </div>
+                </div>
+                <div class="crypto-right">
+                    <div class="crypto-price">$${crypto.price.toLocaleString()}</div>
+                    <div class="crypto-change ${changeClass}">${changeSymbol}${crypto.change}%</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function refreshPrices() {
+    renderTopCryptos();
+    showToast('Prices refreshed', 'success');
+}
+
+function showAllAssets() {
+    showToast('All assets view coming soon', 'info');
+}
+
+// ============================================================================
+// 8. MINING SYSTEM (ONE CLAIM EVERY 2.5 HOURS)
 // ============================================================================
 
 function initMiningSystem() {
@@ -257,6 +369,7 @@ function initMiningSystem() {
     };
     miningData = loadFromLocalStorage('mining', defaultData);
     
+    // Check boost expiry
     if (miningData.boostExpiry && Date.now() > miningData.boostExpiry) {
         miningData.boostType = null;
         miningData.miningRate = CONFIG.baseMiningRate;
@@ -264,12 +377,6 @@ function initMiningSystem() {
         saveMiningData();
     }
     
-    const elapsed = Date.now() - miningData.lastClaimTime;
-    const pendingTokens = Math.floor(elapsed / CONFIG.miningInterval);
-    if (pendingTokens > 0 && miningData.accumulatedTokens === 0) {
-        miningData.accumulatedTokens = pendingTokens;
-        saveMiningData();
-    }
     updateMiningUI();
     startMiningTimer();
 }
@@ -278,51 +385,59 @@ function saveMiningData() { saveToLocalStorage('mining', miningData); }
 
 function updateMiningUI() {
     if (!earnEls.miningRate) return;
+    
     earnEls.miningRate.textContent = `${miningData.miningRate} AXC`;
-    const elapsed = Date.now() - miningData.lastClaimTime;
-    const progress = Math.min(100, (elapsed / CONFIG.miningInterval) * 100);
-    if (earnEls.miningProgress) earnEls.miningProgress.style.width = `${progress}%`;
-    const remaining = CONFIG.miningInterval - elapsed;
-    if (earnEls.nextReward) earnEls.nextReward.textContent = remaining > 0 ? formatTime(remaining) : 'READY!';
-    if (earnEls.readyTokens) earnEls.readyTokens.textContent = miningData.accumulatedTokens;
+    
     if (miningData.boostType && earnEls.miningPower) {
         earnEls.miningPower.textContent = `${miningData.boostType} (×${miningData.miningRate / CONFIG.baseMiningRate})`;
-    } else if (earnEls.miningPower) earnEls.miningPower.textContent = 'STANDARD';
+    } else if (earnEls.miningPower) {
+        earnEls.miningPower.textContent = 'STANDARD';
+    }
+    
+    // Update timer and progress
+    const timeSinceLastClaim = Date.now() - miningData.lastClaimTime;
+    const remaining = Math.max(0, CONFIG.miningInterval - timeSinceLastClaim);
+    const progress = (timeSinceLastClaim / CONFIG.miningInterval) * 100;
+    
+    if (earnEls.miningTimer) earnEls.miningTimer.textContent = formatTime(remaining);
+    if (earnEls.miningProgress) earnEls.miningProgress.style.width = `${Math.min(100, progress)}%`;
 }
 
 function startMiningTimer() {
-    setInterval(() => {
-        const elapsed = Date.now() - miningData.lastClaimTime;
-        if (elapsed >= CONFIG.miningInterval) {
-            const newTokens = Math.floor(elapsed / CONFIG.miningInterval);
-            if (newTokens > 0) {
-                miningData.accumulatedTokens += newTokens;
-                miningData.lastClaimTime += newTokens * CONFIG.miningInterval;
-                saveMiningData();
-                updateMiningUI();
-                showToast(`🎉 +${newTokens * miningData.miningRate} AXC MINED!`, 'success');
-            }
-        }
+    if (miningTimerInterval) clearInterval(miningTimerInterval);
+    
+    miningTimerInterval = setInterval(() => {
+        const timeSinceLastClaim = Date.now() - miningData.lastClaimTime;
+        
+        // Update UI every minute
         updateMiningUI();
+        
+        // Check if ready to claim (once every 2.5 hours)
+        if (timeSinceLastClaim >= CONFIG.miningInterval) {
+            autoClaimMiningReward();
+        }
     }, 60000);
 }
 
-async function claimMiningReward() {
-    if (miningData.accumulatedTokens <= 0) {
-        showToast('NO TOKENS READY YET!', 'warning');
-        return;
+async function autoClaimMiningReward() {
+    const reward = miningData.miningRate;
+    
+    // Prevent multiple claims
+    if (Date.now() - miningData.lastClaimTime < CONFIG.miningInterval) return;
+    
+    const success = await addBalanceToUser(reward, 'AXC');
+    
+    if (success) {
+        miningData.lastClaimTime = Date.now();
+        miningData.totalMined += reward;
+        saveMiningData();
+        updateMiningUI();
+        showToast(`🎉 +${reward} AXC MINED AUTOMATICALLY!`, 'success');
     }
-    const reward = miningData.accumulatedTokens * miningData.miningRate;
-    miningData.totalMined += reward;
-    miningData.accumulatedTokens = 0;
-    saveMiningData();
-    updateMiningUI();
-    showToast(`✅ CLAIMED ${reward} AXC!`, 'success');
-    await loadUserData();
 }
 
 // ============================================================================
-// 8. BOOST SYSTEM
+// 9. BOOST SYSTEM (TON PAYMENT)
 // ============================================================================
 
 async function activateBoost(boostKey) {
@@ -351,22 +466,21 @@ async function activateBoost(boostKey) {
         miningData.boostExpiry = Date.now() + (boost.duration * 24 * 60 * 60 * 1000);
         saveMiningData();
         updateMiningUI();
-        showToast(`✅ ${boost.name} ACTIVATED!`, 'success');
+        showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
     } catch(error) {
         showToast('PAYMENT CANCELLED', 'error');
     }
 }
 
 // ============================================================================
-// 9. EARN SYSTEM - ADS (40 ADS = 6 HOURS COOLDOWN)
+// 10. EARN SYSTEM - ADS (40 ADS = 6 HOURS COOLDOWN)
 // ============================================================================
 
 function initEarnSystem() {
     const defaultData = {
         totalAdsWatched: 0,
         isOnCooldown: false,
-        cooldownEndTime: null,
-        lastResetTime: Date.now()
+        cooldownEndTime: null
     };
     earnData = loadFromLocalStorage('earn', defaultData);
     
@@ -427,7 +541,7 @@ function updateEarnUI() {
 }
 
 // ============================================================================
-// 10. AD PLATFORMS - 6 NETWORKS
+// 11. AD PLATFORMS - 6 NETWORKS
 // ============================================================================
 
 const AD_PLATFORMS = {
@@ -519,13 +633,17 @@ async function watchAd() {
     }
     
     if (secondSuccess) {
-        miningData.accumulatedTokens += CONFIG.REWARD_PER_SEQUENCE;
-        earnData.totalAdsWatched += CONFIG.ADS_PER_SEQUENCE;
-        saveMiningData();
-        saveEarnData();
-        updateMiningUI();
-        updateEarnUI();
-        showToast(`🎬 +${miningData.miningRate * CONFIG.REWARD_PER_SEQUENCE} AXC!`, 'success');
+        const reward = miningData.miningRate * CONFIG.ADS_PER_SEQUENCE;
+        const success = await addBalanceToUser(reward, 'AXC');
+        
+        if (success) {
+            earnData.totalAdsWatched += CONFIG.ADS_PER_SEQUENCE;
+            saveEarnData();
+            updateEarnUI();
+            showToast(`🎬 +${reward} AXC ADDED!`, 'success');
+        } else {
+            showToast('❌ FAILED TO ADD REWARD', 'error');
+        }
     } else {
         showToast('⚠️ AD SEQUENCE INCOMPLETE', 'warning');
     }
@@ -545,7 +663,7 @@ function resetAdSequence() {
 }
 
 // ============================================================================
-// 11. TASKS SYSTEM
+// 12. TASKS SYSTEM (WITH COUNTDOWN POPUP, NO CLOSE BUTTON)
 // ============================================================================
 
 function initTasksSystem() {
@@ -574,36 +692,99 @@ async function startTask(taskId) {
     const task = tasksData.find(t => t.id === taskId);
     if (!task || task.completed) return;
     
-    if (task.url && task.url.trim() !== '') window.open(task.url, '_blank');
+    // Open URL in new tab
+    if (task.url && task.url.trim() !== '') {
+        window.open(task.url, '_blank');
+    }
     
+    // Show countdown modal (no close button)
+    showTaskCountdownModal(task, async () => {
+        task.completed = true;
+        saveToLocalStorage('tasks', tasksData);
+        
+        const reward = task.reward;
+        const success = await addBalanceToUser(reward, 'AXC');
+        
+        if (success) {
+            renderTasks(tasksData);
+            showToast(`✅ +${reward} AXC ADDED!`, 'success');
+        } else {
+            showToast('❌ FAILED TO ADD REWARD', 'error');
+        }
+    });
+}
+
+function showTaskCountdownModal(task, onComplete) {
     let countdown = 15;
-    const modal = document.getElementById('taskModal');
-    const countdownEl = document.getElementById('taskCountdown');
-    const taskNameEl = document.getElementById('taskName');
     
-    if (taskNameEl) taskNameEl.textContent = task.name;
-    if (countdownEl) countdownEl.textContent = countdown;
-    if (modal) modal.classList.add('show');
+    // Create modal dynamically
+    const modal = document.createElement('div');
+    modal.className = 'task-countdown-modal';
+    modal.innerHTML = `
+        <div class="task-countdown-content">
+            <div class="task-countdown-icon">⏳</div>
+            <h3>${task.name}</h3>
+            <div class="task-countdown-timer">
+                <span id="taskCountdownSpan">${countdown}</span>
+                <span>seconds</span>
+            </div>
+            <p class="task-countdown-note">Please wait while we verify...</p>
+        </div>
+    `;
+    document.body.appendChild(modal);
     
     const interval = setInterval(() => {
         countdown--;
-        if (countdownEl) countdownEl.textContent = countdown;
+        const timerSpan = document.getElementById('taskCountdownSpan');
+        if (timerSpan) timerSpan.textContent = countdown;
+        
         if (countdown <= 0) {
             clearInterval(interval);
-            if (modal) modal.classList.remove('show');
-            task.completed = true;
-            saveToLocalStorage('tasks', tasksData);
-            miningData.accumulatedTokens += Math.ceil(task.reward / miningData.miningRate);
-            saveMiningData();
-            updateMiningUI();
-            renderTasks(tasksData);
-            showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
+            modal.remove();
+            onComplete();
         }
     }, 1000);
 }
 
 // ============================================================================
-// 12. WALLET MODALS
+// 13. WALLET STATUS BAR (COMPACT DESIGN - TOP LEFT)
+// ============================================================================
+
+function updateWalletStatusBar() {
+    if (!walletStatusBar.info) return;
+    
+    if (tonConnected && tonWalletAddress) {
+        const shortAddress = `${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
+        if (walletStatusBar.addressShort) walletStatusBar.addressShort.textContent = shortAddress;
+        walletStatusBar.info.innerHTML = `<i class="fas fa-link"></i> <span>${shortAddress}</span>`;
+        if (walletStatusBar.actions) walletStatusBar.actions.classList.remove('hidden');
+    } else {
+        if (walletStatusBar.addressShort) walletStatusBar.addressShort.textContent = 'Not Connected';
+        walletStatusBar.info.innerHTML = `<i class="fas fa-plug"></i> <span>Not Connected</span>`;
+        if (walletStatusBar.actions) walletStatusBar.actions.classList.add('hidden');
+    }
+}
+
+function copyWalletAddress() {
+    if (tonWalletAddress) {
+        navigator.clipboard.writeText(tonWalletAddress);
+        showToast('✅ Address copied!', 'success');
+    }
+}
+
+function disconnectWallet() {
+    if (window.tonConnectUI) {
+        window.tonConnectUI.disconnect();
+        tonConnected = false;
+        tonWalletAddress = null;
+        updateWalletStatusBar();
+        updateSwapButtonState(false);
+        showToast('🔌 Wallet disconnected', 'info');
+    }
+}
+
+// ============================================================================
+// 14. WALLET MODALS (Deposit, Withdraw, History)
 // ============================================================================
 
 function showDepositModal() {
@@ -672,7 +853,7 @@ function showHistoryModal() {
 }
 
 // ============================================================================
-// 13. SWAP MODULE
+// 15. SWAP MODULE (PRESERVED)
 // ============================================================================
 
 const swapModal = document.getElementById('verificationModal');
@@ -764,14 +945,16 @@ function initTonConnect() {
             if (wallet) {
                 tonConnected = true;
                 tonWalletAddress = wallet.account.address;
+                updateWalletStatusBar();
                 if (swapEls.walletStatus) {
-                    swapEls.walletStatus.innerHTML = `<i class="fas fa-check-circle"></i> ${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
+                    swapEls.walletStatus.innerHTML = `<i class="fas fa-check-circle"></i> Connected`;
                 }
                 if (currentUser?.tonPaid) updateSwapButtonState(true);
             } else {
                 tonConnected = false;
                 tonWalletAddress = null;
-                if (swapEls.walletStatus) swapEls.walletStatus.innerHTML = 'NOT CONNECTED';
+                updateWalletStatusBar();
+                if (swapEls.walletStatus) swapEls.walletStatus.innerHTML = 'Not connected';
                 updateSwapButtonState(false);
             }
         });
@@ -877,7 +1060,7 @@ if (modalProceedBtn) modalProceedBtn.addEventListener('click', async () => { hid
 if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => hideSwapModal());
 
 // ============================================================================
-// 14. AXION AI PAGE
+// 16. AXION AI PAGE
 // ============================================================================
 
 function renderAxionPage() {
@@ -917,7 +1100,7 @@ function renderAxionPage() {
 }
 
 // ============================================================================
-// 15. PAGE NAVIGATION
+// 17. PAGE NAVIGATION
 // ============================================================================
 
 function showPage(pageName) {
@@ -931,18 +1114,7 @@ function showPage(pageName) {
 }
 
 // ============================================================================
-// 16. ASSETS & PRICES
-// ============================================================================
-
-async function loadPrices() {
-    console.log('[AXION] Price system ready');
-}
-
-function refreshPrices() { loadPrices(); showToast('PRICES REFRESHED', 'success'); }
-function showAllAssets() { showToast('ALL ASSETS VIEW COMING SOON', 'info'); }
-
-// ============================================================================
-// 17. INITIALIZATION
+// 18. INITIALIZATION
 // ============================================================================
 
 async function init() {
@@ -963,32 +1135,47 @@ async function init() {
     await initFirebase();
     initTonConnect();
     await loadUserData();
-    await loadPrices();
     
     initMiningSystem();
     initEarnSystem();
     initTasksSystem();
     renderAxionPage();
+    renderAssets();
+    renderTopCryptos();
+    updateWalletStatusBar();
     
     // Event Listeners
     document.getElementById('depositBtn')?.addEventListener('click', showDepositModal);
     document.getElementById('withdrawBtnWallet')?.addEventListener('click', showWithdrawModal);
     document.getElementById('historyBtn')?.addEventListener('click', showHistoryModal);
-    document.getElementById('claimMiningBtn')?.addEventListener('click', claimMiningReward);
     document.getElementById('watchAdBtn')?.addEventListener('click', watchAd);
     document.getElementById('confirmDepositBtn')?.addEventListener('click', confirmDeposit);
     document.getElementById('submitWithdrawBtn')?.addEventListener('click', submitWithdraw);
-    document.getElementById('copyReferralLink')?.addEventListener('click', () => {
-        if (walletEls.referralLink?.value) {
-            navigator.clipboard.writeText(walletEls.referralLink.value);
-            showToast('REFERRAL LINK COPIED!', 'success');
-        }
-    });
     
+    // Copy referral link
+    if (earnEls.copyReferralBtn) {
+        earnEls.copyReferralBtn.addEventListener('click', () => {
+            if (earnEls.referralLink?.value) {
+                navigator.clipboard.writeText(earnEls.referralLink.value);
+                showToast('REFERRAL LINK COPIED!', 'success');
+            }
+        });
+    }
+    
+    // Wallet status bar buttons
+    if (walletStatusBar.copyBtn) {
+        walletStatusBar.copyBtn.addEventListener('click', copyWalletAddress);
+    }
+    if (walletStatusBar.disconnectBtn) {
+        walletStatusBar.disconnectBtn.addEventListener('click', disconnectWallet);
+    }
+    
+    // Boost options
     document.querySelectorAll('.boost-option').forEach(el => {
         el.addEventListener('click', () => activateBoost(el.dataset.boost));
     });
     
+    // Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => showPage(item.dataset.page));
     });
@@ -1009,6 +1196,8 @@ window.activateBoost = activateBoost;
 window.refreshPrices = refreshPrices;
 window.showAllAssets = showAllAssets;
 window.showHistoryModal = showHistoryModal;
+window.copyWalletAddress = copyWalletAddress;
+window.disconnectWallet = disconnectWallet;
 
 // LAUNCH
 init();
