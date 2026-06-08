@@ -45,14 +45,24 @@
             </div>
             <h1>AXION AI</h1>
             <div class="subtitle">Neural DEX Protocol</div>
-            <div class="header-actions">
-                <button class="icon-btn" id="languageBtn" onclick="toggleLanguage()">
-                    <span id="languageFlag">🇬🇧</span>
-                </button>
-                <button class="icon-btn" id="notificationBtn" onclick="showNotifications()">
-                    <i class="fa-regular fa-bell"></i>
-                    <span class="badge" id="notificationBadge">0</span>
-                </button>
+            <div class="tagline">
+                <i class="fas fa-microchip"></i> AI-Powered • Instant • Low Fee
+            </div>
+            
+            <!-- Wallet Status Bar - Top Left (Compact) -->
+            <div class="wallet-status-bar" id="walletStatusBar">
+                <div class="wallet-info-compact" id="walletInfoCompact">
+                    <i class="fas fa-plug"></i>
+                    <span id="walletAddressShort">Not Connected</span>
+                </div>
+                <div class="wallet-actions-compact hidden" id="walletActionsCompact">
+                    <button class="icon-btn-small" id="copyWalletAddressBtn" title="Copy Address">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="icon-btn-small" id="disconnectWalletBtn" title="Disconnect">
+                        <i class="fas fa-plug"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -105,27 +115,6 @@
             <div id="topCryptoList" class="top-crypto-list">
                 <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
             </div>
-
-            <!-- Referral Section -->
-            <div class="neural-card">
-                <div class="section-header">
-                    <h3><i class="fas fa-users"></i> REFERRAL SYSTEM</h3>
-                </div>
-                <div class="referral-stats">
-                    <div class="stat-card">
-                        <span class="stat-label">TOTAL REFERRALS</span>
-                        <span class="stat-value" id="referralCount">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-label">EARNED</span>
-                        <span class="stat-value" id="referralEarned">0 AXC</span>
-                    </div>
-                </div>
-                <div class="referral-link-container">
-                    <input type="text" id="referralLink" class="referral-link" readonly>
-                    <button class="copy-btn" id="copyReferralLink"><i class="fas fa-copy"></i></button>
-                </div>
-            </div>
         </div>
 
         <!-- ==================== EARN PAGE ==================== -->
@@ -142,26 +131,16 @@
                     </div>
                     <div class="stat-card">
                         <span class="stat-label">POWER</span>
-                        <span class="stat-value" id="miningPower">Standard</span>
+                        <span class="stat-value" id="miningPower">STANDARD</span>
                     </div>
                 </div>
-                <div class="progress-container">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="miningProgress" style="width: 0%"></div>
+                <div class="mining-timer-card">
+                    <div class="mining-timer-display" id="miningTimer">2h 30m</div>
+                    <div class="mining-progress-bar">
+                        <div class="mining-progress-fill" id="miningProgress" style="width: 0%"></div>
                     </div>
-                    <div class="progress-label">
-                        <span>Next reward in:</span>
-                        <span id="nextReward">2h 30m</span>
-                    </div>
+                    <div class="mining-rate">Next reward in: <span id="nextReward">2h 30m</span></div>
                 </div>
-                <div class="ready-tokens">
-                    <span>💎 Ready to claim:</span>
-                    <strong id="readyTokens">0</strong>
-                    <span>tokens</span>
-                </div>
-                <button class="confirm-btn" id="claimMiningBtn">
-                    <i class="fas fa-gem"></i> CLAIM REWARDS
-                </button>
             </div>
 
             <!-- Boost Cards -->
@@ -192,28 +171,50 @@
                 </div>
             </div>
 
-            <!-- Watch Ad -->
+            <!-- Watch Ads Section -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-tv"></i> WATCH & EARN</h3>
                 </div>
                 <button class="confirm-btn" id="watchAdBtn">
-                    <i class="fas fa-play-circle"></i> WATCH AD (+10 AXC)
+                    <i class="fas fa-play-circle"></i> WATCH AD
                 </button>
+                <div id="adsCounter" class="ads-counter">0 / 40</div>
             </div>
 
-            <!-- Tasks Section (Placeholder - Links will be added later) -->
+            <!-- Tasks Section -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-list-check"></i> DAILY TASKS</h3>
                 </div>
                 <div id="tasksContainer" class="tasks-container">
-                    <!-- Tasks will be rendered here via JavaScript -->
+                    <!-- Tasks will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Referral Section (Moved from Wallet) -->
+            <div class="neural-card referral-card">
+                <div class="section-header">
+                    <h3><i class="fas fa-users"></i> REFERRAL SYSTEM</h3>
+                </div>
+                <div class="referral-stats">
+                    <div class="stat-card">
+                        <span class="stat-label">TOTAL REFERRALS</span>
+                        <span class="stat-value" id="referralCount">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">EARNED</span>
+                        <span class="stat-value" id="referralEarned">0 AXC</span>
+                    </div>
+                </div>
+                <div class="referral-link-container">
+                    <input type="text" id="referralLink" class="referral-link" readonly>
+                    <button class="copy-btn" id="copyReferralLink"><i class="fas fa-copy"></i></button>
                 </div>
             </div>
         </div>
 
-        <!-- ==================== SWAP PAGE (PRESERVED) ==================== -->
+        <!-- ==================== SWAP PAGE ==================== -->
         <div id="swapPage" class="page hidden">
             <div class="swap-container">
                 <div class="swap-card">
@@ -312,9 +313,7 @@
 
         <!-- ==================== AXION AI PAGE ==================== -->
         <div id="axionPage" class="page hidden">
-            <div id="axionContent">
-                <!-- Content will be rendered via JavaScript -->
-            </div>
+            <div id="axionContent"></div>
         </div>
 
         <!-- ==================== BOTTOM NAVIGATION ==================== -->
@@ -349,7 +348,7 @@
                 <div class="modal-body">
                     <div class="deposit-address">
                         <label>Send AXC (BEP20) to:</label>
-                        <div class="address-box" id="depositAddress">0xbf70420f57342c6Bd4267430D4D3b7E946f09450</div>
+                        <div class="address-box" id="depositAddress">0xd51d68d057805514823652dc090b9d455c79801a</div>
                         <button class="copy-btn" onclick="copyDepositAddress()"><i class="fas fa-copy"></i> COPY ADDRESS</button>
                     </div>
                     <div class="deposit-note">
@@ -400,20 +399,24 @@
             </div>
         </div>
 
-        <!-- Task Modal (15 seconds countdown) -->
-        <div id="taskModal" class="modal">
-            <div class="modal-content">
+        <!-- History Modal -->
+        <div id="historyModal" class="modal">
+            <div class="modal-content history-modal">
                 <div class="modal-header">
-                    <h3>⏳ COMPLETE TASK</h3>
+                    <h3>📜 Transaction History</h3>
+                    <button class="close-btn" onclick="closeModal('historyModal')"><i class="fas fa-times"></i></button>
                 </div>
-                <div class="modal-body task-modal-body">
-                    <div class="task-icon">🎯</div>
-                    <p id="taskName">Complete the task</p>
-                    <div class="countdown-circle">
-                        <span id="taskCountdown">15</span>
-                        <span>seconds</span>
+                <div class="modal-body">
+                    <div class="history-tabs">
+                        <button class="history-tab active" data-filter="all">All</button>
+                        <button class="history-tab" data-filter="deposit">Deposits</button>
+                        <button class="history-tab" data-filter="withdraw">Withdrawals</button>
+                        <button class="history-tab" data-filter="swap">Swaps</button>
+                        <button class="history-tab" data-filter="earn">Earn</button>
                     </div>
-                    <p class="task-note">You will be rewarded automatically</p>
+                    <div id="historyList" class="history-list">
+                        <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -441,45 +444,10 @@
             </div>
         </div>
 
-        <!-- History Modal -->
-        <div id="historyModal" class="modal">
-            <div class="modal-content history-modal">
-                <div class="modal-header">
-                    <h3>📜 Transaction History</h3>
-                    <button class="close-btn" onclick="closeModal('historyModal')"><i class="fas fa-times"></i></button>
-                </div>
-                <div class="modal-body">
-                    <div class="history-tabs">
-                        <button class="history-tab active" data-filter="all">All</button>
-                        <button class="history-tab" data-filter="deposit">Deposits</button>
-                        <button class="history-tab" data-filter="withdraw">Withdrawals</button>
-                        <button class="history-tab" data-filter="swap">Swaps</button>
-                        <button class="history-tab" data-filter="earn">Earn</button>
-                    </div>
-                    <div id="historyList" class="history-list">
-                        <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notifications Modal -->
-        <div id="notificationsModal" class="modal">
-            <div class="modal-content notifications-modal">
-                <div class="modal-header">
-                    <h3>🔔 Notifications</h3>
-                    <button class="close-btn" onclick="closeModal('notificationsModal')"><i class="fas fa-times"></i></button>
-                </div>
-                <div class="modal-body">
-                    <div id="notificationsList" class="notifications-list"></div>
-                </div>
-            </div>
-        </div>
-
         <!-- Toast -->
         <div id="toast" class="toast hidden">
             <div class="toast-content">
-                <i class="fas fa-circle-info"></i>
+                <i class="fas fa-info-circle"></i>
                 <span id="toastMessage">Message</span>
             </div>
         </div>
