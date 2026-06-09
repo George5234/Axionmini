@@ -1,11 +1,5 @@
 // ============================================================================
-// AXION AI - PROFESSIONAL EDITION v23.0 (FULLY FIXED)
-// ============================================================================
-// جميع الحقوق محفوظة © 2024 Axion AI
-// ============================================================================
-
-// ============================================================================
-// 1. TELEGRAM WEBAPP INIT
+// AXION AI - v23.0 STABLE
 // ============================================================================
 
 const tg = window.Telegram?.WebApp;
@@ -14,11 +8,10 @@ if (tg) {
     tg.expand();
     tg.setHeaderColor('#0a0c0f');
     tg.setBackgroundColor('#0a0c0f');
-    console.log('✅ AXION AI v23.0 Ready');
 }
 
 // ============================================================================
-// 2. GLOBAL CONFIGURATION
+// CONFIG
 // ============================================================================
 
 const CONFIG = {
@@ -28,19 +21,15 @@ const CONFIG = {
     maxSwap: 100000,
     ownerWallet: null,
     botUsername: 'AxionBep20Airdropbot',
-    
     ADS_PER_CLAIM: 40,
     REWARD_PER_AD: 10,
     REWARD_PER_CLAIM: 400,
-    COOLDOWN_HOURS: 2.5,
     COOLDOWN_MS: 2.5 * 60 * 60 * 1000,
-    
     BOOSTS: {
         bronze: { price: 2.5, reward: 800, duration: 3, name: 'BRONZE' },
         silver: { price: 5, reward: 1250, duration: 7, name: 'SILVER' },
         gold: { price: 10, reward: 2500, duration: 30, name: 'GOLD' }
     },
-    
     tasks: [
         { id: 1, name: 'Join Telegram Channel', url: 'https://t.me/AxionAiSignal', reward: 100, completed: false },
         { id: 2, name: 'Follow on Twitter', url: 'https://twitter.com/AxionAI', reward: 100, completed: false },
@@ -59,10 +48,9 @@ const CMC_ICONS = {
 };
 
 // ============================================================================
-// 3. GLOBAL STATE
+// STATE
 // ============================================================================
 
-let currentPage = 'wallet';
 let currentUser = null;
 let userId = null;
 let db = null;
@@ -76,7 +64,7 @@ let adSequenceActive = false;
 let withdrawCurrency = 'AXC';
 let notifications = [];
 let unreadCount = 0;
-let miningTimerInterval = null;
+let miningTimer = null;
 
 let miningState = {
     adsWatched: 0,
@@ -86,19 +74,21 @@ let miningState = {
 };
 
 // ============================================================================
-// 4. UTILITIES
+// UTILITIES
 // ============================================================================
 
 function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
     if (!toast) return;
-    toastMessage.textContent = message;
+    const toastMsg = document.getElementById('toastMessage');
+    if (toastMsg) toastMsg.textContent = message;
     toast.classList.remove('hidden');
     const icon = toast.querySelector('i');
-    if (type === 'success') icon.className = 'fas fa-check-circle';
-    else if (type === 'error') icon.className = 'fas fa-exclamation-circle';
-    else icon.className = 'fas fa-info-circle';
+    if (icon) {
+        if (type === 'success') icon.className = 'fas fa-check-circle';
+        else if (type === 'error') icon.className = 'fas fa-exclamation-circle';
+        else icon.className = 'fas fa-info-circle';
+    }
     setTimeout(() => toast.classList.add('hidden'), 3000);
 }
 
@@ -125,10 +115,7 @@ function saveMiningState() {
 function loadMiningState() {
     const saved = localStorage.getItem(`axion_mining_${userId}`);
     if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            miningState = { ...miningState, ...data };
-        } catch(e) {}
+        try { miningState = { ...miningState, ...JSON.parse(saved) }; } catch(e) {}
     }
     if (miningState.boostExpiry && Date.now() > miningState.boostExpiry) {
         miningState.boostType = null;
@@ -157,14 +144,12 @@ function canClaim() {
 }
 
 function checkAutoFill() {
-    const now = Date.now();
     const lastClaim = getLastClaimTime();
     if (lastClaim === 0) {
         setLastClaimTime();
         return;
     }
-    const elapsed = now - lastClaim;
-    if (elapsed >= CONFIG.COOLDOWN_MS && miningState.adsWatched < CONFIG.ADS_PER_CLAIM) {
+    if (Date.now() - lastClaim >= CONFIG.COOLDOWN_MS && miningState.adsWatched < CONFIG.ADS_PER_CLAIM) {
         miningState.adsWatched = CONFIG.ADS_PER_CLAIM;
         saveMiningState();
         updateMiningUI();
@@ -172,21 +157,8 @@ function checkAutoFill() {
     }
 }
 
-function saveToLocalStorage(key, data) {
-    localStorage.setItem(`axion_${key}_${userId}`, JSON.stringify(data));
-}
-
-function loadFromLocalStorage(key, defaultValue) {
-    const saved = localStorage.getItem(`axion_${key}_${userId}`);
-    if (saved) {
-        try { return JSON.parse(saved); }
-        catch(e) { return defaultValue; }
-    }
-    return defaultValue;
-}
-
 // ============================================================================
-// 5. NOTIFICATION SYSTEM
+// NOTIFICATIONS
 // ============================================================================
 
 function saveNotifications() {
@@ -207,9 +179,7 @@ function loadNotifications() {
 function addNotification(title, message, type = 'info') {
     notifications.unshift({
         id: Date.now().toString(),
-        title,
-        message,
-        type,
+        title, message, type,
         read: false,
         timestamp: new Date().toISOString()
     });
@@ -240,36 +210,32 @@ function renderNotificationsList() {
         container.innerHTML = '<div class="empty-state">No notifications yet</div>';
         return;
     }
-    container.innerHTML = notifications.map(notif => `
-        <div class="notification-item ${!notif.read ? 'unread' : ''}" onclick="window.markNotificationRead('${notif.id}')">
-            <div class="notification-icon ${notif.type}">
-                <i class="fas ${notif.type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i>
-            </div>
+    container.innerHTML = notifications.map(n => `
+        <div class="notification-item ${!n.read ? 'unread' : ''}" onclick="window.markNotificationRead('${n.id}')">
+            <div class="notification-icon ${n.type}"><i class="fas ${n.type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i></div>
             <div class="notification-content">
-                <div class="notification-title">${notif.title}</div>
-                <div class="notification-message">${notif.message}</div>
-                <div class="notification-time">${new Date(notif.timestamp).toLocaleString()}</div>
+                <div class="notification-title">${n.title}</div>
+                <div class="notification-message">${n.message}</div>
+                <div class="notification-time">${new Date(n.timestamp).toLocaleString()}</div>
             </div>
-            ${!notif.read ? '<div class="notification-unread-dot"></div>' : ''}
+            ${!n.read ? '<div class="notification-unread-dot"></div>' : ''}
         </div>
     `).join('');
 }
 
 function showNotificationsModal() {
     renderNotificationsList();
-    const modal = document.getElementById('notificationsModal');
-    if (modal) modal.classList.add('show');
+    document.getElementById('notificationsModal')?.classList.add('show');
 }
 
 function closeNotificationsModal() {
-    const modal = document.getElementById('notificationsModal');
-    if (modal) modal.classList.remove('show');
+    document.getElementById('notificationsModal')?.classList.remove('show');
 }
 
 function markNotificationRead(id) {
-    const notif = notifications.find(n => n.id === id);
-    if (notif && !notif.read) {
-        notif.read = true;
+    const n = notifications.find(n => n.id === id);
+    if (n && !n.read) {
+        n.read = true;
         unreadCount--;
         saveNotifications();
         updateNotificationBadge();
@@ -294,81 +260,73 @@ function clearAllNotifications() {
 }
 
 // ============================================================================
-// 6. MINING UI
+// MINING UI
 // ============================================================================
 
 function updateMiningUI() {
     const progressPercent = Math.min(100, (miningState.adsWatched / CONFIG.ADS_PER_CLAIM) * 100);
     const isReady = canClaim();
     const reward = getCurrentReward();
-    const lastClaim = getLastClaimTime();
-    const remainingTime = lastClaim ? Math.max(0, CONFIG.COOLDOWN_MS - (Date.now() - lastClaim)) : 0;
+    const remainingTime = getLastClaimTime() ? Math.max(0, CONFIG.COOLDOWN_MS - (Date.now() - getLastClaimTime())) : 0;
     
-    const elements = {
-        progressFill: document.getElementById('miningProgress'),
-        timer: document.getElementById('miningTimer'),
-        info: document.getElementById('nextReward'),
-        rate: document.getElementById('miningRate'),
-        power: document.getElementById('miningPower'),
-        claimBtn: document.getElementById('claimMiningBtn'),
-        balance: document.getElementById('miningAxcBalance'),
-        counter: document.getElementById('adsCounter')
-    };
+    const progressFill = document.getElementById('miningProgress');
+    const timer = document.getElementById('miningTimer');
+    const info = document.getElementById('nextReward');
+    const rate = document.getElementById('miningRate');
+    const power = document.getElementById('miningPower');
+    const claimBtn = document.getElementById('claimMiningBtn');
+    const balance = document.getElementById('miningAxcBalance');
+    const counter = document.getElementById('adsCounter');
     
-    if (elements.progressFill) elements.progressFill.style.width = `${progressPercent}%`;
+    if (progressFill) progressFill.style.width = `${progressPercent}%`;
     
-    if (elements.timer) {
-        if (isReady) elements.timer.textContent = 'READY!';
-        else if (remainingTime > 0) elements.timer.textContent = formatTimeLeft(remainingTime);
-        else elements.timer.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    if (timer) {
+        if (isReady) timer.textContent = 'READY!';
+        else if (remainingTime > 0) timer.textContent = formatTimeLeft(remainingTime);
+        else timer.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
     }
     
-    if (elements.info) {
-        if (isReady) elements.info.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
-        else if (remainingTime > 0) elements.info.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
-        else elements.info.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim or wait for auto-fill`;
+    if (info) {
+        if (isReady) info.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
+        else if (remainingTime > 0) info.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
+        else info.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim or wait for auto-fill`;
     }
     
-    if (elements.counter) elements.counter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
-    if (elements.rate) elements.rate.textContent = `${reward} AXC`;
+    if (counter) counter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    if (rate) rate.textContent = `${reward} AXC`;
+    if (power) power.textContent = miningState.boostType ? CONFIG.BOOSTS[miningState.boostType].name : 'STANDARD';
     
-    if (elements.power) {
-        elements.power.textContent = miningState.boostType ? CONFIG.BOOSTS[miningState.boostType].name : 'STANDARD';
-    }
-    
-    if (elements.claimBtn) {
+    if (claimBtn) {
         if (isReady && !isClaiming) {
-            elements.claimBtn.style.display = 'flex';
-            elements.claimBtn.disabled = false;
-            elements.claimBtn.innerHTML = `<i class="fas fa-gem"></i> CLAIM ${reward} AXC`;
+            claimBtn.style.display = 'flex';
+            claimBtn.disabled = false;
+            claimBtn.innerHTML = `<i class="fas fa-gem"></i> CLAIM ${reward} AXC`;
         } else if (isClaiming) {
-            elements.claimBtn.disabled = true;
-            elements.claimBtn.innerHTML = '<span class="spinner"></span> CLAIMING...';
+            claimBtn.disabled = true;
+            claimBtn.innerHTML = '<span class="spinner"></span> CLAIMING...';
         } else {
-            elements.claimBtn.style.display = 'none';
+            claimBtn.style.display = 'none';
         }
     }
     
-    if (elements.balance && currentUser) {
-        elements.balance.textContent = (currentUser.balance || 0).toLocaleString();
-    }
+    if (balance && currentUser) balance.textContent = (currentUser.balance || 0).toLocaleString();
 }
 
 function startMiningTimer() {
-    if (miningTimerInterval) clearInterval(miningTimerInterval);
-    miningTimerInterval = setInterval(() => {
+    if (miningTimer) clearInterval(miningTimer);
+    miningTimer = setInterval(() => {
         checkAutoFill();
         updateMiningUI();
     }, 1000);
 }
 
 // ============================================================================
-// 7. CLAIM REWARD
+// CLAIM REWARD
 // ============================================================================
 
 async function claimMiningReward() {
     if (!canClaim()) {
-        showToast(`Watch ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} more ads or wait for auto-fill!`, 'warning');
+        showToast(`Watch ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} more ads or wait!`, 'warning');
         return;
     }
     if (isClaiming) return;
@@ -396,10 +354,10 @@ async function claimMiningReward() {
             showToast(`🎉 +${reward} AXC CLAIMED!`, 'success');
             showConfetti();
         } else {
-            showToast('⚠️ Claim failed, try again', 'error');
+            showToast('Claim failed, try again', 'error');
         }
     } catch(e) {
-        showToast('Network error, try again', 'error');
+        showToast('Network error', 'error');
     } finally {
         isClaiming = false;
         updateMiningUI();
@@ -407,7 +365,7 @@ async function claimMiningReward() {
 }
 
 // ============================================================================
-// 8. WATCH AD
+// WATCH AD
 // ============================================================================
 
 const AD_PLATFORMS = [
@@ -435,8 +393,7 @@ async function tryShowAd(platform) {
     try {
         const controller = platform.init();
         if (!controller) return false;
-        const result = await platform.show(controller);
-        return result === true;
+        return await platform.show(controller) === true;
     } catch(e) {
         return false;
     }
@@ -444,7 +401,7 @@ async function tryShowAd(platform) {
 
 async function watchAd() {
     if (canClaim()) {
-        showToast('Mining complete! Click CLAIM first.', 'warning');
+        showToast('Claim your reward first!', 'warning');
         return;
     }
     if (adSequenceActive) {
@@ -459,25 +416,24 @@ async function watchAd() {
         btn.innerHTML = '<span class="spinner"></span> LOADING AD...';
     }
     
-    let adSuccess = false;
+    let success = false;
     for (const platform of AD_PLATFORMS) {
-        adSuccess = await tryShowAd(platform);
-        if (adSuccess) break;
+        success = await tryShowAd(platform);
+        if (success) break;
     }
     
-    if (adSuccess) {
+    if (success) {
         miningState.adsWatched = Math.min(miningState.adsWatched + 1, CONFIG.ADS_PER_CLAIM);
         saveMiningState();
         updateMiningUI();
-        
         const remaining = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
         if (remaining === 0) {
-            showToast(`🎉 Mining complete! Click CLAIM for ${getCurrentReward()} AXC!`, 'success');
+            showToast(`🎉 Mining complete! Claim ${getCurrentReward()} AXC!`, 'success');
         } else {
             showToast(`✅ +${CONFIG.REWARD_PER_AD} AXC! ${remaining} ads to claim`, 'success');
         }
     } else {
-        showToast('❌ Failed to load ad, try again', 'error');
+        showToast('Failed to load ad, try again', 'error');
     }
     
     adSequenceActive = false;
@@ -488,52 +444,49 @@ async function watchAd() {
 }
 
 // ============================================================================
-// 9. BOOST SYSTEM
+// BOOST
 // ============================================================================
 
 async function activateBoost(boostKey) {
     const boost = CONFIG.BOOSTS[boostKey];
     if (!boost) return;
     if (!tonConnected || !tonWalletAddress) {
-        showToast('CONNECT TON WALLET FIRST', 'warning');
+        showToast('Connect TON wallet first', 'warning');
         return;
     }
     if (!CONFIG.ownerWallet) {
-        showToast('OWNER WALLET NOT CONFIGURED', 'error');
+        showToast('Owner wallet not configured', 'error');
         return;
     }
     
-    const amountNano = (boost.price * 1000000000).toString();
-    const transaction = {
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{ address: CONFIG.ownerWallet, amount: amountNano }]
-    };
-    
     try {
-        showToast('⏳ PROCESSING PAYMENT...', 'info');
-        await window.tonConnectUI.sendTransaction(transaction);
+        showToast('Processing payment...', 'info');
+        await window.tonConnectUI.sendTransaction({
+            validUntil: Math.floor(Date.now() / 1000) + 600,
+            messages: [{ address: CONFIG.ownerWallet, amount: (boost.price * 1e9).toString() }]
+        });
+        
         miningState.boostType = boostKey;
         miningState.boostExpiry = Date.now() + (boost.duration * 24 * 60 * 60 * 1000);
         saveMiningState();
         updateMiningUI();
-        addNotification('Boost Activated!', `${boost.name} boost activated for ${boost.duration} days!`, 'success');
+        addNotification('Boost Activated!', `${boost.name} boost activated!`, 'success');
         showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
-        const boostOptions = document.getElementById('boostOptions');
-        if (boostOptions) boostOptions.style.display = 'none';
-    } catch(error) {
-        showToast('PAYMENT CANCELLED', 'error');
+        document.getElementById('boostOptions').style.display = 'none';
+    } catch(e) {
+        showToast('Payment cancelled', 'error');
     }
 }
 
 // ============================================================================
-// 10. TASKS SYSTEM
+// TASKS
 // ============================================================================
 
 function renderTasks() {
     const container = document.getElementById('tasksContainer');
     if (!container) return;
-    const tasksData = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
-    container.innerHTML = tasksData.map(task => `
+    const tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
+    container.innerHTML = tasks.map(task => `
         <div class="task-item ${task.completed ? 'completed' : ''}">
             <div class="task-info">
                 <div class="task-name">${task.name}</div>
@@ -548,14 +501,17 @@ function renderTasks() {
 }
 
 async function completeTask(taskId) {
-    const tasksData = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
-    const task = tasksData.find(t => t.id === taskId);
+    const tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
+    const task = tasks.find(t => t.id === taskId);
     if (!task || task.completed) return;
-    if (task.url && task.url.trim() !== '') window.open(task.url, '_blank');
-    showToast(`📋 TASK: ${task.name}. +${task.reward} AXC will be added in 15 seconds...`, 'info');
+    if (task.url) window.open(task.url, '_blank');
+    
+    showToast(`Task: ${task.name}. +${task.reward} AXC in 15 seconds...`, 'info');
+    
     setTimeout(async () => {
         task.completed = true;
-        localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(tasksData));
+        localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(tasks));
+        
         const res = await fetch('/api/add-balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -565,17 +521,14 @@ async function completeTask(taskId) {
         if (data.success) {
             await loadUserData();
             renderTasks();
-            addNotification('Task Completed!', `You earned ${task.reward} AXC from ${task.name}`, 'success');
+            addNotification('Task Completed!', `You earned ${task.reward} AXC!`, 'success');
             showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
-        } else {
-            showToast(`⚠️ +${task.reward} AXC will be added later`, 'warning');
-            renderTasks();
         }
     }, 15000);
 }
 
 // ============================================================================
-// 11. API & USER DATA
+// API & USER DATA
 // ============================================================================
 
 async function loadConfig() {
@@ -583,14 +536,12 @@ async function loadConfig() {
         const res = await fetch('/api/config');
         const data = await res.json();
         CONFIG.ownerWallet = data.ownerWallet;
-        CONFIG.botUsername = data.botUsername || CONFIG.botUsername;
         if (data.config) {
-            CONFIG.axcPrice = data.config.axcPrice || CONFIG.axcPrice;
-            CONFIG.minSwap = data.config.minSwap || CONFIG.minSwap;
-            CONFIG.maxSwap = data.config.maxSwap || CONFIG.maxSwap;
+            CONFIG.axcPrice = data.config.axcPrice || 0.01;
+            CONFIG.minSwap = data.config.minSwap || 100;
+            CONFIG.maxSwap = data.config.maxSwap || 100000;
         }
-        const priceEl = document.getElementById('axcPrice');
-        if (priceEl) priceEl.textContent = CONFIG.axcPrice;
+        document.getElementById('axcPrice').textContent = CONFIG.axcPrice;
     } catch(e) { console.error('Config error:', e); }
 }
 
@@ -600,7 +551,6 @@ async function initFirebase() {
         const config = await res.json();
         if (firebase.apps.length === 0) firebase.initializeApp(config.firebaseConfig);
         db = firebase.firestore();
-        console.log('Firebase ready');
     } catch(e) { console.error('Firebase error:', e); }
 }
 
@@ -621,9 +571,8 @@ async function loadUserData() {
 
 async function fetchLivePrices() {
     try {
-        const ids = ['bitcoin', 'ethereum', 'binancecoin', 'the-open-network'];
-        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd&include_24hr_change=true`);
-        const data = await response.json();
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,the-open-network&vs_currencies=usd&include_24hr_change=true');
+        const data = await res.json();
         livePrices = {
             BTC: { price: data.bitcoin?.usd || 68500, change: data.bitcoin?.usd_24h_change || 0 },
             ETH: { price: data.ethereum?.usd || 3200, change: data.ethereum?.usd_24h_change || 0 },
@@ -631,35 +580,22 @@ async function fetchLivePrices() {
             TON: { price: data['the-open-network']?.usd || 5.5, change: data['the-open-network']?.usd_24h_change || 0 }
         };
         renderTopCryptos();
-    } catch(e) {
-        console.error('Price error:', e);
-        livePrices = {
-            BTC: { price: 68500, change: 2.4 },
-            ETH: { price: 3200, change: 1.2 },
-            BNB: { price: 580, change: -0.8 },
-            TON: { price: 5.5, change: -0.5 }
-        };
-        renderTopCryptos();
-    }
+    } catch(e) { console.error('Price error:', e); }
 }
 
 // ============================================================================
-// 12. WALLET UI
+// WALLET UI
 // ============================================================================
 
 function updateWalletUI() {
     if (!currentUser) return;
     const balance = currentUser.balance || 0;
-    const usdtBalance = currentUser.usdtBalance || 0;
-    const totalValue = (balance * CONFIG.axcPrice) + usdtBalance;
+    const usdt = currentUser.usdtBalance || 0;
+    const total = (balance * CONFIG.axcPrice) + usdt;
     
-    const totalEl = document.getElementById('totalBalance');
-    const axcEl = document.getElementById('walletAxcBalance');
-    const usdtEl = document.getElementById('walletUsdtBalance');
-    
-    if (totalEl) totalEl.textContent = `$${totalValue.toFixed(2)}`;
-    if (axcEl) axcEl.textContent = balance.toLocaleString();
-    if (usdtEl) usdtEl.textContent = `$${usdtBalance.toFixed(2)}`;
+    document.getElementById('totalBalance').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('walletAxcBalance').textContent = balance.toLocaleString();
+    document.getElementById('walletUsdtBalance').textContent = `$${usdt.toFixed(2)}`;
     
     renderAssets();
 }
@@ -669,30 +605,12 @@ function renderAssets() {
     if (!container || !currentUser) return;
     container.innerHTML = `
         <div class="asset-item">
-            <div class="asset-left">
-                <img src="${CMC_ICONS.AXC}" class="asset-icon-img">
-                <div class="asset-info">
-                    <h4>Axion Coin</h4>
-                    <p>AXC</p>
-                </div>
-            </div>
-            <div class="asset-right">
-                <div class="asset-balance">${(currentUser.balance || 0).toLocaleString()} AXC</div>
-                <div class="asset-value">$${formatNumber((currentUser.balance || 0) * CONFIG.axcPrice)}</div>
-            </div>
+            <div class="asset-left"><img src="${CMC_ICONS.AXC}" class="asset-icon-img"><div class="asset-info"><h4>Axion Coin</h4><p>AXC</p></div></div>
+            <div class="asset-right"><div class="asset-balance">${(currentUser.balance || 0).toLocaleString()} AXC</div><div class="asset-value">$${formatNumber((currentUser.balance || 0) * CONFIG.axcPrice)}</div></div>
         </div>
         <div class="asset-item">
-            <div class="asset-left">
-                <img src="${CMC_ICONS.USDT}" class="asset-icon-img">
-                <div class="asset-info">
-                    <h4>Tether</h4>
-                    <p>USDT</p>
-                </div>
-            </div>
-            <div class="asset-right">
-                <div class="asset-balance">${(currentUser.usdtBalance || 0).toFixed(2)} USDT</div>
-                <div class="asset-value">$${formatNumber(currentUser.usdtBalance || 0)}</div>
-            </div>
+            <div class="asset-left"><img src="${CMC_ICONS.USDT}" class="asset-icon-img"><div class="asset-info"><h4>Tether</h4><p>USDT</p></div></div>
+            <div class="asset-right"><div class="asset-balance">${(currentUser.usdtBalance || 0).toFixed(2)} USDT</div><div class="asset-value">$${formatNumber(currentUser.usdtBalance || 0)}</div></div>
         </div>
     `;
 }
@@ -706,55 +624,31 @@ function renderTopCryptos() {
         { symbol: 'BNB', name: 'BNB', icon: CMC_ICONS.BNB, price: livePrices.BNB?.price || 580, change: livePrices.BNB?.change || 0 },
         { symbol: 'TON', name: 'Toncoin', icon: CMC_ICONS.TON, price: livePrices.TON?.price || 5.5, change: livePrices.TON?.change || 0 }
     ];
-    container.innerHTML = cryptos.map(crypto => {
-        const changeClass = crypto.change >= 0 ? 'positive' : 'negative';
-        const changeSymbol = crypto.change >= 0 ? '+' : '';
-        return `
-            <div class="crypto-item">
-                <div class="crypto-left">
-                    <img src="${crypto.icon}" class="crypto-icon-img">
-                    <div class="crypto-info">
-                        <h4>${crypto.name}</h4>
-                        <p>${crypto.symbol}</p>
-                    </div>
-                </div>
-                <div class="crypto-right">
-                    <div class="crypto-price">$${crypto.price.toLocaleString()}</div>
-                    <div class="crypto-change ${changeClass}">${changeSymbol}${crypto.change.toFixed(2)}%</div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    container.innerHTML = cryptos.map(c => `
+        <div class="crypto-item">
+            <div class="crypto-left"><img src="${c.icon}" class="crypto-icon-img"><div class="crypto-info"><h4>${c.name}</h4><p>${c.symbol}</p></div></div>
+            <div class="crypto-right"><div class="crypto-price">$${c.price.toLocaleString()}</div><div class="crypto-change ${c.change >= 0 ? 'positive' : 'negative'}">${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)}%</div></div>
+        </div>
+    `).join('');
 }
 
-function refreshPrices() {
-    fetchLivePrices();
-    showToast('Prices refreshed', 'success');
-}
-
-function showAllAssets() {
-    showToast('All assets view coming soon', 'info');
-}
+function refreshPrices() { fetchLivePrices(); showToast('Prices refreshed', 'success'); }
+function showAllAssets() { showToast('All assets view coming soon', 'info'); }
 
 function updateReferralUI() {
     if (!currentUser) return;
     const count = currentUser.inviteCount || 0;
-    const earned = count * 100;
-    const countEl = document.getElementById('referralCount');
-    const earnedEl = document.getElementById('referralEarned');
-    const linkEl = document.getElementById('referralLink');
-    if (countEl) countEl.textContent = count;
-    if (earnedEl) earnedEl.textContent = `${earned.toLocaleString()} AXC`;
-    if (linkEl) linkEl.value = `https://t.me/${CONFIG.botUsername}?start=${userId}`;
+    document.getElementById('referralCount').textContent = count;
+    document.getElementById('referralEarned').textContent = `${(count * 100).toLocaleString()} AXC`;
+    document.getElementById('referralLink').value = `https://t.me/${CONFIG.botUsername}?start=${userId}`;
 }
 
 // ============================================================================
-// 13. DEPOSIT & HISTORY
+// DEPOSIT & HISTORY
 // ============================================================================
 
 function showDepositModal() {
-    const modal = document.getElementById('depositModal');
-    if (modal) modal.classList.add('show');
+    document.getElementById('depositModal').classList.add('show');
 }
 
 function copyDepositAddress() {
@@ -769,9 +663,9 @@ async function confirmDeposit() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, userName: currentUser?.userName || 'Axion User', currency: 'AXC' })
         });
-        addNotification('Deposit Request', 'Admin notified. AXC will be added within 15 minutes.', 'info');
+        addNotification('Deposit Request', 'Admin notified.', 'info');
+        showToast('Admin notified! AXC will be added within 15 minutes.', 'success');
     } catch(e) {}
-    showToast('✅ ADMIN NOTIFIED! AXC WILL BE ADDED WITHIN 15 MINUTES.', 'success');
     closeModal('depositModal');
 }
 
@@ -784,73 +678,44 @@ function showHistoryModal() {
 function renderHistory() {
     const container = document.getElementById('historyList');
     if (!container) return;
-    const transactions = JSON.parse(localStorage.getItem(`axion_transactions_${userId}`) || '[]');
-    if (transactions.length === 0) {
+    const tx = JSON.parse(localStorage.getItem(`axion_transactions_${userId}`) || '[]');
+    if (tx.length === 0) {
         container.innerHTML = '<div class="empty-state">No transactions yet</div>';
         return;
     }
-    container.innerHTML = transactions.slice(0, 50).map(tx => `
+    container.innerHTML = tx.slice(0, 50).map(t => `
         <div class="history-item">
-            <div class="history-type ${tx.type}">${tx.type.toUpperCase()}</div>
-            <div class="history-amount">${tx.amount} ${tx.currency}</div>
-            <div class="history-date">${new Date(tx.timestamp).toLocaleString()}</div>
+            <div class="history-type ${t.type}">${t.type.toUpperCase()}</div>
+            <div class="history-amount">${t.amount} ${t.currency}</div>
+            <div class="history-date">${new Date(t.timestamp).toLocaleString()}</div>
         </div>
     `).join('');
 }
 
 function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.classList.remove('show');
+    document.getElementById(modalId)?.classList.remove('show');
 }
 
 // ============================================================================
-// 14. MODALS MANAGEMENT
-// ============================================================================
-
-function closeAllModals() {
-    document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
-    document.querySelectorAll('.bottom-sheet').forEach(bs => bs.classList.remove('show'));
-    document.querySelectorAll('.ai-modal-overlay').forEach(ov => ov.classList.remove('active'));
-}
-
-function setupModalListeners() {
-    document.querySelectorAll('.bottom-sheet-overlay, .ai-modal-overlay').forEach(overlay => {
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeAllModals();
-        });
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeAllModals();
-    });
-}
-
-// ============================================================================
-// 15. WITHDRAW BOTTOM SHEET
+// WITHDRAW BOTTOM SHEET
 // ============================================================================
 
 function updateWithdrawSheet() {
     const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    const balanceEl = document.getElementById('sheetBalanceValue');
-    const minEl = document.getElementById('sheetMinAmount');
-    const maxEl = document.getElementById('sheetMaxAmount');
-    const currencySpan = document.querySelector('#withdrawBottomSheet .amount-currency');
-    
-    if (balanceEl) balanceEl.textContent = withdrawCurrency === 'AXC' ? `${balance.toLocaleString()} AXC` : `$${balance.toFixed(2)}`;
-    if (minEl) minEl.textContent = withdrawCurrency === 'AXC' ? '1,000 AXC' : '10 USDT';
-    if (maxEl) maxEl.textContent = withdrawCurrency === 'AXC' ? '50,000 AXC' : '1,000 USDT';
-    if (currencySpan) currencySpan.textContent = withdrawCurrency;
+    document.getElementById('sheetBalanceValue').textContent = withdrawCurrency === 'AXC' ? `${balance.toLocaleString()} AXC` : `$${balance.toFixed(2)}`;
+    document.getElementById('sheetMinAmount').textContent = withdrawCurrency === 'AXC' ? '1,000 AXC' : '10 USDT';
+    document.getElementById('sheetMaxAmount').textContent = withdrawCurrency === 'AXC' ? '50,000 AXC' : '1,000 USDT';
+    document.querySelector('#withdrawBottomSheet .amount-currency').textContent = withdrawCurrency;
 }
 
 function showWithdrawModal() {
     withdrawCurrency = 'AXC';
     updateWithdrawSheet();
-    const sheet = document.getElementById('withdrawBottomSheet');
-    if (sheet) sheet.classList.add('show');
+    document.getElementById('withdrawBottomSheet').classList.add('show');
 }
 
 function closeWithdrawSheet() {
-    const sheet = document.getElementById('withdrawBottomSheet');
-    if (sheet) sheet.classList.remove('show');
+    document.getElementById('withdrawBottomSheet').classList.remove('show');
 }
 
 function setWithdrawCurrency(currency) {
@@ -858,44 +723,31 @@ function setWithdrawCurrency(currency) {
     updateWithdrawSheet();
     document.querySelectorAll('#withdrawBottomSheet .currency-option').forEach(btn => {
         btn.classList.remove('active');
-        if (btn.getAttribute('data-currency') === currency) btn.classList.add('active');
+        if (btn.dataset.currency === currency) btn.classList.add('active');
     });
 }
 
 function setWithdrawAmount(percent) {
     const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    const amount = Math.floor(balance * (percent / 100));
-    const input = document.getElementById('sheetAmountInput');
-    if (input) input.value = amount;
+    document.getElementById('sheetAmountInput').value = Math.floor(balance * percent / 100);
 }
 
 async function submitWithdraw() {
     const amount = parseFloat(document.getElementById('sheetAmountInput')?.value || '0');
     const address = document.getElementById('sheetAddressInput')?.value || '';
     
-    const isValidBEP20 = /^0x[a-fA-F0-9]{40}$/i.test(address);
-    if (!address || !isValidBEP20) {
+    if (!/^0x[a-fA-F0-9]{40}$/i.test(address)) {
         showToast('Invalid BEP20 address', 'error');
         return;
     }
     
-    const minAmount = withdrawCurrency === 'AXC' ? 1000 : 10;
-    const maxAmount = withdrawCurrency === 'AXC' ? 50000 : 1000;
-    
-    if (amount < minAmount) {
-        showToast(`Minimum ${minAmount} ${withdrawCurrency}`, 'error');
-        return;
-    }
-    if (amount > maxAmount) {
-        showToast(`Maximum ${maxAmount} ${withdrawCurrency}`, 'error');
-        return;
-    }
+    const min = withdrawCurrency === 'AXC' ? 1000 : 10;
+    const max = withdrawCurrency === 'AXC' ? 50000 : 1000;
+    if (amount < min) { showToast(`Minimum ${min} ${withdrawCurrency}`, 'error'); return; }
+    if (amount > max) { showToast(`Maximum ${max} ${withdrawCurrency}`, 'error'); return; }
     
     const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    if (amount > balance) {
-        showToast(`Insufficient ${withdrawCurrency} balance`, 'error');
-        return;
-    }
+    if (amount > balance) { showToast(`Insufficient ${withdrawCurrency} balance`, 'error'); return; }
     
     const endpoint = withdrawCurrency === 'AXC' ? '/api/withdraw-axc' : '/api/withdraw-usdt';
     
@@ -920,7 +772,7 @@ async function submitWithdraw() {
 }
 
 // ============================================================================
-// 16. SWAP MODULE
+// SWAP
 // ============================================================================
 
 function showConfetti() {
@@ -934,27 +786,20 @@ function showConfetti() {
     const colors = ['#39ff14', '#00ff88', '#2ecc71', '#f1c40f', '#e74c3c'];
     for (let i = 0; i < 150; i++) {
         particles.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height - canvas.height,
-            size: Math.random() * 8 + 4,
-            speedY: Math.random() * 8 + 4,
-            speedX: (Math.random() - 0.5) * 5,
-            color: colors[Math.floor(Math.random() * colors.length)],
-            rotation: Math.random() * 360,
-            rotationSpeed: (Math.random() - 0.5) * 12
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height - canvas.height,
+            size: Math.random() * 8 + 4, speedY: Math.random() * 8 + 4,
+            speedX: (Math.random() - 0.5) * 5, color: colors[Math.floor(Math.random() * colors.length)],
+            rotation: Math.random() * 360, rotationSpeed: (Math.random() - 0.5) * 12
         });
     }
-    
-    let animationId, startTime = Date.now();
+    let animationId, start = Date.now();
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         let allFinished = true;
         for (let p of particles) {
             if (p.y < canvas.height + 100) {
                 allFinished = false;
-                p.y += p.speedY;
-                p.x += p.speedX;
-                p.rotation += p.rotationSpeed;
+                p.y += p.speedY; p.x += p.speedX; p.rotation += p.rotationSpeed;
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 ctx.rotate(p.rotation * Math.PI / 180);
@@ -963,7 +808,7 @@ function showConfetti() {
                 ctx.restore();
             }
         }
-        if (allFinished || Date.now() - startTime > 3000) {
+        if (allFinished || Date.now() - start > 3000) {
             cancelAnimationFrame(animationId);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         } else {
@@ -985,17 +830,15 @@ function initTonConnect() {
             manifestUrl: window.location.origin + '/tonconnect-manifest.json',
             buttonRootId: 'ton-connect'
         });
-        window.tonConnectUI.onStatusChange(async (wallet) => {
+        window.tonConnectUI.onStatusChange(wallet => {
             if (wallet) {
                 tonConnected = true;
                 tonWalletAddress = wallet.account.address;
-                const statusEl = document.getElementById('walletStatus');
-                if (statusEl) statusEl.innerHTML = `${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
+                document.getElementById('walletStatus').innerHTML = `${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
             } else {
                 tonConnected = false;
                 tonWalletAddress = null;
-                const statusEl = document.getElementById('walletStatus');
-                if (statusEl) statusEl.innerHTML = 'Not connected';
+                document.getElementById('walletStatus').innerHTML = 'Not connected';
             }
         });
     } catch(e) { console.error('TON error:', e); }
@@ -1003,29 +846,27 @@ function initTonConnect() {
 
 function updateSwapUI() {
     if (!currentUser) return;
-    const fromBalance = document.getElementById('fromBalance');
-    const toBalance = document.getElementById('toBalance');
-    const swapBtn = document.getElementById('swapBtn');
-    if (fromBalance) fromBalance.textContent = (currentUser.balance || 0).toLocaleString();
-    if (toBalance) toBalance.textContent = `$${(currentUser.usdtBalance || 0).toFixed(2)}`;
-    if (swapBtn) {
+    document.getElementById('fromBalance').textContent = (currentUser.balance || 0).toLocaleString();
+    document.getElementById('toBalance').textContent = `$${(currentUser.usdtBalance || 0).toFixed(2)}`;
+    const btn = document.getElementById('swapBtn');
+    if (btn) {
         if (currentUser.tonPaid) {
-            swapBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
-            swapBtn.classList.add('active');
+            btn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
+            btn.classList.add('active');
         } else {
-            swapBtn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)';
-            swapBtn.classList.remove('active');
+            btn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)';
+            btn.classList.remove('active');
         }
     }
 }
 
-function showSwapStatus(message, isError = false) {
-    const statusEl = document.getElementById('swapStatus');
-    if (statusEl) {
-        statusEl.textContent = message;
-        statusEl.className = `swap-status ${isError ? 'error' : 'success'}`;
-        statusEl.style.display = 'block';
-        if (!isError) setTimeout(() => statusEl.style.display = 'none', 5000);
+function showSwapStatus(msg, isErr) {
+    const el = document.getElementById('swapStatus');
+    if (el) {
+        el.textContent = msg;
+        el.className = `swap-status ${isErr ? 'error' : 'success'}`;
+        el.style.display = 'block';
+        if (!isErr) setTimeout(() => el.style.display = 'none', 5000);
     }
 }
 
@@ -1035,8 +876,7 @@ function showActivationModal() {
 }
 
 function hideActivationModal() {
-    const modal = document.getElementById('verificationModal');
-    if (modal) modal.classList.remove('active');
+    document.getElementById('verificationModal')?.classList.remove('active');
 }
 
 async function handleActivation() {
@@ -1051,25 +891,21 @@ async function handleActivation() {
     if (isActivating) return false;
     isActivating = true;
     
-    const amountNano = (CONFIG.swapFeeTON * 1000000000).toString();
-    const transaction = {
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{ address: CONFIG.ownerWallet, amount: amountNano }]
-    };
-    
     try {
         showSwapStatus('Waiting for payment...', false);
-        await window.tonConnectUI.sendTransaction(transaction);
+        await window.tonConnectUI.sendTransaction({
+            validUntil: Math.floor(Date.now() / 1000) + 600,
+            messages: [{ address: CONFIG.ownerWallet, amount: (CONFIG.swapFeeTON * 1e9).toString() }]
+        });
         const res = await fetch('/api/ton-verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, walletAddress: tonWalletAddress })
         });
         const data = await res.json();
         if (data.success) {
             await loadUserData();
             updateSwapUI();
-            addNotification('Swap Activated!', 'You can now swap AXC to USDT instantly!', 'success');
+            addNotification('Swap Activated!', 'You can now swap!', 'success');
             showSwapStatus('Swap unlocked!', false);
             showConfetti();
             return true;
@@ -1077,7 +913,7 @@ async function handleActivation() {
             showSwapStatus('Verification failed', true);
             return false;
         }
-    } catch(error) {
+    } catch(e) {
         showSwapStatus('Payment cancelled', true);
         return false;
     } finally {
@@ -1088,12 +924,9 @@ async function handleActivation() {
 
 function onSwapFromInput() {
     const amount = parseFloat(document.getElementById('swapFrom')?.value || '0');
-    const swapTo = document.getElementById('swapTo');
-    if (isNaN(amount) || amount <= 0) {
-        if (swapTo) swapTo.value = '';
-        return;
-    }
-    if (swapTo) swapTo.value = (amount * CONFIG.axcPrice).toFixed(2);
+    const to = document.getElementById('swapTo');
+    if (isNaN(amount) || amount <= 0) to ? to.value = '' : null;
+    else to.value = (amount * CONFIG.axcPrice).toFixed(2);
 }
 
 async function executeSwap() {
@@ -1103,30 +936,20 @@ async function executeSwap() {
     }
     const amount = parseFloat(document.getElementById('swapFrom')?.value || '0');
     if (isSwapping) return;
-    if (amount < CONFIG.minSwap) {
-        showSwapStatus(`Minimum ${CONFIG.minSwap} AXC`, true);
-        return;
-    }
-    if (amount > CONFIG.maxSwap) {
-        showSwapStatus(`Maximum ${CONFIG.maxSwap} AXC`, true);
-        return;
-    }
-    if (amount > (currentUser?.balance || 0)) {
-        showSwapStatus('Insufficient AXC balance', true);
-        return;
-    }
+    if (amount < CONFIG.minSwap) { showSwapStatus(`Min ${CONFIG.minSwap} AXC`, true); return; }
+    if (amount > CONFIG.maxSwap) { showSwapStatus(`Max ${CONFIG.maxSwap} AXC`, true); return; }
+    if (amount > (currentUser?.balance || 0)) { showSwapStatus('Insufficient balance', true); return; }
     
     isSwapping = true;
-    const swapBtn = document.getElementById('swapBtn');
-    if (swapBtn) {
-        swapBtn.disabled = true;
-        swapBtn.innerHTML = '<span class="spinner"></span> PROCESSING...';
+    const btn = document.getElementById('swapBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> PROCESSING...';
     }
     
     try {
         const res = await fetch('/api/swap', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, amount })
         });
         const data = await res.json();
@@ -1134,7 +957,7 @@ async function executeSwap() {
             await loadUserData();
             document.getElementById('swapFrom').value = '';
             document.getElementById('swapTo').value = '';
-            addNotification('Swap Completed', `Swapped ${amount} AXC to ${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
+            addNotification('Swap Completed!', `Swapped ${amount} AXC to ${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
             showSwapStatus(`✅ Swapped ${amount.toLocaleString()} AXC → $${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, false);
             showConfetti();
         } else {
@@ -1144,100 +967,58 @@ async function executeSwap() {
         showSwapStatus('Network error', true);
     } finally {
         isSwapping = false;
-        if (swapBtn) {
-            swapBtn.disabled = false;
-            if (currentUser?.tonPaid) {
-                swapBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
-            } else {
-                swapBtn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)';
-            }
+        if (btn) {
+            btn.disabled = false;
+            if (currentUser?.tonPaid) btn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
+            else btn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)';
         }
     }
 }
 
 // ============================================================================
-// 17. AXION AI PAGE
+// AXION AI PAGE
 // ============================================================================
 
 function renderAxionPage() {
     const container = document.getElementById('axionContent');
     if (!container) return;
     container.innerHTML = `
-        <div class="axion-hero">
-            <div class="axion-icon">🧠</div>
-            <h1 class="axion-title">AXION AI</h1>
-            <p class="axion-subtitle">NEURAL INTELLIGENCE PROTOCOL</p>
-        </div>
-        <div class="axion-card">
-            <div class="axion-card-title">⚡ THE FUTURE OF DEFI & AI</div>
-            <p class="axion-card-text">Axion Coin (AXC) is a next-generation decentralized trading and liquidity token designed to solve challenges through a unified ecosystem integrating DeFi liquidity, decentralized governance, and AI-driven trading intelligence.</p>
-        </div>
-        <div class="axion-card">
-            <div class="axion-card-title">🎯 KEY FEATURES</div>
-            <div class="axion-features">
-                <div class="axion-feature">🤖 AI TRADING INTELLIGENCE</div>
-                <div class="axion-feature">💧 DECENTRALIZED LIQUIDITY</div>
-                <div class="axion-feature">🗳️ COMMUNITY GOVERNANCE</div>
-                <div class="axion-feature">💰 STAKING REWARDS</div>
-            </div>
-        </div>
-        <div class="axion-card">
-            <div class="axion-card-title">📊 TOKENOMICS</div>
-            <div class="axion-stat"><span>NETWORK:</span><span>BNB SMART CHAIN (BEP-20)</span></div>
-            <div class="axion-stat"><span>TOTAL SUPPLY:</span><span>500,000,000 AXC</span></div>
-            <div class="axion-stat"><span>LAUNCH PRICE:</span><span>$0.003</span></div>
-        </div>
-        <div class="axion-card">
-            <div class="axion-card-title">🔮 OPEN-SOURCE AI MODEL</div>
-            <p class="axion-card-text">NO BOUNDARIES. NO RED LINES. FULLY TRANSPARENT AND COMMUNITY-DRIVEN.</p>
-            <div class="axion-badge">COMING SOON</div>
-        </div>
+        <div class="axion-hero"><div class="axion-icon">🧠</div><h1 class="axion-title">AXION AI</h1><p class="axion-subtitle">NEURAL INTELLIGENCE PROTOCOL</p></div>
+        <div class="axion-card"><div class="axion-card-title">⚡ THE FUTURE OF DEFI & AI</div><p class="axion-card-text">Axion Coin (AXC) is a next-generation decentralized trading and liquidity token...</p></div>
+        <div class="axion-card"><div class="axion-card-title">🎯 KEY FEATURES</div><div class="axion-features"><div class="axion-feature">🤖 AI TRADING INTELLIGENCE</div><div class="axion-feature">💧 DECENTRALIZED LIQUIDITY</div><div class="axion-feature">🗳️ COMMUNITY GOVERNANCE</div><div class="axion-feature">💰 STAKING REWARDS</div></div></div>
+        <div class="axion-card"><div class="axion-card-title">📊 TOKENOMICS</div><div class="axion-stat"><span>NETWORK:</span><span>BNB SMART CHAIN (BEP-20)</span></div><div class="axion-stat"><span>TOTAL SUPPLY:</span><span>500,000,000 AXC</span></div><div class="axion-stat"><span>LAUNCH PRICE:</span><span>$0.003</span></div></div>
+        <div class="axion-card"><div class="axion-card-title">🔮 OPEN-SOURCE AI MODEL</div><p class="axion-card-text">NO BOUNDARIES. NO RED LINES.</p><div class="axion-badge">COMING SOON</div></div>
     `;
 }
 
 // ============================================================================
-// 18. PAGE NAVIGATION - FIXED
+// PAGE NAVIGATION
 // ============================================================================
 
 function switchTab(page) {
-    console.log('🔄 Switching to page:', page);
-    currentPage = page;
-    
-    // إخفاء جميع الصفحات
-    const pageIds = ['walletPage', 'earnPage', 'swapPage', 'axionPage'];
-    pageIds.forEach(pageId => {
-        const el = document.getElementById(pageId);
+    const pages = ['walletPage', 'earnPage', 'swapPage', 'axionPage'];
+    pages.forEach(id => {
+        const el = document.getElementById(id);
         if (el) {
             el.classList.remove('active');
             el.style.display = 'none';
         }
     });
-    
-    // إظهار الصفحة المطلوبة
-    const targetPage = document.getElementById(`${page}Page`);
-    if (targetPage) {
-        targetPage.classList.add('active');
-        targetPage.style.display = 'block';
-        console.log('✅ Showing page:', page);
+    const target = document.getElementById(`${page}Page`);
+    if (target) {
+        target.classList.add('active');
+        target.style.display = 'block';
     }
-    
-    // تحديث شريط التنقل
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-page') === page) {
-            item.classList.add('active');
-        }
+        if (item.dataset.page === page) item.classList.add('active');
     });
-    
-    // إظهار/إخفاء زر الإشعارات (يظهر فقط في Wallet)
-    const notificationBtn = document.getElementById('notificationBtn');
-    if (notificationBtn) {
-        notificationBtn.style.display = page === 'wallet' ? 'flex' : 'none';
-    }
+    const notifBtn = document.getElementById('notificationBtn');
+    if (notifBtn) notifBtn.style.display = page === 'wallet' ? 'flex' : 'none';
 }
 
 // ============================================================================
-// 19. INITIALIZATION
+// INIT
 // ============================================================================
 
 async function init() {
@@ -1245,10 +1026,7 @@ async function init() {
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
-    if (!userId) {
-        const initData = tg?.initDataUnsafe;
-        userId = initData?.user?.id?.toString();
-    }
+    if (!userId && tg?.initDataUnsafe?.user) userId = tg.initDataUnsafe.user.id.toString();
     if (!userId) {
         showToast('Please open from Telegram bot', 'error');
         return;
@@ -1271,66 +1049,45 @@ async function init() {
     updateReferralUI();
     updateSwapUI();
     
-    setupModalListeners();
-    
-    // TON Activation Modal
-    const modalProceed = document.getElementById('modalProceedBtn');
-    const modalCancel = document.getElementById('modalCancelBtn');
-    if (modalProceed) modalProceed.onclick = async () => { hideActivationModal(); await handleActivation(); };
-    if (modalCancel) modalCancel.onclick = () => hideActivationModal();
-    
-    // Event Listeners
-    document.getElementById('notificationBtn')?.addEventListener('click', showNotificationsModal);
-    document.getElementById('historyBtnInWallet')?.addEventListener('click', showHistoryModal);
-    document.getElementById('depositBtn')?.addEventListener('click', showDepositModal);
-    document.getElementById('withdrawBtnWallet')?.addEventListener('click', showWithdrawModal);
-    document.getElementById('watchAdBtn')?.addEventListener('click', watchAd);
-    document.getElementById('claimMiningBtn')?.addEventListener('click', claimMiningReward);
-    document.getElementById('confirmDepositBtn')?.addEventListener('click', confirmDeposit);
-    document.getElementById('copyReferralLink')?.addEventListener('click', () => {
-        const link = document.getElementById('referralLink');
-        if (link?.value) {
-            navigator.clipboard.writeText(link.value);
-            showToast('Referral link copied!', 'success');
-        }
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.onclick = () => switchTab(item.dataset.page);
     });
-    document.getElementById('markAllReadBtn')?.addEventListener('click', markAllRead);
-    document.getElementById('clearNotificationsBtn')?.addEventListener('click', clearAllNotifications);
     
-    // Boost Button
+    document.getElementById('notificationBtn').onclick = showNotificationsModal;
+    document.getElementById('historyBtn').onclick = showHistoryModal;
+    document.getElementById('depositBtn').onclick = showDepositModal;
+    document.getElementById('withdrawBtnWallet').onclick = showWithdrawModal;
+    document.getElementById('watchAdBtn').onclick = watchAd;
+    document.getElementById('claimMiningBtn').onclick = claimMiningReward;
+    document.getElementById('confirmDepositBtn').onclick = confirmDeposit;
+    document.getElementById('copyReferralLink').onclick = () => {
+        const link = document.getElementById('referralLink');
+        if (link?.value) { navigator.clipboard.writeText(link.value); showToast('Link copied!', 'success'); }
+    };
+    document.getElementById('markAllReadBtn').onclick = markAllRead;
+    document.getElementById('clearNotificationsBtn').onclick = clearAllNotifications;
+    
     const boostBtn = document.getElementById('boostTriggerBtn');
-    const boostOptions = document.getElementById('boostOptions');
+    const boostOpts = document.getElementById('boostOptions');
     if (boostBtn) {
-        boostBtn.addEventListener('click', () => {
-            if (boostOptions) {
-                const isVisible = boostOptions.style.display === 'flex';
-                boostOptions.style.display = isVisible ? 'none' : 'flex';
-            }
-        });
+        boostBtn.onclick = () => {
+            boostOpts.style.display = boostOpts.style.display === 'flex' ? 'none' : 'flex';
+        };
     }
     document.addEventListener('click', (e) => {
-        if (boostOptions && boostBtn && !boostBtn.contains(e.target) && !boostOptions.contains(e.target)) {
-            boostOptions.style.display = 'none';
+        if (boostOpts && boostBtn && !boostBtn.contains(e.target) && !boostOpts.contains(e.target)) {
+            boostOpts.style.display = 'none';
         }
     });
     
-    // Bottom Navigation
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const targetPage = item.getAttribute('data-page');
-            if (targetPage) switchTab(targetPage);
-        });
-    });
+    document.getElementById('modalProceedBtn').onclick = async () => { hideActivationModal(); await handleActivation(); };
+    document.getElementById('modalCancelBtn').onclick = () => hideActivationModal();
     
-    // بداية التطبيق
     switchTab('wallet');
-    console.log('✅ AXION AI v23.0 READY!');
+    console.log('✅ READY!');
 }
 
-// ============================================================================
-// 20. GLOBAL EXPORTS
-// ============================================================================
-
+// EXPORTS
 window.switchTab = switchTab;
 window.copyDepositAddress = copyDepositAddress;
 window.confirmDeposit = confirmDeposit;
@@ -1343,7 +1100,6 @@ window.activateBoost = activateBoost;
 window.refreshPrices = refreshPrices;
 window.showAllAssets = showAllAssets;
 window.showHistoryModal = showHistoryModal;
-window.showNotificationsModal = showNotificationsModal;
 window.markAllRead = markAllRead;
 window.clearAllNotifications = clearAllNotifications;
 window.closeWithdrawSheet = closeWithdrawSheet;
@@ -1356,9 +1112,5 @@ window.showDepositModal = showDepositModal;
 window.executeSwap = executeSwap;
 window.onSwapFromInput = onSwapFromInput;
 window.showActivationModal = showActivationModal;
-
-// ============================================================================
-// START
-// ============================================================================
 
 init();
