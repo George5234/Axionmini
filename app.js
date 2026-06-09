@@ -1,5 +1,7 @@
 // ============================================================================
-// AXION AI - v23.0 STABLE
+// AXION AI - PROFESSIONAL EDITION v24.0 (COMPLETE)
+// ============================================================================
+// جميع الحقوق محفوظة © 2024 Axion AI
 // ============================================================================
 
 const tg = window.Telegram?.WebApp;
@@ -8,10 +10,11 @@ if (tg) {
     tg.expand();
     tg.setHeaderColor('#0a0c0f');
     tg.setBackgroundColor('#0a0c0f');
+    console.log('✅ AXION AI v24.0 Ready');
 }
 
 // ============================================================================
-// CONFIG
+// CONFIGURATION
 // ============================================================================
 
 const CONFIG = {
@@ -48,7 +51,7 @@ const CMC_ICONS = {
 };
 
 // ============================================================================
-// STATE
+// GLOBAL STATE
 // ============================================================================
 
 let currentUser = null;
@@ -65,6 +68,7 @@ let withdrawCurrency = 'AXC';
 let notifications = [];
 let unreadCount = 0;
 let miningTimer = null;
+let isProcessingWithdraw = false;
 
 let miningState = {
     adsWatched: 0,
@@ -158,7 +162,7 @@ function checkAutoFill() {
 }
 
 // ============================================================================
-// NOTIFICATIONS
+// NOTIFICATION SYSTEM
 // ============================================================================
 
 function saveNotifications() {
@@ -697,77 +701,155 @@ function closeModal(modalId) {
 }
 
 // ============================================================================
-// WITHDRAW BOTTOM SHEET
+// WITHDRAW BOTTOM SHEET - FIXED
 // ============================================================================
 
 function updateWithdrawSheet() {
-    const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    document.getElementById('sheetBalanceValue').textContent = withdrawCurrency === 'AXC' ? `${balance.toLocaleString()} AXC` : `$${balance.toFixed(2)}`;
-    document.getElementById('sheetMinAmount').textContent = withdrawCurrency === 'AXC' ? '1,000 AXC' : '10 USDT';
-    document.getElementById('sheetMaxAmount').textContent = withdrawCurrency === 'AXC' ? '50,000 AXC' : '1,000 USDT';
-    document.querySelector('#withdrawBottomSheet .amount-currency').textContent = withdrawCurrency;
+    if (!currentUser) {
+        console.warn('currentUser not loaded');
+        return;
+    }
+    const balance = withdrawCurrency === 'AXC' ? (currentUser.balance || 0) : (currentUser.usdtBalance || 0);
+    const balanceEl = document.getElementById('sheetBalanceValue');
+    const minEl = document.getElementById('sheetMinAmount');
+    const maxEl = document.getElementById('sheetMaxAmount');
+    const currencySpans = document.querySelectorAll('.amount-currency');
+    
+    if (balanceEl) balanceEl.textContent = withdrawCurrency === 'AXC' ? `${balance.toLocaleString()} AXC` : `$${balance.toFixed(2)}`;
+    if (minEl) minEl.textContent = withdrawCurrency === 'AXC' ? '1,000 AXC' : '10 USDT';
+    if (maxEl) maxEl.textContent = withdrawCurrency === 'AXC' ? '50,000 AXC' : '1,000 USDT';
+    currencySpans.forEach(span => { if (span) span.textContent = withdrawCurrency; });
 }
 
 function showWithdrawModal() {
+    if (!currentUser) {
+        showToast('Loading data, please wait...', 'warning');
+        return;
+    }
     withdrawCurrency = 'AXC';
     updateWithdrawSheet();
-    document.getElementById('withdrawBottomSheet').classList.add('show');
+    const amountInput = document.getElementById('sheetAmountInput');
+    const addressInput = document.getElementById('sheetAddressInput');
+    if (amountInput) amountInput.value = '';
+    if (addressInput) addressInput.value = '';
+    const sheet = document.getElementById('withdrawBottomSheet');
+    if (sheet) sheet.classList.add('show');
 }
 
 function closeWithdrawSheet() {
-    document.getElementById('withdrawBottomSheet').classList.remove('show');
+    const sheet = document.getElementById('withdrawBottomSheet');
+    if (sheet) sheet.classList.remove('show');
 }
 
 function setWithdrawCurrency(currency) {
     withdrawCurrency = currency;
     updateWithdrawSheet();
-    document.querySelectorAll('#withdrawBottomSheet .currency-option').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.currency === currency) btn.classList.add('active');
+    const options = document.querySelectorAll('.currency-option');
+    options.forEach(btn => {
+        if (btn.dataset.currency === currency) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
     });
 }
 
 function setWithdrawAmount(percent) {
-    const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    document.getElementById('sheetAmountInput').value = Math.floor(balance * percent / 100);
+    if (!currentUser) return;
+    const balance = withdrawCurrency === 'AXC' ? (currentUser.balance || 0) : (currentUser.usdtBalance || 0);
+    const amount = Math.floor(balance * percent / 100);
+    const input = document.getElementById('sheetAmountInput');
+    if (input) input.value = amount;
 }
 
 async function submitWithdraw() {
-    const amount = parseFloat(document.getElementById('sheetAmountInput')?.value || '0');
-    const address = document.getElementById('sheetAddressInput')?.value || '';
+    if (isProcessingWithdraw) {
+        showToast('Please wait, processing...', 'warning');
+        return;
+    }
     
-    if (!/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+    console.log('🔍 submitWithdraw called - Currency:', withdrawCurrency);
+    
+    const amountInput = document.getElementById('sheetAmountInput');
+    const addressInput = document.getElementById('sheetAddressInput');
+    
+    if (!amountInput || !addressInput) {
+        console.error('Elements not found');
+        showToast('System error, please refresh', 'error');
+        return;
+    }
+    
+    const amount = parseFloat(amountInput.value.trim());
+    const address = addressInput.value.trim();
+    
+    console.log('Amount:', amount, 'Address:', address);
+    
+    if (isNaN(amount) || amount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
+    
+    if (!address || !/^0x[a-fA-F0-9]{40}$/i.test(address)) {
         showToast('Invalid BEP20 address', 'error');
         return;
     }
     
     const min = withdrawCurrency === 'AXC' ? 1000 : 10;
     const max = withdrawCurrency === 'AXC' ? 50000 : 1000;
-    if (amount < min) { showToast(`Minimum ${min} ${withdrawCurrency}`, 'error'); return; }
-    if (amount > max) { showToast(`Maximum ${max} ${withdrawCurrency}`, 'error'); return; }
-    
     const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    if (amount > balance) { showToast(`Insufficient ${withdrawCurrency} balance`, 'error'); return; }
     
-    const endpoint = withdrawCurrency === 'AXC' ? '/api/withdraw-axc' : '/api/withdraw-usdt';
+    if (amount < min) {
+        showToast(`Minimum ${min} ${withdrawCurrency}`, 'error');
+        return;
+    }
+    if (amount > max) {
+        showToast(`Maximum ${max} ${withdrawCurrency}`, 'error');
+        return;
+    }
+    if (amount > balance) {
+        showToast(`Insufficient ${withdrawCurrency} balance`, 'error');
+        return;
+    }
+    
+    const btn = document.querySelector('.sheet-submit-btn');
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Processing...';
+    }
+    
+    isProcessingWithdraw = true;
     
     try {
+        const endpoint = withdrawCurrency === 'AXC' ? '/api/withdraw-axc' : '/api/withdraw-usdt';
+        console.log('📡 Sending to:', endpoint);
+        
         const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, amount, address, currency: withdrawCurrency })
         });
+        
         const data = await res.json();
+        console.log('📥 Response:', data);
+        
         if (data.success) {
-            addNotification('Withdrawal', `${amount} ${withdrawCurrency} withdrawal submitted!`, 'success');
             showToast(`✅ ${amount} ${withdrawCurrency} withdrawal submitted!`, 'success');
+            addNotification('Withdrawal', `${amount} ${withdrawCurrency} withdrawal submitted!`, 'success');
             closeWithdrawSheet();
             await loadUserData();
         } else {
             showToast(data.error || 'Withdrawal failed', 'error');
         }
     } catch(e) {
+        console.error('❌ Withdraw error:', e);
         showToast('Network error', 'error');
+    } finally {
+        isProcessingWithdraw = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText || '<i class="fas fa-paper-plane"></i> Confirm Withdrawal';
+        }
     }
 }
 
@@ -925,8 +1007,11 @@ async function handleActivation() {
 function onSwapFromInput() {
     const amount = parseFloat(document.getElementById('swapFrom')?.value || '0');
     const to = document.getElementById('swapTo');
-    if (isNaN(amount) || amount <= 0) to ? to.value = '' : null;
-    else to.value = (amount * CONFIG.axcPrice).toFixed(2);
+    if (isNaN(amount) || amount <= 0) {
+        if (to) to.value = '';
+    } else {
+        if (to) to.value = (amount * CONFIG.axcPrice).toFixed(2);
+    }
 }
 
 async function executeSwap() {
@@ -1022,7 +1107,7 @@ function switchTab(page) {
 // ============================================================================
 
 async function init() {
-    console.log('🚀 AXION AI v23.0 INITIALIZING...');
+    console.log('🚀 AXION AI v24.0 INITIALIZING...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -1084,10 +1169,13 @@ async function init() {
     document.getElementById('modalCancelBtn').onclick = () => hideActivationModal();
     
     switchTab('wallet');
-    console.log('✅ READY!');
+    console.log('✅ AXION AI v24.0 READY!');
 }
 
+// ============================================================================
 // EXPORTS
+// ============================================================================
+
 window.switchTab = switchTab;
 window.copyDepositAddress = copyDepositAddress;
 window.confirmDeposit = confirmDeposit;
@@ -1112,5 +1200,9 @@ window.showDepositModal = showDepositModal;
 window.executeSwap = executeSwap;
 window.onSwapFromInput = onSwapFromInput;
 window.showActivationModal = showActivationModal;
+
+// ============================================================================
+// START
+// ============================================================================
 
 init();
