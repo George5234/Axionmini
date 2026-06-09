@@ -1,5 +1,5 @@
 // ============================================================================
-// AXION AI - PROFESSIONAL EDITION v22.0 (COMPLETE REWRITE)
+// AXION AI - PROFESSIONAL EDITION v23.0 (FULLY FIXED)
 // ============================================================================
 // جميع الحقوق محفوظة © 2024 Axion AI
 // ============================================================================
@@ -14,7 +14,7 @@ if (tg) {
     tg.expand();
     tg.setHeaderColor('#0a0c0f');
     tg.setBackgroundColor('#0a0c0f');
-    console.log('✅ AXION AI v22.0 Ready');
+    console.log('✅ AXION AI v23.0 Ready');
 }
 
 // ============================================================================
@@ -77,7 +77,6 @@ let withdrawCurrency = 'AXC';
 let notifications = [];
 let unreadCount = 0;
 let miningTimerInterval = null;
-let boostOptionsVisible = false;
 
 let miningState = {
     adsWatched: 0,
@@ -87,18 +86,7 @@ let miningState = {
 };
 
 // ============================================================================
-// 4. DOM ELEMENTS REFERENCE
-// ============================================================================
-
-const pages = {
-    wallet: document.getElementById('walletPage'),
-    earn: document.getElementById('earnPage'),
-    swap: document.getElementById('swapPage'),
-    axion: document.getElementById('axionPage')
-};
-
-// ============================================================================
-// 5. UTILITIES
+// 4. UTILITIES
 // ============================================================================
 
 function showToast(message, type = 'info') {
@@ -150,8 +138,7 @@ function loadMiningState() {
 }
 
 function getLastClaimTime() {
-    const lastClaim = localStorage.getItem(`lastMiningClaim_${userId}`);
-    return lastClaim ? parseInt(lastClaim) : 0;
+    return parseInt(localStorage.getItem(`lastMiningClaim_${userId}`) || '0');
 }
 
 function setLastClaimTime() {
@@ -199,7 +186,7 @@ function loadFromLocalStorage(key, defaultValue) {
 }
 
 // ============================================================================
-// 6. NOTIFICATION SYSTEM
+// 5. NOTIFICATION SYSTEM
 // ============================================================================
 
 function saveNotifications() {
@@ -307,7 +294,7 @@ function clearAllNotifications() {
 }
 
 // ============================================================================
-// 7. MINING UI
+// 6. MINING UI
 // ============================================================================
 
 function updateMiningUI() {
@@ -339,7 +326,7 @@ function updateMiningUI() {
     if (elements.info) {
         if (isReady) elements.info.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
         else if (remainingTime > 0) elements.info.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
-        else elements.info.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim (${(CONFIG.ADS_PER_CLAIM - miningState.adsWatched) * CONFIG.REWARD_PER_AD} AXC) or wait for auto-fill`;
+        else elements.info.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim or wait for auto-fill`;
     }
     
     if (elements.counter) elements.counter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
@@ -376,7 +363,7 @@ function startMiningTimer() {
 }
 
 // ============================================================================
-// 8. CLAIM REWARD
+// 7. CLAIM REWARD
 // ============================================================================
 
 async function claimMiningReward() {
@@ -420,7 +407,7 @@ async function claimMiningReward() {
 }
 
 // ============================================================================
-// 9. WATCH AD
+// 8. WATCH AD
 // ============================================================================
 
 const AD_PLATFORMS = [
@@ -501,7 +488,7 @@ async function watchAd() {
 }
 
 // ============================================================================
-// 10. BOOST SYSTEM
+// 9. BOOST SYSTEM
 // ============================================================================
 
 async function activateBoost(boostKey) {
@@ -533,14 +520,13 @@ async function activateBoost(boostKey) {
         showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
         const boostOptions = document.getElementById('boostOptions');
         if (boostOptions) boostOptions.style.display = 'none';
-        boostOptionsVisible = false;
     } catch(error) {
         showToast('PAYMENT CANCELLED', 'error');
     }
 }
 
 // ============================================================================
-// 11. TASKS SYSTEM
+// 10. TASKS SYSTEM
 // ============================================================================
 
 function renderTasks() {
@@ -589,7 +575,7 @@ async function completeTask(taskId) {
 }
 
 // ============================================================================
-// 12. API & USER DATA
+// 11. API & USER DATA
 // ============================================================================
 
 async function loadConfig() {
@@ -658,7 +644,7 @@ async function fetchLivePrices() {
 }
 
 // ============================================================================
-// 13. WALLET UI
+// 12. WALLET UI
 // ============================================================================
 
 function updateWalletUI() {
@@ -763,7 +749,7 @@ function updateReferralUI() {
 }
 
 // ============================================================================
-// 14. DEPOSIT & HISTORY
+// 13. DEPOSIT & HISTORY
 // ============================================================================
 
 function showDepositModal() {
@@ -818,7 +804,7 @@ function closeModal(modalId) {
 }
 
 // ============================================================================
-// 15. MODALS MANAGEMENT
+// 14. MODALS MANAGEMENT
 // ============================================================================
 
 function closeAllModals() {
@@ -828,7 +814,7 @@ function closeAllModals() {
 }
 
 function setupModalListeners() {
-    document.querySelectorAll('.bottom-sheet-overlay, .ai-modal-overlay, .modal-overlay').forEach(overlay => {
+    document.querySelectorAll('.bottom-sheet-overlay, .ai-modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) closeAllModals();
         });
@@ -839,7 +825,7 @@ function setupModalListeners() {
 }
 
 // ============================================================================
-// 16. WITHDRAW BOTTOM SHEET
+// 15. WITHDRAW BOTTOM SHEET
 // ============================================================================
 
 function updateWithdrawSheet() {
@@ -934,7 +920,7 @@ async function submitWithdraw() {
 }
 
 // ============================================================================
-// 17. SWAP MODULE
+// 16. SWAP MODULE
 // ============================================================================
 
 function showConfetti() {
@@ -1170,7 +1156,7 @@ async function executeSwap() {
 }
 
 // ============================================================================
-// 18. AXION AI PAGE
+// 17. AXION AI PAGE
 // ============================================================================
 
 function renderAxionPage() {
@@ -1210,28 +1196,40 @@ function renderAxionPage() {
 }
 
 // ============================================================================
-// 19. PAGE NAVIGATION
+// 18. PAGE NAVIGATION - FIXED
 // ============================================================================
 
 function switchTab(page) {
+    console.log('🔄 Switching to page:', page);
     currentPage = page;
     
-    document.querySelectorAll('.page').forEach(p => {
-        p.classList.remove('active');
-        p.style.display = 'none';
+    // إخفاء جميع الصفحات
+    const pageIds = ['walletPage', 'earnPage', 'swapPage', 'axionPage'];
+    pageIds.forEach(pageId => {
+        const el = document.getElementById(pageId);
+        if (el) {
+            el.classList.remove('active');
+            el.style.display = 'none';
+        }
     });
     
+    // إظهار الصفحة المطلوبة
     const targetPage = document.getElementById(`${page}Page`);
     if (targetPage) {
         targetPage.classList.add('active');
         targetPage.style.display = 'block';
+        console.log('✅ Showing page:', page);
     }
     
+    // تحديث شريط التنقل
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-page') === page) item.classList.add('active');
+        if (item.getAttribute('data-page') === page) {
+            item.classList.add('active');
+        }
     });
     
+    // إظهار/إخفاء زر الإشعارات (يظهر فقط في Wallet)
     const notificationBtn = document.getElementById('notificationBtn');
     if (notificationBtn) {
         notificationBtn.style.display = page === 'wallet' ? 'flex' : 'none';
@@ -1239,11 +1237,11 @@ function switchTab(page) {
 }
 
 // ============================================================================
-// 20. INITIALIZATION
+// 19. INITIALIZATION
 // ============================================================================
 
 async function init() {
-    console.log('🚀 AXION AI v22.0 INITIALIZING...');
+    console.log('🚀 AXION AI v23.0 INITIALIZING...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -1305,29 +1303,32 @@ async function init() {
     if (boostBtn) {
         boostBtn.addEventListener('click', () => {
             if (boostOptions) {
-                boostOptions.style.display = boostOptions.style.display === 'flex' ? 'none' : 'flex';
-                boostOptionsVisible = boostOptions.style.display === 'flex';
+                const isVisible = boostOptions.style.display === 'flex';
+                boostOptions.style.display = isVisible ? 'none' : 'flex';
             }
         });
     }
     document.addEventListener('click', (e) => {
         if (boostOptions && boostBtn && !boostBtn.contains(e.target) && !boostOptions.contains(e.target)) {
             boostOptions.style.display = 'none';
-            boostOptionsVisible = false;
         }
     });
     
     // Bottom Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', () => switchTab(item.getAttribute('data-page')));
+        item.addEventListener('click', () => {
+            const targetPage = item.getAttribute('data-page');
+            if (targetPage) switchTab(targetPage);
+        });
     });
     
+    // بداية التطبيق
     switchTab('wallet');
-    console.log('✅ AXION AI v22.0 READY!');
+    console.log('✅ AXION AI v23.0 READY!');
 }
 
 // ============================================================================
-// 21. GLOBAL EXPORTS
+// 20. GLOBAL EXPORTS
 // ============================================================================
 
 window.switchTab = switchTab;
