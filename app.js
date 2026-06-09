@@ -1,15 +1,11 @@
 // ============================================================================
-// AXION AI - PROFESSIONAL EDITION v21.0 (FULLY FIXED)
+// AXION AI - PROFESSIONAL EDITION v22.0 (COMPLETE REWRITE)
 // ============================================================================
-// التعديلات الاحترافية:
-// ✅ زر التاريخ جنب زر Withdraw في Wallet (وليس في الهيدر)
-// ✅ جرس الإشعارات في أعلى يسار صفحة Wallet فقط
-// ✅ Timer حقيقي كل 2.5 ساعة لتعبئة شريط التعدين
-// ✅ كل إعلان = +10 AXC إلى شريط التقدم
-// ✅ 40 إعلان أو 2.5 ساعة = ظهور زر CLAIM
-// ✅ المطالبة = 400 AXC (أو ضعفها مع Boost)
-// ✅ Modals قوية (إغلاق بالخارج + Esc key)
-// ✅ TON Activation Modal تعمل بشكل صحيح
+// جميع الحقوق محفوظة © 2024 Axion AI
+// ============================================================================
+
+// ============================================================================
+// 1. TELEGRAM WEBAPP INIT
 // ============================================================================
 
 const tg = window.Telegram?.WebApp;
@@ -18,11 +14,11 @@ if (tg) {
     tg.expand();
     tg.setHeaderColor('#0a0c0f');
     tg.setBackgroundColor('#0a0c0f');
-    console.log('✅ AXION AI v21.0 Ready');
+    console.log('✅ AXION AI v22.0 Ready');
 }
 
 // ============================================================================
-// CONFIGURATION
+// 2. GLOBAL CONFIGURATION
 // ============================================================================
 
 const CONFIG = {
@@ -37,7 +33,7 @@ const CONFIG = {
     REWARD_PER_AD: 10,
     REWARD_PER_CLAIM: 400,
     COOLDOWN_HOURS: 2.5,
-    COOLDOWN_MS: 2.5 * 60 * 60 * 1000, // 9,000,000 ms
+    COOLDOWN_MS: 2.5 * 60 * 60 * 1000,
     
     BOOSTS: {
         bronze: { price: 2.5, reward: 800, duration: 3, name: 'BRONZE' },
@@ -63,7 +59,7 @@ const CMC_ICONS = {
 };
 
 // ============================================================================
-// GLOBAL STATE
+// 3. GLOBAL STATE
 // ============================================================================
 
 let currentPage = 'wallet';
@@ -81,8 +77,8 @@ let withdrawCurrency = 'AXC';
 let notifications = [];
 let unreadCount = 0;
 let miningTimerInterval = null;
+let boostOptionsVisible = false;
 
-// Mining State
 let miningState = {
     adsWatched: 0,
     boostType: null,
@@ -91,7 +87,18 @@ let miningState = {
 };
 
 // ============================================================================
-// UTILITIES
+// 4. DOM ELEMENTS REFERENCE
+// ============================================================================
+
+const pages = {
+    wallet: document.getElementById('walletPage'),
+    earn: document.getElementById('earnPage'),
+    swap: document.getElementById('swapPage'),
+    axion: document.getElementById('axionPage')
+};
+
+// ============================================================================
+// 5. UTILITIES
 // ============================================================================
 
 function showToast(message, type = 'info') {
@@ -135,12 +142,20 @@ function loadMiningState() {
             miningState = { ...miningState, ...data };
         } catch(e) {}
     }
-    
     if (miningState.boostExpiry && Date.now() > miningState.boostExpiry) {
         miningState.boostType = null;
         miningState.boostExpiry = null;
         saveMiningState();
     }
+}
+
+function getLastClaimTime() {
+    const lastClaim = localStorage.getItem(`lastMiningClaim_${userId}`);
+    return lastClaim ? parseInt(lastClaim) : 0;
+}
+
+function setLastClaimTime() {
+    localStorage.setItem(`lastMiningClaim_${userId}`, Date.now().toString());
 }
 
 function getCurrentReward() {
@@ -154,26 +169,14 @@ function canClaim() {
     return miningState.adsWatched >= CONFIG.ADS_PER_CLAIM;
 }
 
-function getLastClaimTime() {
-    const lastClaim = localStorage.getItem(`lastMiningClaim_${userId}`);
-    return lastClaim ? parseInt(lastClaim) : 0;
-}
-
-function setLastClaimTime() {
-    localStorage.setItem(`lastMiningClaim_${userId}`, Date.now().toString());
-}
-
 function checkAutoFill() {
     const now = Date.now();
     const lastClaim = getLastClaimTime();
-    
     if (lastClaim === 0) {
         setLastClaimTime();
         return;
     }
-    
     const elapsed = now - lastClaim;
-    
     if (elapsed >= CONFIG.COOLDOWN_MS && miningState.adsWatched < CONFIG.ADS_PER_CLAIM) {
         miningState.adsWatched = CONFIG.ADS_PER_CLAIM;
         saveMiningState();
@@ -196,7 +199,7 @@ function loadFromLocalStorage(key, defaultValue) {
 }
 
 // ============================================================================
-// NOTIFICATION SYSTEM
+// 6. NOTIFICATION SYSTEM
 // ============================================================================
 
 function saveNotifications() {
@@ -304,7 +307,7 @@ function clearAllNotifications() {
 }
 
 // ============================================================================
-// MINING UI
+// 7. MINING UI
 // ============================================================================
 
 function updateMiningUI() {
@@ -314,70 +317,58 @@ function updateMiningUI() {
     const lastClaim = getLastClaimTime();
     const remainingTime = lastClaim ? Math.max(0, CONFIG.COOLDOWN_MS - (Date.now() - lastClaim)) : 0;
     
-    const progressFill = document.getElementById('miningProgress');
-    const progressValue = document.getElementById('miningTimer');
-    const infoText = document.getElementById('nextReward');
-    const miningRate = document.getElementById('miningRate');
-    const miningPower = document.getElementById('miningPower');
-    const claimBtn = document.getElementById('claimMiningBtn');
-    const miningBalance = document.getElementById('miningAxcBalance');
-    const adsCounter = document.getElementById('adsCounter');
+    const elements = {
+        progressFill: document.getElementById('miningProgress'),
+        timer: document.getElementById('miningTimer'),
+        info: document.getElementById('nextReward'),
+        rate: document.getElementById('miningRate'),
+        power: document.getElementById('miningPower'),
+        claimBtn: document.getElementById('claimMiningBtn'),
+        balance: document.getElementById('miningAxcBalance'),
+        counter: document.getElementById('adsCounter')
+    };
     
-    if (progressFill) progressFill.style.width = `${progressPercent}%`;
+    if (elements.progressFill) elements.progressFill.style.width = `${progressPercent}%`;
     
-    if (progressValue) {
-        if (isReady) {
-            progressValue.textContent = 'READY!';
-        } else if (remainingTime > 0 && !isReady) {
-            progressValue.textContent = formatTimeLeft(remainingTime);
-        } else {
-            progressValue.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
-        }
+    if (elements.timer) {
+        if (isReady) elements.timer.textContent = 'READY!';
+        else if (remainingTime > 0) elements.timer.textContent = formatTimeLeft(remainingTime);
+        else elements.timer.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
     }
     
-    if (infoText) {
-        if (isReady) {
-            infoText.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
-        } else if (remainingTime > 0) {
-            infoText.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
-        } else {
-            const adsNeeded = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
-            infoText.innerHTML = `📺 ${adsNeeded} ads to claim (${adsNeeded * 10} AXC) or wait for auto-fill`;
-        }
+    if (elements.info) {
+        if (isReady) elements.info.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
+        else if (remainingTime > 0) elements.info.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
+        else elements.info.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim (${(CONFIG.ADS_PER_CLAIM - miningState.adsWatched) * CONFIG.REWARD_PER_AD} AXC) or wait for auto-fill`;
     }
     
-    if (adsCounter) adsCounter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
-    if (miningRate) miningRate.textContent = `${reward} AXC`;
+    if (elements.counter) elements.counter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    if (elements.rate) elements.rate.textContent = `${reward} AXC`;
     
-    if (miningPower) {
-        if (miningState.boostType) {
-            miningPower.textContent = CONFIG.BOOSTS[miningState.boostType].name;
-        } else {
-            miningPower.textContent = 'STANDARD';
-        }
+    if (elements.power) {
+        elements.power.textContent = miningState.boostType ? CONFIG.BOOSTS[miningState.boostType].name : 'STANDARD';
     }
     
-    if (claimBtn) {
+    if (elements.claimBtn) {
         if (isReady && !isClaiming) {
-            claimBtn.style.display = 'flex';
-            claimBtn.disabled = false;
-            claimBtn.innerHTML = `<i class="fas fa-gem"></i> CLAIM ${reward} AXC`;
+            elements.claimBtn.style.display = 'flex';
+            elements.claimBtn.disabled = false;
+            elements.claimBtn.innerHTML = `<i class="fas fa-gem"></i> CLAIM ${reward} AXC`;
         } else if (isClaiming) {
-            claimBtn.disabled = true;
-            claimBtn.innerHTML = '<span class="spinner"></span> CLAIMING...';
+            elements.claimBtn.disabled = true;
+            elements.claimBtn.innerHTML = '<span class="spinner"></span> CLAIMING...';
         } else {
-            claimBtn.style.display = 'none';
+            elements.claimBtn.style.display = 'none';
         }
     }
     
-    if (miningBalance && currentUser) {
-        miningBalance.textContent = (currentUser.balance || 0).toLocaleString();
+    if (elements.balance && currentUser) {
+        elements.balance.textContent = (currentUser.balance || 0).toLocaleString();
     }
 }
 
 function startMiningTimer() {
     if (miningTimerInterval) clearInterval(miningTimerInterval);
-    
     miningTimerInterval = setInterval(() => {
         checkAutoFill();
         updateMiningUI();
@@ -385,7 +376,7 @@ function startMiningTimer() {
 }
 
 // ============================================================================
-// CLAIM REWARD
+// 8. CLAIM REWARD
 // ============================================================================
 
 async function claimMiningReward() {
@@ -429,7 +420,7 @@ async function claimMiningReward() {
 }
 
 // ============================================================================
-// WATCH AD
+// 9. WATCH AD
 // ============================================================================
 
 const AD_PLATFORMS = [
@@ -510,7 +501,7 @@ async function watchAd() {
 }
 
 // ============================================================================
-// BOOST SYSTEM
+// 10. BOOST SYSTEM
 // ============================================================================
 
 async function activateBoost(boostKey) {
@@ -542,13 +533,14 @@ async function activateBoost(boostKey) {
         showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
         const boostOptions = document.getElementById('boostOptions');
         if (boostOptions) boostOptions.style.display = 'none';
+        boostOptionsVisible = false;
     } catch(error) {
         showToast('PAYMENT CANCELLED', 'error');
     }
 }
 
 // ============================================================================
-// TASKS SYSTEM
+// 11. TASKS SYSTEM
 // ============================================================================
 
 function renderTasks() {
@@ -597,7 +589,7 @@ async function completeTask(taskId) {
 }
 
 // ============================================================================
-// API & USER DATA
+// 12. API & USER DATA
 // ============================================================================
 
 async function loadConfig() {
@@ -666,7 +658,7 @@ async function fetchLivePrices() {
 }
 
 // ============================================================================
-// WALLET UI
+// 13. WALLET UI
 // ============================================================================
 
 function updateWalletUI() {
@@ -771,7 +763,7 @@ function updateReferralUI() {
 }
 
 // ============================================================================
-// DEPOSIT & HISTORY
+// 14. DEPOSIT & HISTORY
 // ============================================================================
 
 function showDepositModal() {
@@ -826,7 +818,7 @@ function closeModal(modalId) {
 }
 
 // ============================================================================
-// MODALS MANAGEMENT (STRONG)
+// 15. MODALS MANAGEMENT
 // ============================================================================
 
 function closeAllModals() {
@@ -836,28 +828,22 @@ function closeAllModals() {
 }
 
 function setupModalListeners() {
-    // Close on overlay click
     document.querySelectorAll('.bottom-sheet-overlay, .ai-modal-overlay, .modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) closeAllModals();
         });
     });
-    
-    // Close on ESC key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeAllModals();
     });
 }
 
 // ============================================================================
-// WITHDRAW BOTTOM SHEET
+// 16. WITHDRAW BOTTOM SHEET
 // ============================================================================
 
 function updateWithdrawSheet() {
     const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
-    const minAmount = withdrawCurrency === 'AXC' ? 1000 : 10;
-    const maxAmount = withdrawCurrency === 'AXC' ? 50000 : 1000;
-    
     const balanceEl = document.getElementById('sheetBalanceValue');
     const minEl = document.getElementById('sheetMinAmount');
     const maxEl = document.getElementById('sheetMaxAmount');
@@ -886,9 +872,7 @@ function setWithdrawCurrency(currency) {
     updateWithdrawSheet();
     document.querySelectorAll('#withdrawBottomSheet .currency-option').forEach(btn => {
         btn.classList.remove('active');
-        if (btn.getAttribute('data-currency') === currency) {
-            btn.classList.add('active');
-        }
+        if (btn.getAttribute('data-currency') === currency) btn.classList.add('active');
     });
 }
 
@@ -950,7 +934,7 @@ async function submitWithdraw() {
 }
 
 // ============================================================================
-// SWAP MODULE
+// 17. SWAP MODULE
 // ============================================================================
 
 function showConfetti() {
@@ -1061,10 +1045,7 @@ function showSwapStatus(message, isError = false) {
 
 function showActivationModal() {
     const modal = document.getElementById('verificationModal');
-    if (modal) {
-        if (currentUser?.tonPaid) return;
-        modal.classList.add('active');
-    }
+    if (modal && !currentUser?.tonPaid) modal.classList.add('active');
 }
 
 function hideActivationModal() {
@@ -1126,8 +1107,7 @@ function onSwapFromInput() {
         if (swapTo) swapTo.value = '';
         return;
     }
-    const usdtAmount = amount * CONFIG.axcPrice;
-    if (swapTo) swapTo.value = usdtAmount.toFixed(2);
+    if (swapTo) swapTo.value = (amount * CONFIG.axcPrice).toFixed(2);
 }
 
 async function executeSwap() {
@@ -1190,7 +1170,7 @@ async function executeSwap() {
 }
 
 // ============================================================================
-// AXION AI PAGE
+// 18. AXION AI PAGE
 // ============================================================================
 
 function renderAxionPage() {
@@ -1230,7 +1210,7 @@ function renderAxionPage() {
 }
 
 // ============================================================================
-// PAGE NAVIGATION
+// 19. PAGE NAVIGATION
 // ============================================================================
 
 function switchTab(page) {
@@ -1238,35 +1218,32 @@ function switchTab(page) {
     
     document.querySelectorAll('.page').forEach(p => {
         p.classList.remove('active');
+        p.style.display = 'none';
     });
     
     const targetPage = document.getElementById(`${page}Page`);
-    if (targetPage) targetPage.classList.add('active');
+    if (targetPage) {
+        targetPage.classList.add('active');
+        targetPage.style.display = 'block';
+    }
     
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-page') === page) {
-            item.classList.add('active');
-        }
+        if (item.getAttribute('data-page') === page) item.classList.add('active');
     });
     
     const notificationBtn = document.getElementById('notificationBtn');
-    const headerHistoryBtn = document.getElementById('headerHistoryBtn');
-    
     if (notificationBtn) {
         notificationBtn.style.display = page === 'wallet' ? 'flex' : 'none';
-    }
-    if (headerHistoryBtn) {
-        headerHistoryBtn.style.display = 'none';
     }
 }
 
 // ============================================================================
-// INITIALIZATION
+// 20. INITIALIZATION
 // ============================================================================
 
 async function init() {
-    console.log('🚀 AXION AI v21.0 INITIALIZING...');
+    console.log('🚀 AXION AI v22.0 INITIALIZING...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -1289,25 +1266,22 @@ async function init() {
     loadNotifications();
     updateMiningUI();
     startMiningTimer();
+    checkAutoFill();
     
     renderTasks();
     renderAxionPage();
     updateReferralUI();
     updateSwapUI();
     
-    // Check auto-fill on startup
-    checkAutoFill();
+    setupModalListeners();
     
-    // Setup TON Activation Modal buttons
+    // TON Activation Modal
     const modalProceed = document.getElementById('modalProceedBtn');
     const modalCancel = document.getElementById('modalCancelBtn');
     if (modalProceed) modalProceed.onclick = async () => { hideActivationModal(); await handleActivation(); };
     if (modalCancel) modalCancel.onclick = () => hideActivationModal();
     
-    // Setup modal listeners
-    setupModalListeners();
-    
-    // Event listeners for buttons
+    // Event Listeners
     document.getElementById('notificationBtn')?.addEventListener('click', showNotificationsModal);
     document.getElementById('historyBtnInWallet')?.addEventListener('click', showHistoryModal);
     document.getElementById('depositBtn')?.addEventListener('click', showDepositModal);
@@ -1322,39 +1296,40 @@ async function init() {
             showToast('Referral link copied!', 'success');
         }
     });
+    document.getElementById('markAllReadBtn')?.addEventListener('click', markAllRead);
+    document.getElementById('clearNotificationsBtn')?.addEventListener('click', clearAllNotifications);
     
+    // Boost Button
     const boostBtn = document.getElementById('boostTriggerBtn');
     const boostOptions = document.getElementById('boostOptions');
     if (boostBtn) {
         boostBtn.addEventListener('click', () => {
             if (boostOptions) {
                 boostOptions.style.display = boostOptions.style.display === 'flex' ? 'none' : 'flex';
+                boostOptionsVisible = boostOptions.style.display === 'flex';
             }
         });
     }
-    
     document.addEventListener('click', (e) => {
         if (boostOptions && boostBtn && !boostBtn.contains(e.target) && !boostOptions.contains(e.target)) {
             boostOptions.style.display = 'none';
+            boostOptionsVisible = false;
         }
     });
     
+    // Bottom Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => switchTab(item.getAttribute('data-page')));
     });
     
-    document.getElementById('markAllReadBtn')?.addEventListener('click', markAllRead);
-    document.getElementById('clearNotificationsBtn')?.addEventListener('click', clearAllNotifications);
-    
-    // Show notification bell in wallet page only
-    const notificationBtn = document.getElementById('notificationBtn');
-    if (notificationBtn) notificationBtn.style.display = 'flex';
-    
     switchTab('wallet');
-    console.log('✅ AXION AI v21.0 READY!');
+    console.log('✅ AXION AI v22.0 READY!');
 }
 
-// EXPOSE GLOBALS
+// ============================================================================
+// 21. GLOBAL EXPORTS
+// ============================================================================
+
 window.switchTab = switchTab;
 window.copyDepositAddress = copyDepositAddress;
 window.confirmDeposit = confirmDeposit;
@@ -1380,5 +1355,9 @@ window.showDepositModal = showDepositModal;
 window.executeSwap = executeSwap;
 window.onSwapFromInput = onSwapFromInput;
 window.showActivationModal = showActivationModal;
+
+// ============================================================================
+// START
+// ============================================================================
 
 init();
