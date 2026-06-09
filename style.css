@@ -1,5 +1,5 @@
 /* ============================================================================
-   AXION AI - LEGENDARY STYLES v20.0
+   AXION AI - LEGENDARY STYLES v21.0
    Neural Theme | Glassmorphism | Premium Effects | Smooth Animations
    ============================================================================ */
 
@@ -161,6 +161,29 @@ body {
 }
 
 /* ============================================================================
+   PAGE SYSTEM - FIXED (الأهم)
+   ============================================================================ */
+
+/* إخفاء جميع الصفحات افتراضياً */
+.page {
+    display: none !important;
+}
+
+/* إظهار الصفحة النشطة فقط */
+.page.active {
+    display: block !important;
+}
+
+/* تأكيد إخفاء الصفحات الأخرى */
+#walletPage, #earnPage, #swapPage, #axionPage {
+    display: none;
+}
+
+#walletPage.active, #earnPage.active, #swapPage.active, #axionPage.active {
+    display: block;
+}
+
+/* ============================================================================
    HEADER - LEGENDARY
    ============================================================================ */
 .ai-header {
@@ -169,12 +192,20 @@ body {
     position: relative;
 }
 
-.header-history-btn {
+/* حاوية أزرار الهيدر (الجرس) - في أقصى اليمين */
+.header-actions {
     position: absolute;
     top: 24px;
     right: 16px;
-    background: var(--ai-green-soft);
-    border: 1px solid var(--ai-border);
+    display: flex;
+    gap: 10px;
+    z-index: 100;
+}
+
+/* زر الإشعارات (الجرس) */
+.header-notification-btn {
+    background: rgba(57, 255, 20, 0.08);
+    border: 1px solid rgba(57, 255, 20, 0.2);
     border-radius: 50%;
     width: 42px;
     height: 42px;
@@ -186,13 +217,33 @@ body {
     color: var(--ai-text);
     font-size: 18px;
     backdrop-filter: blur(10px);
+    position: relative;
 }
 
-.header-history-btn:hover {
+.header-notification-btn:hover {
     border-color: var(--ai-green);
     transform: scale(1.08);
     background: var(--ai-green-dim);
     box-shadow: var(--glow-green);
+}
+
+/* عدد الإشعارات غير المقروءة */
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--ai-danger);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 1px solid var(--ai-dark);
 }
 
 .logo-ring {
@@ -1687,6 +1738,104 @@ body {
 }
 
 /* ============================================================================
+   NOTIFICATIONS MODAL
+   ============================================================================ */
+.notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
+    background: var(--ai-green-soft);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--ai-border-light);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.notification-item:hover {
+    border-color: var(--ai-green);
+    background: var(--ai-green-dim);
+}
+
+.notification-item.unread {
+    border-left: 3px solid var(--ai-green);
+}
+
+.notification-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.notification-icon.success { background: rgba(57, 255, 20, 0.15); color: var(--ai-green); }
+.notification-icon.error { background: rgba(255, 85, 85, 0.15); color: var(--ai-danger); }
+.notification-icon.info { background: rgba(0, 212, 255, 0.15); color: var(--ai-blue); }
+.notification-icon.warning { background: rgba(241, 196, 15, 0.15); color: var(--ai-gold); }
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.notification-message {
+    font-size: 12px;
+    color: var(--ai-text-muted);
+    margin-bottom: 6px;
+}
+
+.notification-time {
+    font-size: 10px;
+    color: var(--ai-text-dark);
+}
+
+.notification-actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.notif-action-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--ai-green-soft);
+    border: 1px solid var(--ai-border);
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    color: var(--ai-text);
+}
+
+.notif-action-btn.danger {
+    border-color: var(--ai-danger-dim);
+    color: var(--ai-danger);
+}
+
+.notif-action-btn:hover {
+    border-color: var(--ai-green);
+    background: var(--ai-green-dim);
+}
+
+/* ============================================================================
    TON ACTIVATION MODAL
    ============================================================================ */
 .ai-modal-overlay {
@@ -1960,18 +2109,6 @@ body {
     background: var(--ai-green-soft);
     border-radius: var(--radius-lg);
     margin-bottom: 24px;
-}
-
-.balance-label {
-    font-size: 12px;
-    color: var(--ai-text-muted);
-}
-
-.balance-value {
-    font-size: 18px;
-    font-weight: 700;
-    font-family: 'Orbitron', monospace;
-    color: var(--ai-green);
 }
 
 .sheet-amount-input {
@@ -2249,31 +2386,4 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--ai-green);
-}
-
-/* Notification Bell Styles */
-.header-notification-container {
-    position: absolute;
-    top: 24px;
-    right: 70px;
-}
-
-.header-notification-btn:hover {
-    border-color: var(--ai-green);
-    transform: scale(1.08);
-    background: var(--ai-green-dim);
-    box-shadow: var(--glow-green);
-}
-
-.notification-item {
-    transition: all 0.2s ease;
-}
-
-.notification-item:hover {
-    background: rgba(57, 255, 20, 0.08) !important;
-}
-
-/* تحسين موقع زر التاريخ الموجود */
-.header-history-btn {
-    right: 16px !important;
 }
