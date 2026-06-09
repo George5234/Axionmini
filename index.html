@@ -15,7 +15,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
-    <!-- Ad Platforms (6 Networks) -->
+    <!-- Ad Platforms -->
     <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
     <script src="https://richinfo.co/richpartners/telegram/js/tg-ob.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='11082910' data-sdk='show_11082910'></script>
@@ -32,7 +32,6 @@
 <body>
     <canvas id="confetti-canvas"></canvas>
     
-    <!-- Neural Background -->
     <div class="neural-bg" id="neuralBg"></div>
     <div class="scanline"></div>
 
@@ -48,7 +47,8 @@
             <div class="tagline">
                 <i class="fas fa-microchip"></i> AI-Powered • Instant • Low Fee
             </div>
-            <div class="header-buttons" id="headerButtons">
+            <!-- ✅ الأزرار في أقصى اليمين أعلى الشاشة -->
+            <div class="header-actions">
                 <button class="header-notification-btn" id="notificationBtn">
                     <i class="fas fa-bell"></i>
                     <span class="notification-badge" id="notificationBadge">0</span>
@@ -57,8 +57,7 @@
         </div>
 
         <!-- ==================== WALLET PAGE ==================== -->
-        <div id="walletPage" class="page">
-            <!-- Balance Card -->
+        <div id="walletPage" class="page active">
             <div class="neural-card balance-card">
                 <div class="balance-label">TOTAL BALANCE</div>
                 <div class="balance-amount" id="totalBalance">$0.00</div>
@@ -81,14 +80,13 @@
                         <i class="fas fa-arrow-up"></i>
                         <span>Withdraw</span>
                     </button>
-                    <button class="action-btn" id="historyBtnInWallet">
+                    <button class="action-btn" id="historyBtn">
                         <i class="fas fa-clock"></i>
                         <span>History</span>
                     </button>
                 </div>
             </div>
 
-            <!-- My Assets -->
             <div class="section-header">
                 <h3><i class="fas fa-star"></i> MY ASSETS</h3>
                 <button class="see-all-btn" onclick="window.showAllAssets()">See All <i class="fas fa-chevron-right"></i></button>
@@ -97,7 +95,6 @@
                 <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
             </div>
 
-            <!-- Top Cryptocurrencies -->
             <div class="section-header">
                 <h3><i class="fas fa-chart-line"></i> TOP CRYPTOCURRENCIES</h3>
                 <button class="refresh-btn" onclick="window.refreshPrices()"><i class="fas fa-sync-alt"></i></button>
@@ -109,7 +106,6 @@
 
         <!-- ==================== EARN PAGE ==================== -->
         <div id="earnPage" class="page hidden">
-            <!-- Mining Card -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-microchip"></i> NEURAL MINING RIG</h3>
@@ -171,7 +167,6 @@
                 </div>
             </div>
 
-            <!-- Watch Ads Section -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-tv"></i> WATCH & EARN</h3>
@@ -182,7 +177,6 @@
                 <div id="adsCounter" class="ads-counter">📊 Progress: 0 / 40</div>
             </div>
 
-            <!-- Tasks Section -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-list-check"></i> DAILY TASKS</h3>
@@ -190,7 +184,6 @@
                 <div id="tasksContainer" class="tasks-container"></div>
             </div>
 
-            <!-- Referral Section -->
             <div class="neural-card">
                 <div class="section-header">
                     <h3><i class="fas fa-users"></i> REFERRAL SYSTEM</h3>
@@ -307,7 +300,6 @@
 
         <!-- ==================== MODALS ==================== -->
         
-        <!-- Deposit Modal -->
         <div id="depositModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -331,7 +323,6 @@
             </div>
         </div>
 
-        <!-- History Modal -->
         <div id="historyModal" class="modal">
             <div class="modal-content history-modal">
                 <div class="modal-header">
@@ -353,7 +344,6 @@
             </div>
         </div>
 
-        <!-- Notifications Modal -->
         <div id="notificationsModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -370,7 +360,6 @@
             </div>
         </div>
 
-        <!-- Toast -->
         <div id="toast" class="toast hidden">
             <div class="toast-content">
                 <i class="fas fa-info-circle"></i>
@@ -457,7 +446,6 @@
 
     <script src="app.js"></script>
     
-    <!-- Neural Background Generator -->
     <script>
         const neuralBg = document.getElementById('neuralBg');
         for (let i = 0; i < 35; i++) {
