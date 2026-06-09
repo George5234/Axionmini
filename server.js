@@ -1981,10 +1981,6 @@ mainBot.on('text', async (ctx) => {
 // ============================================================================
 // 17. 🤖 MODERATION BOT HANDLERS (Group Only)
 // ============================================================================
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 const modBot = new Telegraf(MOD_BOT_TOKEN);
 
@@ -2578,6 +2574,118 @@ app.post('/api/ton-verify', async (req, res) => {
     }
 });
 
+// ============================================================================
+// API: NOTIFY ADMIN ON DEPOSIT (USER CLICKED I HAVE SENT)
+// ============================================================================
+app.post('/api/notify-deposit', async (req, res) => {
+    try {
+        const { userId, userName, currency, amount } = req.body;
+        
+        if (!userId) {
+            return res.json({ success: false, error: 'Missing userId' });
+        }
+        
+        // إرسال إشعار للمشرف
+        if (ADMIN_ID) {
+            const message = formatProfessionalMessage(
+                '💰 NEW DEPOSIT REQUEST',
+                `👤 User: ${escapeHtml(userName || 'Unknown')}\n🆔 ID: <code>${userId}</code>\n💵 Currency: ${currency || 'AXC'}\n\n📌 User clicked "I HAVE SENT" - Please verify.`,
+                `⚠️ Check user's deposit and add balance manually.`
+            );
+            await mainBot.telegram.sendMessage(ADMIN_ID, message, { parse_mode: 'HTML' }).catch(() => {});
+        }
+        
+        // إرسال لمجموعة السحوبات إذا وجدت
+        if (WITHDRAWAL_GROUP_ID) {
+            const message = formatProfessionalMessage(
+                '💰 DEPOSIT REQUEST',
+                `👤 User: ${escapeHtml(userName || 'Unknown')}\n🆔 ID: <code>${userId}</code>\n💵 Currency: ${currency || 'AXC'}`,
+                `User confirmed deposit. Please verify.`
+            );
+            await mainBot.telegram.sendMessage(WITHDRAWAL_GROUP_ID, message, { parse_mode: 'HTML' }).catch(() => {});
+        }
+        
+        console.log(`📢 Deposit notification sent for user: ${userId}`);
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('Deposit notification error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// API: ADD BALANCE (FOR MINING CLAIM & TASKS)
+// ============================================================================
+app.post('/api/add-balance', async (req, res) => {
+    try {
+        const { userId, amount, currency } = req.body;
+        
+        if (!userId || !amount || amount <= 0) {
+            return res.json({ success: false, error: 'Invalid request' });
+        }
+        
+        const user = await getUser(userId);
+        if (!user) {
+            return res.json({ success: false, error: 'User not found' });
+        }
+        
+        if (currency === 'AXC') {
+            await updateUser(userId, {
+                balance: (user.balance || 0) + amount,
+                totalEarned: (user.totalEarned || 0) + amount
+            }, true);
+            
+            await addTransaction(userId, {
+                type: 'mining',
+                amount: amount,
+                currency: 'AXC',
+                status: 'completed',
+                description: 'Mining reward claimed'
+            }, true);
+            
+            console.log(`✅ Mining claim: ${userId} +${amount} AXC`);
+            res.json({ success: true });
+        } else {
+            res.json({ success: false, error: 'Unsupported currency' });
+        }
+        
+    } catch (error) {
+        console.error('Add balance error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
+// API: WITHDRAW AXC (AUTO-APPROVED)
+// ============================================================================
+app.post('/api/withdraw-axc', async (req, res) => {
+    try {
+        const { userId, amount, address } = req.body;
+        
+        if (!userId || !amount || !address) {
+            return res.json({ success: false, error: 'Invalid request' });
+        }
+        
+        const isValidBEP20 = /^0x[a-fA-F0-9]{40}$/i.test(address);
+        if (!isValidBEP20) {
+            return res.json({ success: false, error: 'Invalid BEP20 address' });
+        }
+        
+        // ✅ استخدام الدالة الموجودة createWithdrawalRequest
+        const result = await createWithdrawalRequest(userId, amount, 'AXC', address);
+        
+        if (result.success) {
+            res.json({ success: true, requestId: result.requestId });
+        } else {
+            res.json({ success: false, error: result.error });
+        }
+        
+    } catch (error) {
+        console.error('Withdraw AXC error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
 // ============================================================================
 // 20. 🚀 GRACEFUL SHUTDOWN
 // ============================================================================
