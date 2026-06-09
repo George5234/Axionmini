@@ -48,9 +48,11 @@
             <div class="tagline">
                 <i class="fas fa-microchip"></i> AI-Powered • Instant • Low Fee
             </div>
-            <button class="header-history-btn" id="headerHistoryBtn">
-                <i class="fas fa-clock"></i>
-            </button>
+            <div class="header-buttons">
+                <button class="header-history-btn" id="headerHistoryBtn">
+                    <i class="fas fa-clock"></i>
+                </button>
+            </div>
         </div>
 
         <!-- ==================== WALLET PAGE ==================== -->
@@ -112,15 +114,15 @@
                 </div>
                 
                 <!-- عرض رصيد AXC الحالي لتحفيز المستخدم -->
-                <div style="background: rgba(57,255,20,0.1); border-radius: 16px; padding: 12px; margin-bottom: 16px; text-align: center;">
-                    <span style="font-size: 12px; color: #7a9e7a;">💰 YOUR AXC BALANCE</span>
-                    <div style="font-size: 28px; font-weight: 800; font-family: 'Orbitron', monospace; color: #39ff14;" id="miningAxcBalance">0</div>
+                <div class="mining-balance-card">
+                    <span class="mining-balance-label">💰 YOUR AXC BALANCE</span>
+                    <div class="mining-balance-value" id="miningAxcBalance">0</div>
                 </div>
                 
                 <div class="mining-stats">
                     <div class="stat-card">
                         <span class="stat-label">MINING RATE</span>
-                        <span class="stat-value" id="miningRate">50 AXC</span>
+                        <span class="stat-value" id="miningRate">10 AXC / ad</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-label">POWER</span>
@@ -134,7 +136,7 @@
                         <div class="mining-progress-fill" id="miningProgress" style="width: 0%"></div>
                     </div>
                     <div class="mining-timer-display" id="miningTimer">0 / 40</div>
-                    <div class="mining-rate">🎬 Ads watched: <span id="nextReward">0</span> / 40</div>
+                    <div class="mining-progress-text" id="nextReward">📺 Watch ads or wait to fill the bar</div>
                 </div>
                 
                 <!-- زر Claim -->
@@ -142,26 +144,26 @@
                     <i class="fas fa-gem"></i> CLAIM REWARD
                 </button>
                 
-                <!-- Boost Options -->
+                <!-- Boost Options - UPDATED VALUES -->
                 <div class="boost-options" id="boostOptions" style="display: none;">
                     <div class="boost-option" data-boost="bronze" onclick="window.activateBoost('bronze')">
                         <div class="boost-info">
                             <span class="boost-price">⚡ 2.5 TON</span>
-                            <span class="boost-rate">120 AXC / claim</span>
+                            <span class="boost-rate">800 AXC / claim</span>
                         </div>
                         <span class="boost-duration">3 days</span>
                     </div>
                     <div class="boost-option" data-boost="silver" onclick="window.activateBoost('silver')">
                         <div class="boost-info">
                             <span class="boost-price">⚡ 5 TON</span>
-                            <span class="boost-rate">250 AXC / claim</span>
+                            <span class="boost-rate">1250 AXC / claim</span>
                         </div>
                         <span class="boost-duration">7 days</span>
                     </div>
                     <div class="boost-option" data-boost="gold" onclick="window.activateBoost('gold')">
                         <div class="boost-info">
                             <span class="boost-price">⚡ 10 TON</span>
-                            <span class="boost-rate">500 AXC / claim</span>
+                            <span class="boost-rate">2500 AXC / claim</span>
                         </div>
                         <span class="boost-duration">30 days</span>
                     </div>
@@ -174,9 +176,9 @@
                     <h3><i class="fas fa-tv"></i> WATCH & EARN</h3>
                 </div>
                 <button class="watch-ad-btn" id="watchAdBtn">
-                    <i class="fas fa-play-circle"></i> WATCH AD
+                    <i class="fas fa-play-circle"></i> WATCH AD (+10 AXC)
                 </button>
-                <div id="adsCounter" class="ads-counter">📊 Progress: 0 / 40</div>
+                <div id="adsCounter" class="ads-counter">📊 Each ad adds +10 to your mining progress!</div>
             </div>
 
             <!-- Tasks Section -->
@@ -214,8 +216,8 @@
             <div class="swap-container">
                 <div class="swap-card">
                     <div class="swap-header-modern">
-                        <span class="swap-title">Swap</span>
-                        <button class="swap-settings"><i class="fas fa-sliders-h"></i></button>
+                        <span class="swap-title"><i class="fas fa-exchange-alt"></i> Swap</span>
+                        <button class="swap-settings" id="swapSettingsBtn"><i class="fas fa-sliders-h"></i></button>
                     </div>
 
                     <div class="ton-status">
@@ -264,8 +266,15 @@
                     </div>
 
                     <div class="swap-rate-info">
-                        <span>1 AXC = <span id="axcPrice">0.01</span> USDT</span>
-                        <span class="rate-fee">Fee: 0 AXC</span>
+                        <div class="rate-item">
+                            <i class="fas fa-chart-line"></i>
+                            <span>1 AXC = <strong id="axcPrice">0.01</strong> USDT</span>
+                        </div>
+                        <div class="rate-divider"></div>
+                        <div class="rate-item">
+                            <i class="fas fa-gas-pump"></i>
+                            <span>Fee: <strong>0 AXC</strong></span>
+                        </div>
                     </div>
 
                     <button class="swap-button" id="swapBtn">
@@ -308,7 +317,7 @@
         <div id="depositModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>💰 DEPOSIT AXC</h3>
+                    <h3><i class="fas fa-arrow-down"></i> DEPOSIT AXC</h3>
                     <button class="close-btn" onclick="window.closeModal('depositModal')"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-body">
@@ -318,8 +327,8 @@
                         <button class="copy-btn" onclick="window.copyDepositAddress()"><i class="fas fa-copy"></i> COPY ADDRESS</button>
                     </div>
                     <div class="deposit-note">
-                        ⚠️ Minimum: 1,000 AXC<br>
-                        ⏱️ Confirmation: ~15 minutes
+                        <i class="fas fa-info-circle"></i> Minimum: 1,000 AXC<br>
+                        <i class="fas fa-clock"></i> Confirmation: ~15 minutes
                     </div>
                     <button class="confirm-btn" id="confirmDepositBtn">
                         <i class="fas fa-check-circle"></i> I HAVE SENT THE AXC
@@ -332,7 +341,7 @@
         <div id="historyModal" class="modal">
             <div class="modal-content history-modal">
                 <div class="modal-header">
-                    <h3>📜 Transaction History</h3>
+                    <h3><i class="fas fa-clock"></i> Transaction History</h3>
                     <button class="close-btn" onclick="window.closeModal('historyModal')"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-body">
@@ -350,7 +359,7 @@
             </div>
         </div>
 
-        <!-- Toast -->
+        <!-- Toast Notification -->
         <div id="toast" class="toast hidden">
             <div class="toast-content">
                 <i class="fas fa-info-circle"></i>
@@ -387,14 +396,16 @@
     <!-- Neural Background Generator -->
     <script>
         const neuralBg = document.getElementById('neuralBg');
-        for (let i = 0; i < 35; i++) {
-            const node = document.createElement('div');
-            node.className = 'neural-node';
-            node.style.left = Math.random() * 100 + '%';
-            node.style.top = Math.random() * 100 + '%';
-            node.style.animationDelay = Math.random() * 4 + 's';
-            node.style.animationDuration = (3 + Math.random() * 4) + 's';
-            neuralBg.appendChild(node);
+        if (neuralBg) {
+            for (let i = 0; i < 35; i++) {
+                const node = document.createElement('div');
+                node.className = 'neural-node';
+                node.style.left = Math.random() * 100 + '%';
+                node.style.top = Math.random() * 100 + '%';
+                node.style.animationDelay = Math.random() * 4 + 's';
+                node.style.animationDuration = (3 + Math.random() * 4) + 's';
+                neuralBg.appendChild(node);
+            }
         }
     </script>
 </body>
