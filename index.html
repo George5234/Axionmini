@@ -39,7 +39,7 @@
     <div class="app-container">
         
         <!-- ==================== HEADER ==================== -->
-        <div class="ai-header">
+        <div class="ai-header" id="aiHeader">
             <div class="logo-ring">
                 <i class="fas fa-brain"></i>
             </div>
@@ -48,15 +48,16 @@
             <div class="tagline">
                 <i class="fas fa-microchip"></i> AI-Powered • Instant • Low Fee
             </div>
-            <div class="header-buttons">
-                <button class="header-history-btn" id="headerHistoryBtn">
-                    <i class="fas fa-clock"></i>
+            <div class="header-actions" id="headerActions" style="display: none;">
+                <button class="header-btn" id="notificationBtn">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notificationBadge">0</span>
                 </button>
             </div>
         </div>
 
         <!-- ==================== WALLET PAGE ==================== -->
-        <div id="walletPage" class="page">
+        <div id="walletPage" class="page active">
             <!-- Balance Card -->
             <div class="neural-card balance-card">
                 <div class="balance-label">TOTAL BALANCE</div>
@@ -79,6 +80,10 @@
                     <button class="action-btn" id="withdrawBtnWallet">
                         <i class="fas fa-arrow-up"></i>
                         <span>Withdraw</span>
+                    </button>
+                    <button class="action-btn" id="historyBtnWallet">
+                        <i class="fas fa-clock"></i>
+                        <span>History</span>
                     </button>
                 </div>
             </div>
@@ -104,66 +109,73 @@
 
         <!-- ==================== EARN PAGE ==================== -->
         <div id="earnPage" class="page hidden">
-            <!-- Mining Card - مع شريط التعدين ورصيد AXC -->
-            <div class="neural-card">
+            <!-- Mining Card -->
+            <div class="neural-card mining-card">
                 <div class="section-header">
                     <h3><i class="fas fa-microchip"></i> NEURAL MINING RIG</h3>
                     <button class="boost-trigger-btn" id="boostTriggerBtn">
                         <i class="fas fa-bolt"></i>
+                        <span>Boost</span>
                     </button>
                 </div>
                 
-                <!-- عرض رصيد AXC الحالي لتحفيز المستخدم -->
-                <div class="mining-balance-card">
+                <div class="mining-balance">
                     <span class="mining-balance-label">💰 YOUR AXC BALANCE</span>
                     <div class="mining-balance-value" id="miningAxcBalance">0</div>
                 </div>
                 
                 <div class="mining-stats">
                     <div class="stat-card">
-                        <span class="stat-label">MINING RATE</span>
-                        <span class="stat-value" id="miningRate">10 AXC / ad</span>
+                        <span class="stat-label">REWARD PER CLAIM</span>
+                        <span class="stat-value" id="miningReward">400 AXC</span>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-label">POWER</span>
+                        <span class="stat-label">MINING POWER</span>
                         <span class="stat-value" id="miningPower">STANDARD</span>
                     </div>
                 </div>
                 
-                <!-- شريط التعدين -->
-                <div class="mining-timer-card">
+                <div class="mining-progress-container">
                     <div class="mining-progress-bar">
-                        <div class="mining-progress-fill" id="miningProgress" style="width: 0%"></div>
+                        <div class="mining-progress-fill" id="miningProgressFill" style="width: 0%"></div>
                     </div>
-                    <div class="mining-timer-display" id="miningTimer">0 / 40</div>
-                    <div class="mining-progress-text" id="nextReward">📺 Watch ads or wait to fill the bar</div>
+                    <div class="mining-progress-stats">
+                        <span class="progress-value" id="miningProgressValue">0</span>
+                        <span class="progress-max">/ 40</span>
+                    </div>
                 </div>
                 
-                <!-- زر Claim -->
+                <div class="mining-info" id="miningInfo">
+                    <i class="fas fa-hourglass-half"></i>
+                    <span id="miningInfoText">Watch ads or wait 2.5 hours</span>
+                </div>
+                
                 <button class="claim-mining-btn" id="claimMiningBtn" style="display: none;">
                     <i class="fas fa-gem"></i> CLAIM REWARD
                 </button>
                 
-                <!-- Boost Options - UPDATED VALUES -->
                 <div class="boost-options" id="boostOptions" style="display: none;">
-                    <div class="boost-option" data-boost="bronze" onclick="window.activateBoost('bronze')">
+                    <div class="boost-option" data-boost="bronze">
                         <div class="boost-info">
-                            <span class="boost-price">⚡ 2.5 TON</span>
-                            <span class="boost-rate">800 AXC / claim</span>
+                            <span class="boost-name">⚡ BRONZE</span>
+                            <span class="boost-price">2.5 TON</span>
+                            <span class="boost-reward">800 AXC / claim</span>
                         </div>
                         <span class="boost-duration">3 days</span>
                     </div>
-                    <div class="boost-option" data-boost="silver" onclick="window.activateBoost('silver')">
+                    <div class="boost-option" data-boost="silver">
                         <div class="boost-info">
-                            <span class="boost-price">⚡ 5 TON</span>
-                            <span class="boost-rate">1250 AXC / claim</span>
+                            <span class="boost-name">⚡ SILVER</span>
+                            <span class="boost-price">5 TON</span>
+                            <span class="boost-reward">1250 AXC / claim</span>
                         </div>
                         <span class="boost-duration">7 days</span>
                     </div>
-                    <div class="boost-option" data-boost="gold" onclick="window.activateBoost('gold')">
+                    <div class="boost-option" data-boost="gold">
                         <div class="boost-info">
-                            <span class="boost-price">⚡ 10 TON</span>
-                            <span class="boost-rate">2500 AXC / claim</span>
+                            <span class="boost-name">⚡ GOLD</span>
+                            <span class="boost-price">10 TON</span>
+                            <span class="boost-reward">2500 AXC / claim</span>
                         </div>
                         <span class="boost-duration">30 days</span>
                     </div>
@@ -178,7 +190,10 @@
                 <button class="watch-ad-btn" id="watchAdBtn">
                     <i class="fas fa-play-circle"></i> WATCH AD (+10 AXC)
                 </button>
-                <div id="adsCounter" class="ads-counter">📊 Each ad adds +10 to your mining progress!</div>
+                <div class="ads-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Each ad adds +10 to your mining progress!</span>
+                </div>
             </div>
 
             <!-- Tasks Section -->
@@ -215,17 +230,14 @@
         <div id="swapPage" class="page hidden">
             <div class="swap-container">
                 <div class="swap-card">
-                    <div class="swap-header-modern">
+                    <div class="swap-header">
                         <span class="swap-title"><i class="fas fa-exchange-alt"></i> Swap</span>
-                        <button class="swap-settings" id="swapSettingsBtn"><i class="fas fa-sliders-h"></i></button>
                     </div>
 
-                    <div class="ton-status">
-                        <div class="wallet-badge">
-                            <div class="wallet-avatar">
-                                <i class="fab fa-telegram-plane"></i>
-                            </div>
-                            <div class="wallet-info">
+                    <div class="wallet-status">
+                        <div class="wallet-info">
+                            <i class="fab fa-telegram-plane"></i>
+                            <div>
                                 <h4>Neural Wallet</h4>
                                 <p id="walletStatus">Not connected</p>
                             </div>
@@ -240,14 +252,14 @@
                         </div>
                         <div class="swap-box-body">
                             <input type="number" id="swapFrom" placeholder="0" value="0">
-                            <div class="token-select-modern">
-                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/38901.png" alt="AXC" width="24" height="24">
+                            <div class="token-select">
+                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/38901.png" alt="AXC">
                                 <span>AXC</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="swap-arrow-modern">
+                    <div class="swap-arrow">
                         <i class="fas fa-arrow-down"></i>
                     </div>
 
@@ -258,30 +270,23 @@
                         </div>
                         <div class="swap-box-body">
                             <input type="text" id="swapTo" placeholder="0.00" readonly>
-                            <div class="token-select-modern">
-                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT" width="24" height="24">
+                            <div class="token-select">
+                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT">
                                 <span>USDT</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="swap-rate-info">
-                        <div class="rate-item">
-                            <i class="fas fa-chart-line"></i>
-                            <span>1 AXC = <strong id="axcPrice">0.01</strong> USDT</span>
-                        </div>
-                        <div class="rate-divider"></div>
-                        <div class="rate-item">
-                            <i class="fas fa-gas-pump"></i>
-                            <span>Fee: <strong>0 AXC</strong></span>
-                        </div>
+                    <div class="swap-rate">
+                        <span>1 AXC = <strong id="axcPrice">0.01</strong> USDT</span>
+                        <span>Fee: <strong>0 AXC</strong></span>
                     </div>
 
-                    <button class="swap-button" id="swapBtn">
-                        <i class="fas fa-lock"></i> Unlock Neural Swap
+                    <button class="swap-btn" id="swapBtn">
+                        <i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)
                     </button>
 
-                    <div id="swapStatus" class="ai-status"></div>
+                    <div id="swapStatus" class="swap-status"></div>
                 </div>
             </div>
         </div>
@@ -317,7 +322,7 @@
         <div id="depositModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3><i class="fas fa-arrow-down"></i> DEPOSIT AXC</h3>
+                    <h3>💰 DEPOSIT AXC</h3>
                     <button class="close-btn" onclick="window.closeModal('depositModal')"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-body">
@@ -341,7 +346,7 @@
         <div id="historyModal" class="modal">
             <div class="modal-content history-modal">
                 <div class="modal-header">
-                    <h3><i class="fas fa-clock"></i> Transaction History</h3>
+                    <h3>📜 Transaction History</h3>
                     <button class="close-btn" onclick="window.closeModal('historyModal')"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-body">
@@ -350,11 +355,28 @@
                         <button class="history-tab" data-filter="deposit">Deposits</button>
                         <button class="history-tab" data-filter="withdraw">Withdrawals</button>
                         <button class="history-tab" data-filter="swap">Swaps</button>
-                        <button class="history-tab" data-filter="earn">Earn</button>
+                        <button class="history-tab" data-filter="mining">Mining</button>
                     </div>
                     <div id="historyList" class="history-list">
                         <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Modal -->
+        <div id="notificationsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-bell"></i> Notifications</h3>
+                    <button class="close-btn" onclick="window.closeNotificationsModal()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div id="notificationsList" class="notifications-list"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn" id="markAllReadBtn">Mark all as read</button>
+                    <button class="modal-btn danger" id="clearNotificationsBtn">Clear all</button>
                 </div>
             </div>
         </div>
@@ -368,23 +390,85 @@
         </div>
     </div>
 
+    <!-- ==================== WITHDRAW BOTTOM SHEET ==================== -->
+    <div id="withdrawBottomSheet" class="bottom-sheet">
+        <div class="bottom-sheet-overlay"></div>
+        <div class="bottom-sheet-content">
+            <div class="bottom-sheet-header">
+                <h3>💸 Withdraw Funds</h3>
+                <button class="close-sheet-btn" id="closeWithdrawSheetBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="sheet-currency-toggle">
+                <button class="currency-option active" data-currency="AXC">
+                    <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/38901.png" alt="AXC">
+                    <span>AXC</span>
+                </button>
+                <button class="currency-option" data-currency="USDT">
+                    <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT">
+                    <span>USDT</span>
+                </button>
+            </div>
+            <div class="sheet-balance-info">
+                <span class="balance-label">Available Balance</span>
+                <span class="balance-value" id="sheetBalanceValue">0 AXC</span>
+            </div>
+            <div class="sheet-amount-input">
+                <label>Amount</label>
+                <div class="amount-input-wrapper">
+                    <input type="number" id="sheetAmountInput" placeholder="0">
+                    <span class="amount-currency" id="sheetCurrencyLabel">AXC</span>
+                </div>
+                <div class="quick-amounts">
+                    <button class="quick-amount" data-percent="25">25%</button>
+                    <button class="quick-amount" data-percent="50">50%</button>
+                    <button class="quick-amount" data-percent="75">75%</button>
+                    <button class="quick-amount" data-percent="100">100%</button>
+                </div>
+            </div>
+            <div class="sheet-address-input">
+                <label>BEP20 Wallet Address</label>
+                <input type="text" id="sheetAddressInput" placeholder="0x...">
+            </div>
+            <div class="sheet-info">
+                <div class="info-item">
+                    <span>Minimum</span>
+                    <strong id="sheetMinAmount">1,000 AXC</strong>
+                </div>
+                <div class="info-item">
+                    <span>Maximum</span>
+                    <strong id="sheetMaxAmount">50,000 AXC</strong>
+                </div>
+                <div class="info-item">
+                    <span>Fee</span>
+                    <strong>0</strong>
+                </div>
+            </div>
+            <button class="sheet-submit-btn" id="submitWithdrawSheetBtn">
+                <i class="fas fa-paper-plane"></i> Confirm Withdrawal
+            </button>
+            <p class="sheet-note">⚠️ Withdrawals are auto-approved and processed within 1-12 hours.</p>
+        </div>
+    </div>
+
     <!-- ==================== TON ACTIVATION MODAL ==================== -->
-    <div class="ai-modal-overlay" id="verificationModal">
-        <div class="ai-modal">
-            <div class="modal-ai-icon">
+    <div class="activation-modal" id="activationModal">
+        <div class="activation-modal-content">
+            <div class="activation-icon">
                 <i class="fas fa-brain"></i>
             </div>
             <h2>Neural Link</h2>
-            <div class="fee-display">5 TON</div>
-            <div class="fee-sub">One-time</div>
-            <div class="ai-features">
+            <div class="activation-fee">5 TON</div>
+            <div class="activation-sub">One-time</div>
+            <div class="activation-features">
                 <p><i class="fas fa-shield-alt"></i> Anti-bot verification</p>
                 <p><i class="fas fa-user-check"></i> Human-only access</p>
                 <p><i class="fas fa-infinity"></i> Unlimited swaps forever</p>
             </div>
-            <div class="ai-modal-buttons">
-                <button class="ai-modal-btn secondary" id="modalCancelBtn">Cancel</button>
-                <button class="ai-modal-btn primary" id="modalProceedBtn">
+            <div class="activation-buttons">
+                <button class="activation-btn secondary" id="activationCancelBtn">Cancel</button>
+                <button class="activation-btn primary" id="activationProceedBtn">
                     <i class="fas fa-bolt"></i> Activate
                 </button>
             </div>
