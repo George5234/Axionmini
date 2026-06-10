@@ -28,8 +28,8 @@ const CONFIG = {
     REWARD_PER_CLAIM: 400,
     COOLDOWN_MS: 2.5 * 60 * 60 * 1000,
     BOOSTS: {
-        bronze: { price: 2.5, reward: 800, duration: 3, name: 'BRONZE' },
-        silver: { price: 5, reward: 1250, duration: 7, name: 'SILVER' },
+        bronze: { price: 2.5, reward: 800, duration: 30, name: 'BRONZE' },
+        silver: { price: 5, reward: 1250, duration: 30, name: 'SILVER' },
         gold: { price: 10, reward: 2500, duration: 30, name: 'GOLD' }
     },
     tasks: [
