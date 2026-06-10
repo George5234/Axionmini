@@ -1,7 +1,6 @@
 /* ============================================================================
-   AXION AI - PROFESSIONAL EDITION v26.0
+   AXION AI - LEGENDARY STYLES v26.0 (COMPLETE)
    Neural Theme | Glassmorphism | Premium Effects | Smooth Animations
-   Complete Mining System with Advanced Progress Bar
    ============================================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -2100,10 +2099,9 @@ body {
 }
 
 /* ============================================================================
-   EARN PAGE - PROFESSIONAL MINING SYSTEM
+   EARN PAGE - PROFESSIONAL MINING SYSTEM (ENHANCED)
    ============================================================================ */
 
-/* Mining Container */
 .mining-rig {
     padding: 16px;
 }
@@ -2569,60 +2567,7 @@ body {
     transform: scale(0.98);
 }
 
-/* Boost Options Styling */
-.boost-options {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid var(--ai-border);
-}
-
-.boost-option {
-    background: var(--ai-green-soft);
-    border: 1px solid var(--ai-border);
-    border-radius: var(--radius-md);
-    padding: 14px 16px;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.boost-option:hover {
-    border-color: var(--ai-gold);
-    transform: translateX(6px);
-    background: var(--ai-gold-dim);
-}
-
-.boost-icon {
-    font-size: 20px;
-    margin-right: 10px;
-}
-
-.boost-details {
-    flex: 1;
-}
-
-.boost-name {
-    font-weight: 700;
-    font-size: 14px;
-    display: block;
-    color: var(--ai-text);
-}
-
-.boost-reward {
-    font-size: 11px;
-    color: var(--ai-text-muted);
-}
-
-.boost-price {
-    font-weight: 700;
-    color: var(--ai-gold);
-    font-size: 14px;
-}
+/* Boost Options Styling (Already defined above) */
 
 /* Floating Coins Animation */
 .floating-coins {
