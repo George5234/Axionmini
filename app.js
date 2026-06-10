@@ -497,16 +497,39 @@ async function activateBoost(boostKey) {
 // TASKS SYSTEM
 // ============================================================================
 
+// ==================== TASKS SYSTEM ====================
+
 function renderTasks() {
     const container = document.getElementById('tasksContainer');
     if (!container) return;
     if (!userId) return;
     
-    // ✅ تجاهل localStorage تماماً واستخدام CONFIG فقط
-    const tasks = CONFIG.tasks;
+    // محاولة جلب المهام المخزنة محلياً
+    let tasks = localStorage.getItem(`axion_tasks_${userId}`);
     
-    // ✅ تحديث localStorage بالروابط الجديدة
-    localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(CONFIG.tasks));
+    if (!tasks) {
+        // إذا لم تكن هناك مهام مخزنة، استخدم CONFIG
+        tasks = CONFIG.tasks;
+        localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(tasks));
+    } else {
+        tasks = JSON.parse(tasks);
+        
+        // تحديث الروابط والمكافآت من CONFIG مع الحفاظ على حالة الإكمال
+        const updatedTasks = CONFIG.tasks.map(newTask => {
+            const existingTask = tasks.find(t => t.id === newTask.id);
+            if (existingTask) {
+                // الحفاظ على حالة الإكمال، ولكن تحديث الاسم والرابط والمكافأة
+                return {
+                    ...newTask,
+                    completed: existingTask.completed || false
+                };
+            }
+            return { ...newTask, completed: false };
+        });
+        
+        tasks = updatedTasks;
+        localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(tasks));
+    }
     
     container.innerHTML = tasks.map(task => `
         <div class="task-item ${task.completed ? 'completed' : ''}">
@@ -525,16 +548,33 @@ function renderTasks() {
 async function completeTask(taskId) {
     if (!userId) return;
     
-    const tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
+    // جلب المهام من localStorage
+    let tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || '[]');
     const task = tasks.find(t => t.id === taskId);
-    if (!task || task.completed) return;
+    
+    // التحقق: إذا كانت المهمة مكتملة بالفعل، منع التنفيذ
+    if (!task || task.completed) {
+        showToast('Task already completed!', 'warning');
+        return;
+    }
+    
     if (task.url) window.open(task.url, '_blank');
     
     showToast(`Complete ${task.name} to earn +${task.reward} AXC`, 'info');
     
     setTimeout(async () => {
-        task.completed = true;
-        localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(tasks));
+        // التحقق مرة أخرى قبل الصرف
+        const freshTasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || '[]');
+        const freshTask = freshTasks.find(t => t.id === taskId);
+        
+        if (freshTask.completed) {
+            showToast('Task already completed!', 'warning');
+            return;
+        }
+        
+        // تحديث حالة المهمة
+        freshTask.completed = true;
+        localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(freshTasks));
         
         try {
             const res = await fetch('/api/add-balance', {
