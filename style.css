@@ -2602,3 +2602,278 @@ body {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
 }
+
+/* ============================================
+   NEURAL MINING RIG - PROFESSIONAL EDITION
+   Advanced Progress Bar with Visual Effects
+   ============================================ */
+
+/* حاوية شريط التقدم */
+.mining-progress-container {
+    background: linear-gradient(145deg, #0a120a, #030603);
+    border-radius: 60px;
+    padding: 4px;
+    margin: 20px 0;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(57, 255, 20, 0.1);
+}
+
+/* شريط التقدم الأساسي */
+.mining-progress-bar {
+    width: 100%;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 60px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* الجزء المتقدم من الشريط */
+.mining-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        #39ff14 0%, 
+        #7fff00 25%,
+        #adff2f 50%,
+        #7fff00 75%,
+        #39ff14 100%);
+    background-size: 200% 100%;
+    border-radius: 60px;
+    position: relative;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 20px rgba(57, 255, 20, 0.8);
+    animation: shimmerMove 2s linear infinite;
+}
+
+/* تأثير اللمعان المتحرك */
+@keyframes shimmerMove {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* وميض على الشريط */
+.mining-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.4), 
+        transparent);
+    animation: sweepLight 1.2s infinite;
+    border-radius: 60px;
+}
+
+@keyframes sweepLight {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+}
+
+/* نقاط متلألئة على الشريط */
+.mining-progress-fill::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    box-shadow: 0 0 10px white;
+    animation: sparkle 1s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+    50% { opacity: 0.3; transform: translateY(-50%) scale(1.5); }
+}
+
+/* الأرقام على الشريط */
+.mining-progress-stats {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 12px;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+}
+
+.progress-value {
+    color: #39ff14;
+    font-weight: 700;
+    text-shadow: 0 0 8px #39ff14;
+}
+
+.progress-max {
+    color: #6a8e6a;
+}
+
+/* ============================================
+   TIMER SECTION - PROFESSIONAL
+   ============================================ */
+.mining-timer-box {
+    background: linear-gradient(145deg, #0a120a, #030603);
+    border-radius: 24px;
+    padding: 16px 20px;
+    text-align: center;
+    margin: 20px 0;
+    border: 1px solid rgba(57, 255, 20, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.mining-timer-box::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(57, 255, 20, 0.05), transparent);
+    animation: rotateBg 20s linear infinite;
+}
+
+@keyframes rotateBg {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.timer-label {
+    font-size: 10px;
+    color: #6a8e6a;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
+}
+
+.timer-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'Orbitron', monospace;
+    color: #39ff14;
+    text-shadow: 0 0 15px #39ff14;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+/* عندما يتبقى وقت قليل */
+.timer-value.critical {
+    color: #ff5555;
+    text-shadow: 0 0 15px #ff5555;
+    animation: pulseWarning 0.8s ease-in-out infinite;
+}
+
+@keyframes pulseWarning {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+/* ============================================
+   HARVEST BUTTON - PROFESSIONAL
+   ============================================ */
+.claim-mining-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #f1c40f, #f39c12, #e67e22);
+    background-size: 200% 200%;
+    border: none;
+    border-radius: 60px;
+    padding: 18px;
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    font-weight: 800;
+    color: #000;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    animation: gradientShift 2s ease infinite;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.claim-mining-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+}
+
+.claim-mining-btn:hover::before {
+    left: 100%;
+}
+
+.claim-mining-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(241, 196, 15, 0.4);
+}
+
+.claim-mining-btn:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   HARVESTED ENERGY DISPLAY
+   ============================================ */
+.mining-harvest-panel {
+    background: linear-gradient(145deg, rgba(57, 255, 20, 0.05), rgba(57, 255, 20, 0.02));
+    border-radius: 28px;
+    padding: 20px;
+    text-align: center;
+    margin: 20px 0;
+    border: 1px solid rgba(57, 255, 20, 0.1);
+}
+
+.harvest-label {
+    font-size: 11px;
+    color: #6a8e6a;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.harvest-amount {
+    font-size: 56px;
+    font-weight: 800;
+    font-family: 'Orbitron', monospace;
+    color: #39ff14;
+    text-shadow: 0 0 25px #39ff14;
+    line-height: 1;
+    margin: 10px 0;
+}
+
+.harvest-target {
+    font-size: 13px;
+    color: #6a8e6a;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 450px) {
+    .timer-value { font-size: 22px; }
+    .harvest-amount { font-size: 42px; }
+    .claim-mining-btn { padding: 14px; font-size: 14px; }
+}
+
+@media (max-width: 380px) {
+    .timer-value { font-size: 18px; }
+    .harvest-amount { font-size: 36px; }
+    .mining-progress-bar { height: 24px; }
+}
