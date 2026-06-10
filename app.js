@@ -1,5 +1,5 @@
 // ============================================================================
-// AXION AI - LEGENDARY EDITION v25.0 (EARN PAGE REWRITE)
+// AXION AI - LEGENDARY EDITION v25.0 (FULLY OPTIMIZED)
 // ============================================================================
 // جميع الحقوق محفوظة © 2024 Axion AI
 // ============================================================================
@@ -144,9 +144,6 @@ function getCurrentReward() {
 }
 
 function calculateProgress() {
-    if (!miningState.lastClaimTime && getLastClaimTime() === 0) {
-        return miningState.adsWatched;
-    }
     const lastClaim = getLastClaimTime();
     const now = Date.now();
     const elapsed = now - lastClaim;
@@ -309,15 +306,14 @@ function updateMiningUI() {
     const reward = getCurrentReward();
     const remainingTime = getLastClaimTime() ? Math.max(0, CONFIG.COOLDOWN_MS - (Date.now() - getLastClaimTime())) : 0;
     
-    // العناصر الجديدة في صفحة Earn
+    // عناصر صفحة Earn الجديدة
     const verticalFill = document.getElementById('miningProgressFill');
     const minedCounter = document.getElementById('minedCounter');
     const progressText = document.getElementById('progressText');
     const timerEl = document.getElementById('miningTimer');
     const claimBtn = document.getElementById('claimMiningBtn');
-    const watchBtn = document.getElementById('watchAdBtn');
     
-    // العناصر القديمة (للتوافق)
+    // عناصر التوافق القديم
     const horizontalFill = document.getElementById('miningProgress');
     const oldTimer = document.getElementById('miningTimer');
     const oldInfo = document.getElementById('nextReward');
@@ -326,10 +322,10 @@ function updateMiningUI() {
     const oldBalance = document.getElementById('miningAxcBalance');
     const oldCounter = document.getElementById('adsCounter');
     
-    // تحديث العمود الرأسي الجديد
+    // تحديث العمود الرأسي
     if (verticalFill) verticalFill.style.height = `${progressPercent}%`;
     
-    // تحديث العداد الكبير مع أنيميشن
+    // تحديث العداد الكبير
     if (minedCounter) {
         animateCounter(minedCounter, harvestedAXC);
     }
@@ -352,7 +348,7 @@ function updateMiningUI() {
         }
     }
     
-    // تحديث العناصر القديمة (للتوافق مع الكود الحالي)
+    // تحديث العناصر القديمة للتوافق
     if (horizontalFill) horizontalFill.style.width = `${Math.min(100, progressPercent)}%`;
     if (oldTimer) {
         if (isReady) oldTimer.textContent = 'READY!';
@@ -362,7 +358,7 @@ function updateMiningUI() {
     if (oldInfo) {
         if (isReady) oldInfo.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
         else if (remainingTime > 0) oldInfo.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
-        else oldInfo.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim or wait for auto-fill`;
+        else oldInfo.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim`;
     }
     if (oldCounter) oldCounter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
     if (oldRate) oldRate.textContent = `${reward} AXC`;
@@ -381,11 +377,6 @@ function updateMiningUI() {
         } else {
             claimBtn.style.display = 'none';
         }
-    }
-    
-    // تمكين/تعطيل زر الإعلان
-    if (watchBtn) {
-        watchBtn.disabled = isReady;
     }
 }
 
@@ -459,7 +450,7 @@ async function claimMiningReward() {
 }
 
 // ============================================================================
-// WATCH AD - WITH FLYING COINS
+// WATCH AD WITH FLYING COINS
 // ============================================================================
 
 const AD_PLATFORMS = [
@@ -524,21 +515,18 @@ async function watchAd() {
         miningState.adsWatched = Math.min(miningState.adsWatched + 1, CONFIG.ADS_PER_CLAIM);
         saveMiningState();
         
-        // تأثيرات بصرية - عملات طائرة
+        // تأثيرات بصرية - عملات طائرة متعددة
         createFlyingCoin(0);
         createFlyingCoin(150);
         createFlyingCoin(300);
         
         updateMiningUI();
         
-        const newProgress = calculateProgress();
-        const gained = Math.floor(newProgress - oldProgress) * CONFIG.REWARD_PER_AD;
-        
         const remaining = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
         if (remaining === 0) {
             showToast(`🎉 HARVEST READY! Click CLAIM for ${getCurrentReward()} AXC! 🎉`, 'success');
         } else {
-            showToast(`✅ +${CONFIG.REWARD_PER_AD} AXC harvested! ${remaining} steps to harvest`, 'success');
+            showToast(`✅ +10 AXC harvested! ${remaining} steps to harvest`, 'success');
         }
     } else {
         showToast('Mining failed. Neural network unstable. Try again.', 'error');
@@ -636,12 +624,15 @@ async function completeTask(taskId) {
 }
 
 // ============================================================================
-// API & USER DATA
+// API & USER DATA (WITH TIMEOUT & CACHE)
 // ============================================================================
 
 async function loadConfig() {
     try {
-        const res = await fetch('/api/config');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch('/api/config', { signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await res.json();
         CONFIG.ownerWallet = data.ownerWallet;
         if (data.config) {
@@ -665,21 +656,41 @@ async function initFirebase() {
 async function loadUserData() {
     if (!userId) return;
     try {
-        const res = await fetch(`/api/user/${userId}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const res = await fetch(`/api/user/${userId}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await res.json();
         if (data.success) {
             currentUser = data.user;
+            localStorage.setItem(`axion_user_${userId}`, JSON.stringify(currentUser));
             updateWalletUI();
             updateSwapUI();
             updateMiningUI();
             updateReferralUI();
         }
-    } catch(e) { console.error('Load error:', e); }
+    } catch(e) {
+        console.error('Load error:', e);
+        const cached = localStorage.getItem(`axion_user_${userId}`);
+        if (cached) {
+            currentUser = JSON.parse(cached);
+            updateWalletUI();
+            updateSwapUI();
+            updateMiningUI();
+            updateReferralUI();
+            showToast('Using cached data', 'warning');
+        } else {
+            showToast('Connection error, please refresh', 'error');
+        }
+    }
 }
 
 async function fetchLivePrices() {
     try {
-        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,the-open-network&vs_currencies=usd&include_24hr_change=true');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,the-open-network&vs_currencies=usd&include_24hr_change=true', { signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await res.json();
         livePrices = {
             BTC: { price: data.bitcoin?.usd || 68500, change: data.bitcoin?.usd_24h_change || 0 },
@@ -687,8 +698,25 @@ async function fetchLivePrices() {
             BNB: { price: data.binancecoin?.usd || 580, change: data.binancecoin?.usd_24h_change || 0 },
             TON: { price: data['the-open-network']?.usd || 5.5, change: data['the-open-network']?.usd_24h_change || 0 }
         };
+        localStorage.setItem('cached_prices', JSON.stringify(livePrices));
         renderTopCryptos();
-    } catch(e) { console.error('Price error:', e); }
+    } catch(e) {
+        console.error('Price error:', e);
+        const cached = localStorage.getItem('cached_prices');
+        if (cached) {
+            livePrices = JSON.parse(cached);
+            renderTopCryptos();
+            showToast('Using cached prices', 'info');
+        } else {
+            livePrices = {
+                BTC: { price: 68500, change: 2.4 },
+                ETH: { price: 3200, change: 1.2 },
+                BNB: { price: 580, change: -0.8 },
+                TON: { price: 5.5, change: -0.5 }
+            };
+            renderTopCryptos();
+        }
+    }
 }
 
 // ============================================================================
@@ -701,16 +729,27 @@ function updateWalletUI() {
     const usdt = currentUser.usdtBalance || 0;
     const total = (balance * CONFIG.axcPrice) + usdt;
     
-    document.getElementById('totalBalance').textContent = `$${total.toFixed(2)}`;
-    document.getElementById('walletAxcBalance').textContent = balance.toLocaleString();
-    document.getElementById('walletUsdtBalance').textContent = `$${usdt.toFixed(2)}`;
+    const totalEl = document.getElementById('totalBalance');
+    const axcEl = document.getElementById('walletAxcBalance');
+    const usdtEl = document.getElementById('walletUsdtBalance');
+    
+    if (totalEl) totalEl.textContent = `$${total.toFixed(2)}`;
+    if (axcEl) axcEl.textContent = balance.toLocaleString();
+    if (usdtEl) usdtEl.textContent = `$${usdt.toFixed(2)}`;
     
     renderAssets();
 }
 
 function renderAssets() {
     const container = document.getElementById('assetsList');
-    if (!container || !currentUser) return;
+    if (!container) {
+        console.warn('assetsList container not found');
+        return;
+    }
+    if (!currentUser) {
+        container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+        return;
+    }
     container.innerHTML = `
         <div class="asset-item">
             <div class="asset-left"><img src="${CMC_ICONS.AXC}" class="asset-icon-img"><div class="asset-info"><h4>Axion Coin</h4><p>AXC</p></div></div>
@@ -725,7 +764,14 @@ function renderAssets() {
 
 function renderTopCryptos() {
     const container = document.getElementById('topCryptoList');
-    if (!container) return;
+    if (!container) {
+        console.warn('topCryptoList container not found');
+        return;
+    }
+    if (!livePrices || Object.keys(livePrices).length === 0) {
+        container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading prices...</div>';
+        return;
+    }
     const cryptos = [
         { symbol: 'BTC', name: 'Bitcoin', icon: CMC_ICONS.BTC, price: livePrices.BTC?.price || 68500, change: livePrices.BTC?.change || 0 },
         { symbol: 'ETH', name: 'Ethereum', icon: CMC_ICONS.ETH, price: livePrices.ETH?.price || 3200, change: livePrices.ETH?.change || 0 },
@@ -746,9 +792,12 @@ function showAllAssets() { showToast('All assets view coming soon', 'info'); }
 function updateReferralUI() {
     if (!currentUser) return;
     const count = currentUser.inviteCount || 0;
-    document.getElementById('referralCount').textContent = count;
-    document.getElementById('referralEarned').textContent = `${(count * 100).toLocaleString()} AXC`;
-    document.getElementById('referralLink').value = `https://t.me/${CONFIG.botUsername}?start=${userId}`;
+    const countEl = document.getElementById('referralCount');
+    const earnedEl = document.getElementById('referralEarned');
+    const linkEl = document.getElementById('referralLink');
+    if (countEl) countEl.textContent = count;
+    if (earnedEl) earnedEl.textContent = `${(count * 100).toLocaleString()} AXC`;
+    if (linkEl) linkEl.value = `https://t.me/${CONFIG.botUsername}?start=${userId}`;
 }
 
 // ============================================================================
@@ -756,7 +805,7 @@ function updateReferralUI() {
 // ============================================================================
 
 function showDepositModal() {
-    document.getElementById('depositModal').classList.add('show');
+    document.getElementById('depositModal')?.classList.add('show');
 }
 
 function copyDepositAddress() {
@@ -918,13 +967,11 @@ async function submitWithdraw() {
     
     try {
         const endpoint = withdrawCurrency === 'AXC' ? '/api/withdraw-axc' : '/api/withdraw-usdt';
-        
         const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, amount, address, currency: withdrawCurrency })
         });
-        
         const data = await res.json();
         
         if (data.success) {
@@ -1010,11 +1057,13 @@ function initTonConnect() {
             if (wallet) {
                 tonConnected = true;
                 tonWalletAddress = wallet.account.address;
-                document.getElementById('walletStatus').innerHTML = `${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
+                const statusEl = document.getElementById('walletStatus');
+                if (statusEl) statusEl.innerHTML = `${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
             } else {
                 tonConnected = false;
                 tonWalletAddress = null;
-                document.getElementById('walletStatus').innerHTML = 'Not connected';
+                const statusEl = document.getElementById('walletStatus');
+                if (statusEl) statusEl.innerHTML = 'Not connected';
             }
         });
     } catch(e) { console.error('TON error:', e); }
@@ -1022,16 +1071,18 @@ function initTonConnect() {
 
 function updateSwapUI() {
     if (!currentUser) return;
-    document.getElementById('fromBalance').textContent = (currentUser.balance || 0).toLocaleString();
-    document.getElementById('toBalance').textContent = `$${(currentUser.usdtBalance || 0).toFixed(2)}`;
-    const btn = document.getElementById('swapBtn');
-    if (btn) {
+    const fromEl = document.getElementById('fromBalance');
+    const toEl = document.getElementById('toBalance');
+    const swapBtn = document.getElementById('swapBtn');
+    if (fromEl) fromEl.textContent = (currentUser.balance || 0).toLocaleString();
+    if (toEl) toEl.textContent = `$${(currentUser.usdtBalance || 0).toFixed(2)}`;
+    if (swapBtn) {
         if (currentUser.tonPaid) {
-            btn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
-            btn.classList.add('active');
+            swapBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
+            swapBtn.classList.add('active');
         } else {
-            btn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)';
-            btn.classList.remove('active');
+            swapBtn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)';
+            swapBtn.classList.remove('active');
         }
     }
 }
@@ -1158,8 +1209,10 @@ async function executeSwap() {
         const data = await res.json();
         if (data.success) {
             await loadUserData();
-            document.getElementById('swapFrom').value = '';
-            document.getElementById('swapTo').value = '';
+            const swapFrom = document.getElementById('swapFrom');
+            const swapTo = document.getElementById('swapTo');
+            if (swapFrom) swapFrom.value = '';
+            if (swapTo) swapTo.value = '';
             addNotification('Swap Completed!', `Swapped ${amount} AXC to ${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
             showSwapStatus(`✅ Swapped ${amount.toLocaleString()} AXC → $${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, false);
             showConfetti();
@@ -1235,6 +1288,8 @@ async function init() {
         return;
     }
     
+    showToast('Loading your data...', 'info');
+    
     await loadConfig();
     await initFirebase();
     initTonConnect();
@@ -1252,33 +1307,51 @@ async function init() {
     updateReferralUI();
     updateSwapUI();
     
-    // Bottom Navigation
+    // ربط أزرار التنقل
     document.querySelectorAll('.nav-item').forEach(item => {
         item.onclick = () => switchTab(item.dataset.page);
     });
     
-    // Header Buttons
-    document.getElementById('notificationBtn').onclick = showNotificationsModal;
-    document.getElementById('historyBtn').onclick = showHistoryModal;
+    // ربط الأزرار مع التحقق من وجودها
+    const notifBtn = document.getElementById('notificationBtn');
+    if (notifBtn) notifBtn.onclick = showNotificationsModal;
     
-    // Wallet Buttons
-    document.getElementById('depositBtn').onclick = showDepositModal;
-    document.getElementById('withdrawBtnWallet').onclick = showWithdrawModal;
+    const historyBtn = document.getElementById('historyBtn');
+    if (historyBtn) historyBtn.onclick = showHistoryModal;
     
-    // Earn Buttons
-    document.getElementById('watchAdBtn').onclick = watchAd;
-    document.getElementById('claimMiningBtn').onclick = claimMiningReward;
+    const depositBtn = document.getElementById('depositBtn');
+    if (depositBtn) depositBtn.onclick = showDepositModal;
     
-    // Other Buttons
-    document.getElementById('confirmDepositBtn').onclick = confirmDeposit;
-    document.getElementById('copyReferralLink').onclick = () => {
-        const link = document.getElementById('referralLink');
-        if (link?.value) { navigator.clipboard.writeText(link.value); showToast('Link copied!', 'success'); }
-    };
-    document.getElementById('markAllReadBtn').onclick = markAllRead;
-    document.getElementById('clearNotificationsBtn').onclick = clearAllNotifications;
+    const withdrawBtn = document.getElementById('withdrawBtnWallet');
+    if (withdrawBtn) withdrawBtn.onclick = showWithdrawModal;
     
-    // Boost Button
+    const watchAdBtn = document.getElementById('watchAdBtn');
+    if (watchAdBtn) watchAdBtn.onclick = watchAd;
+    
+    const claimBtn = document.getElementById('claimMiningBtn');
+    if (claimBtn) claimBtn.onclick = claimMiningReward;
+    
+    const confirmBtn = document.getElementById('confirmDepositBtn');
+    if (confirmBtn) confirmBtn.onclick = confirmDeposit;
+    
+    const copyLinkBtn = document.getElementById('copyReferralLink');
+    if (copyLinkBtn) {
+        copyLinkBtn.onclick = () => {
+            const link = document.getElementById('referralLink');
+            if (link?.value) { 
+                navigator.clipboard.writeText(link.value); 
+                showToast('Link copied!', 'success'); 
+            }
+        };
+    }
+    
+    const markAllBtn = document.getElementById('markAllReadBtn');
+    if (markAllBtn) markAllBtn.onclick = markAllRead;
+    
+    const clearAllBtn = document.getElementById('clearNotificationsBtn');
+    if (clearAllBtn) clearAllBtn.onclick = clearAllNotifications;
+    
+    // زر Boost
     const boostBtn = document.getElementById('boostTriggerBtn');
     const boostOpts = document.getElementById('boostOptions');
     if (boostBtn && boostOpts) {
