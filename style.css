@@ -2412,3 +2412,308 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--ai-green);
 }
+
+/* ============================================================================
+   LEGENDARY EARN PAGE - NEURAL MINING RIG
+   ============================================================================ */
+
+.mining-rig {
+    padding: 15px 10px;
+}
+
+.mining-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.mining-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mining-title i {
+    font-size: 24px;
+    color: var(--ai-green);
+}
+
+.mining-title h2 {
+    color: var(--ai-green);
+    font-size: 1.4rem;
+    margin: 0;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.boost-master-btn {
+    background: linear-gradient(45deg, #8b00ff, #00ffcc);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 50px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(139, 0, 255, 0.6);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.boost-master-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 25px rgba(139, 0, 255, 0.8);
+}
+
+.mining-core {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 10px 0 20px;
+}
+
+.progress-wrapper {
+    position: relative;
+    height: 280px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.progress-bar-vertical {
+    width: 48px;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
+}
+
+.progress-fill {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: linear-gradient(to top, #00ff88, #39ff14, #7cff6b);
+    transition: height 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 0 0 25px #39ff14;
+}
+
+.progress-glow {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 60%;
+    background: linear-gradient(transparent, rgba(57, 255, 20, 0.6));
+    filter: blur(8px);
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.floating-coins {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.flying-coin {
+    position: absolute;
+    color: var(--ai-green);
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-shadow: 0 0 12px var(--ai-green);
+    animation: flyUp 2.5s forwards;
+    z-index: 10;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 4px 12px;
+    border-radius: 30px;
+    border: 1px solid var(--ai-green);
+    backdrop-filter: blur(4px);
+}
+
+@keyframes flyUp {
+    0% { transform: translateY(0) scale(0.6); opacity: 1; }
+    50% { transform: translateY(-150px) scale(1); opacity: 1; }
+    100% { transform: translateY(-280px) scale(0.8); opacity: 0; }
+}
+
+.mining-counter-panel {
+    text-align: center;
+    margin: 15px 0;
+}
+
+.counter-label {
+    font-size: 11px;
+    color: var(--ai-text-muted);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+}
+
+.big-counter {
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: var(--ai-green);
+    text-shadow: 0 0 25px var(--ai-green);
+    font-family: 'Orbitron', monospace;
+    line-height: 1;
+}
+
+.counter-target {
+    font-size: 13px;
+    color: var(--ai-text-muted);
+    margin-top: 6px;
+}
+
+.progress-info {
+    font-size: 12px;
+    color: var(--ai-text-muted);
+    margin-top: 10px;
+}
+
+.mining-timer-box {
+    background: rgba(57, 255, 20, 0.05);
+    border: 1px solid var(--ai-border);
+    border-radius: 30px;
+    padding: 14px 20px;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.timer-label {
+    font-size: 10px;
+    color: var(--ai-text-muted);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+}
+
+.timer-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #a0ffc0;
+    font-family: 'Orbitron', monospace;
+}
+
+.timer-value.critical {
+    color: #ff5555 !important;
+    text-shadow: 0 0 10px #ff5555 !important;
+    animation: blinkText 1s ease-in-out infinite;
+}
+
+@keyframes blinkText {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.mining-action-area {
+    margin-top: 10px;
+}
+
+/* تحديث زر CLAIM لصفحة Earn الجديدة */
+.claim-mining-btn {
+    width: 100%;
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    border: none;
+    border-radius: 60px;
+    padding: 18px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: #000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 0 20px #ffd700;
+    animation: pulseGlow 1.5s infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 15px #ffd700; }
+    50% { box-shadow: 0 0 35px #ffd700; }
+}
+
+.claim-mining-btn:active {
+    transform: scale(0.98);
+}
+
+/* تحديث زر WATCH AD */
+.watch-ad-btn {
+    width: 100%;
+    background: linear-gradient(145deg, #8e44ad, #6c3483);
+    border: none;
+    border-radius: 60px;
+    padding: 18px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 1.5px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.watch-ad-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.watch-ad-btn:hover::before {
+    left: 100%;
+}
+
+.watch-ad-btn:active {
+    transform: scale(0.98);
+}
+
+.watch-ad-btn:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+/* تحسين للشاشات الصغيرة */
+@media (max-width: 450px) {
+    .big-counter {
+        font-size: 2.5rem;
+    }
+    .progress-bar-vertical {
+        width: 38px;
+    }
+    .mining-title h2 {
+        font-size: 1.1rem;
+    }
+    .boost-master-btn {
+        padding: 8px 14px;
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 380px) {
+    .big-counter {
+        font-size: 2rem;
+    }
+    .timer-value {
+        font-size: 1.2rem;
+    }
+}
