@@ -104,7 +104,7 @@
             </div>
         </div>
 
-        <!-- ==================== EARN PAGE - PROFESSIONAL MINING SYSTEM ==================== -->
+        <!-- ==================== EARN PAGE - DUAL MINING CORE ==================== -->
         <div id="earnPage" class="page hidden">
             <div class="mining-rig">
 
@@ -119,7 +119,7 @@
                     </button>
                 </div>
 
-                <!-- Stats Grid -->
+                <!-- Stats Grid (New DUAL CORE Stats) -->
                 <div class="mining-stats-grid">
                     <div class="mining-stat-card">
                         <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
@@ -144,72 +144,118 @@
                     </div>
                 </div>
 
-                <!-- ===== PROFESSIONAL PROGRESS BAR ===== -->
-                <div class="progress-legendary">
-                    <div class="progress-header">
-                        <span class="progress-title"><i class="fas fa-eye"></i> ADS WATCHED</span>
-                        <span class="progress-counter" id="adsWatchedCounter">0 / 40</span>
-                    </div>
-                    <div class="progress-bar-legendary">
-                        <div class="progress-fill-legendary" id="progressFillLegendary">
-                            <div class="progress-glow-effect"></div>
-                            <div class="progress-shimmer-effect"></div>
+                <!-- ===== DUAL MINING CORE - LEGENDARY (NEW) ===== -->
+                <div class="mining-core neural-card">
+                    <div class="core-header">
+                        <i class="fas fa-microchip fa-2x"></i>
+                        <div>
+                            <h2>NEURAL MINING CORE</h2>
+                            <span class="rig-status" id="rigStatus">LEVEL 1 • FREE</span>
                         </div>
                     </div>
-                    <div class="progress-stats">
-                        <span class="progress-percent" id="progressPercent">0%</span>
-                        <span class="progress-remaining" id="progressRemaining">40 ads left</span>
+
+                    <!-- Time Belt (Cooldown Cycle) -->
+                    <div class="progress-belt time-belt">
+                        <div class="belt-label"><i class="fas fa-hourglass-half"></i> COOLDOWN CYCLE</div>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill time-fill" id="timeProgressFill"></div>
+                                <div class="progress-shimmer"></div>
+                            </div>
+                        </div>
+                        <div class="belt-info">
+                            <span id="timeRemaining">2h 30m</span>
+                            <span>2.5 HOURS</span>
+                        </div>
                     </div>
+
+                    <!-- Reward Belt (Ad Energy Bonus) -->
+                    <div class="progress-belt reward-belt">
+                        <div class="belt-label"><i class="fas fa-bolt"></i> AD ENERGY BONUS</div>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill reward-fill" id="rewardProgressFill"></div>
+                                <div class="progress-shimmer"></div>
+                            </div>
+                        </div>
+                        <div class="belt-info">
+                            <span id="adBonusDisplay">0 AXC</span>
+                            <span>FROM ADS</span>
+                        </div>
+                    </div>
+
+                    <!-- Claim Button -->
+                    <button class="harvest-btn-legendary" id="claimMiningBtn">
+                        <i class="fas fa-leaf"></i>
+                        <span>CLAIM REWARD</span>
+                    </button>
                 </div>
 
-                <!-- Timer Section -->
-                <div class="timer-legendary" id="timerSection">
-                    <div class="timer-icon">
-                        <i class="fas fa-hourglass-half"></i>
-                    </div>
-                    <div class="timer-details">
-                        <span class="timer-label">AUTO-REFILL IN</span>
-                        <span class="timer-value" id="timerValueLegendary">2h 30m 0s</span>
-                    </div>
-                </div>
-
-                <!-- Ready Section (يظهر عند اكتمال التقدم) -->
-                <div class="ready-legendary" id="readySection" style="display: none;">
-                    <div class="ready-content">
-                        <i class="fas fa-gem"></i>
-                        <span>READY TO HARVEST!</span>
-                    </div>
-                </div>
-
-                <!-- Harvested Energy Display -->
-                <div class="harvested-legendary">
-                    <div class="harvested-label">
-                        <i class="fas fa-charging-station"></i> HARVESTED ENERGY
-                    </div>
-                    <div class="harvested-amount" id="harvestedAmount">0</div>
-                    <div class="harvested-target">/ <span id="harvestTargetValue">400</span> AXC</div>
-                </div>
-
-                <!-- Reward Preview -->
-                <div class="reward-legendary">
-                    <div class="reward-label">
-                        <i class="fas fa-gift"></i> HARVEST REWARD
-                    </div>
-                    <div class="reward-amount" id="rewardAmountValue">400 AXC</div>
-                    <div class="reward-note">+ Boost multiplier applied</div>
-                </div>
-
-                <!-- Action Buttons -->
+                <!-- Watch Ad Button -->
                 <div class="mining-actions-legendary">
                     <button class="watch-ad-btn-legendary" id="watchAdBtn">
                         <i class="fas fa-play-circle"></i>
                         <span>WATCH AD</span>
                         <small>+10 AXC</small>
                     </button>
-                    <button class="harvest-btn-legendary" id="claimMiningBtn" style="display: none;">
-                        <i class="fas fa-leaf"></i>
-                        <span>HARVEST ALL</span>
-                    </button>
+                </div>
+
+                <!-- ===== OLD ELEMENTS (KEPT FOR COMPATIBILITY - HIDDEN) ===== -->
+                <div style="display: none;">
+                    <!-- Professional Progress Bar (Old) -->
+                    <div class="progress-legendary">
+                        <div class="progress-header">
+                            <span class="progress-title"><i class="fas fa-eye"></i> ADS WATCHED</span>
+                            <span class="progress-counter" id="adsWatchedCounter">0 / 40</span>
+                        </div>
+                        <div class="progress-bar-legendary">
+                            <div class="progress-fill-legendary" id="progressFillLegendary">
+                                <div class="progress-glow-effect"></div>
+                                <div class="progress-shimmer-effect"></div>
+                            </div>
+                        </div>
+                        <div class="progress-stats">
+                            <span class="progress-percent" id="progressPercent">0%</span>
+                            <span class="progress-remaining" id="progressRemaining">40 ads left</span>
+                        </div>
+                    </div>
+
+                    <!-- Timer Section (Old) -->
+                    <div class="timer-legendary" id="timerSection">
+                        <div class="timer-icon">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                        <div class="timer-details">
+                            <span class="timer-label">AUTO-REFILL IN</span>
+                            <span class="timer-value" id="timerValueLegendary">2h 30m 0s</span>
+                        </div>
+                    </div>
+
+                    <!-- Ready Section (Old) -->
+                    <div class="ready-legendary" id="readySection" style="display: none;">
+                        <div class="ready-content">
+                            <i class="fas fa-gem"></i>
+                            <span>READY TO HARVEST!</span>
+                        </div>
+                    </div>
+
+                    <!-- Harvested Energy Display (Old) -->
+                    <div class="harvested-legendary">
+                        <div class="harvested-label">
+                            <i class="fas fa-charging-station"></i> HARVESTED ENERGY
+                        </div>
+                        <div class="harvested-amount" id="harvestedAmount">0</div>
+                        <div class="harvested-target">/ <span id="harvestTargetValue">400</span> AXC</div>
+                    </div>
+
+                    <!-- Reward Preview (Old) -->
+                    <div class="reward-legendary">
+                        <div class="reward-label">
+                            <i class="fas fa-gift"></i> HARVEST REWARD
+                        </div>
+                        <div class="reward-amount" id="rewardAmountValue">400 AXC</div>
+                        <div class="reward-note">+ Boost multiplier applied</div>
+                    </div>
                 </div>
 
                 <!-- Boost Options -->
