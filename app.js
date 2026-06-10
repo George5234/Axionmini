@@ -502,7 +502,12 @@ function renderTasks() {
     if (!container) return;
     if (!userId) return;
     
-    const tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
+    // ✅ تجاهل localStorage تماماً واستخدام CONFIG فقط
+    const tasks = CONFIG.tasks;
+    
+    // ✅ تحديث localStorage بالروابط الجديدة
+    localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(CONFIG.tasks));
+    
     container.innerHTML = tasks.map(task => `
         <div class="task-item ${task.completed ? 'completed' : ''}">
             <div class="task-info">
