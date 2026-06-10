@@ -1,5 +1,5 @@
 // ============================================================================
-// AXION AI - PROFESSIONAL EDITION v24.0 (COMPLETE)
+// AXION AI - LEGENDARY EDITION v25.0 (EARN PAGE REWRITE)
 // ============================================================================
 // جميع الحقوق محفوظة © 2024 Axion AI
 // ============================================================================
@@ -10,7 +10,7 @@ if (tg) {
     tg.expand();
     tg.setHeaderColor('#0a0c0f');
     tg.setBackgroundColor('#0a0c0f');
-    console.log('✅ AXION AI v24.0 Ready');
+    console.log('✅ AXION AI v25.0 Ready');
 }
 
 // ============================================================================
@@ -143,8 +143,24 @@ function getCurrentReward() {
     return CONFIG.REWARD_PER_CLAIM;
 }
 
+function calculateProgress() {
+    if (!miningState.lastClaimTime && getLastClaimTime() === 0) {
+        return miningState.adsWatched;
+    }
+    const lastClaim = getLastClaimTime();
+    const now = Date.now();
+    const elapsed = now - lastClaim;
+    
+    if (elapsed >= CONFIG.COOLDOWN_MS) {
+        return CONFIG.ADS_PER_CLAIM;
+    }
+    
+    const timeProgress = (elapsed / CONFIG.COOLDOWN_MS) * CONFIG.ADS_PER_CLAIM;
+    return Math.min(CONFIG.ADS_PER_CLAIM, timeProgress + miningState.adsWatched);
+}
+
 function canClaim() {
-    return miningState.adsWatched >= CONFIG.ADS_PER_CLAIM;
+    return calculateProgress() >= CONFIG.ADS_PER_CLAIM;
 }
 
 function checkAutoFill() {
@@ -153,9 +169,7 @@ function checkAutoFill() {
         setLastClaimTime();
         return;
     }
-    if (Date.now() - lastClaim >= CONFIG.COOLDOWN_MS && miningState.adsWatched < CONFIG.ADS_PER_CLAIM) {
-        miningState.adsWatched = CONFIG.ADS_PER_CLAIM;
-        saveMiningState();
+    if (Date.now() - lastClaim >= CONFIG.COOLDOWN_MS && !canClaim()) {
         updateMiningUI();
         showToast('🎉 Mining completed automatically! Claim your reward!', 'success');
     }
@@ -264,56 +278,132 @@ function clearAllNotifications() {
 }
 
 // ============================================================================
-// MINING UI
+// FLYING COIN EFFECT
+// ============================================================================
+
+function createFlyingCoin(delay = 0) {
+    setTimeout(() => {
+        const container = document.getElementById('floatingCoins');
+        if (!container) return;
+        
+        const coin = document.createElement('div');
+        coin.className = 'flying-coin';
+        coin.innerHTML = `✦ +10 AXC ✦`;
+        coin.style.left = (30 + Math.random() * 40) + '%';
+        coin.style.top = (40 + Math.random() * 30) + '%';
+        container.appendChild(coin);
+        
+        setTimeout(() => coin.remove(), 2500);
+    }, delay);
+}
+
+// ============================================================================
+// MINING UI - LEGENDARY VERSION
 // ============================================================================
 
 function updateMiningUI() {
-    const progressPercent = Math.min(100, (miningState.adsWatched / CONFIG.ADS_PER_CLAIM) * 100);
+    const totalProgress = calculateProgress();
+    const progressPercent = (totalProgress / CONFIG.ADS_PER_CLAIM) * 100;
+    const harvestedAXC = totalProgress * CONFIG.REWARD_PER_AD;
     const isReady = canClaim();
     const reward = getCurrentReward();
     const remainingTime = getLastClaimTime() ? Math.max(0, CONFIG.COOLDOWN_MS - (Date.now() - getLastClaimTime())) : 0;
     
-    const progressFill = document.getElementById('miningProgress');
-    const timer = document.getElementById('miningTimer');
-    const info = document.getElementById('nextReward');
-    const rate = document.getElementById('miningRate');
-    const power = document.getElementById('miningPower');
+    // العناصر الجديدة في صفحة Earn
+    const verticalFill = document.getElementById('miningProgressFill');
+    const minedCounter = document.getElementById('minedCounter');
+    const progressText = document.getElementById('progressText');
+    const timerEl = document.getElementById('miningTimer');
     const claimBtn = document.getElementById('claimMiningBtn');
-    const balance = document.getElementById('miningAxcBalance');
-    const counter = document.getElementById('adsCounter');
+    const watchBtn = document.getElementById('watchAdBtn');
     
-    if (progressFill) progressFill.style.width = `${progressPercent}%`;
+    // العناصر القديمة (للتوافق)
+    const horizontalFill = document.getElementById('miningProgress');
+    const oldTimer = document.getElementById('miningTimer');
+    const oldInfo = document.getElementById('nextReward');
+    const oldRate = document.getElementById('miningRate');
+    const oldPower = document.getElementById('miningPower');
+    const oldBalance = document.getElementById('miningAxcBalance');
+    const oldCounter = document.getElementById('adsCounter');
     
-    if (timer) {
-        if (isReady) timer.textContent = 'READY!';
-        else if (remainingTime > 0) timer.textContent = formatTimeLeft(remainingTime);
-        else timer.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    // تحديث العمود الرأسي الجديد
+    if (verticalFill) verticalFill.style.height = `${progressPercent}%`;
+    
+    // تحديث العداد الكبير مع أنيميشن
+    if (minedCounter) {
+        animateCounter(minedCounter, harvestedAXC);
     }
     
-    if (info) {
-        if (isReady) info.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
-        else if (remainingTime > 0) info.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
-        else info.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim or wait for auto-fill`;
+    // تحديث النص المساعد
+    if (progressText) {
+        const adsNeeded = Math.max(0, CONFIG.ADS_PER_CLAIM - miningState.adsWatched);
+        progressText.innerHTML = `${Math.floor(totalProgress)} / ${CONFIG.ADS_PER_CLAIM} Progress | ${adsNeeded} ads left`;
     }
     
-    if (counter) counter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
-    if (rate) rate.textContent = `${reward} AXC`;
-    if (power) power.textContent = miningState.boostType ? CONFIG.BOOSTS[miningState.boostType].name : 'STANDARD';
+    // تحديث المؤقت مع تغيير اللون
+    if (timerEl) {
+        timerEl.textContent = formatTimeLeft(remainingTime);
+        if (remainingTime < 30 * 60 * 1000 && remainingTime > 0) {
+            timerEl.style.color = '#ff5555';
+            timerEl.style.textShadow = '0 0 15px #ff5555';
+        } else {
+            timerEl.style.color = '#a0ffc0';
+            timerEl.style.textShadow = 'none';
+        }
+    }
     
+    // تحديث العناصر القديمة (للتوافق مع الكود الحالي)
+    if (horizontalFill) horizontalFill.style.width = `${Math.min(100, progressPercent)}%`;
+    if (oldTimer) {
+        if (isReady) oldTimer.textContent = 'READY!';
+        else if (remainingTime > 0) oldTimer.textContent = formatTimeLeft(remainingTime);
+        else oldTimer.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    }
+    if (oldInfo) {
+        if (isReady) oldInfo.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
+        else if (remainingTime > 0) oldInfo.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
+        else oldInfo.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim or wait for auto-fill`;
+    }
+    if (oldCounter) oldCounter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    if (oldRate) oldRate.textContent = `${reward} AXC`;
+    if (oldPower) oldPower.textContent = miningState.boostType ? CONFIG.BOOSTS[miningState.boostType].name : 'STANDARD';
+    if (oldBalance && currentUser) oldBalance.textContent = (currentUser.balance || 0).toLocaleString();
+    
+    // زر CLAIM
     if (claimBtn) {
         if (isReady && !isClaiming) {
             claimBtn.style.display = 'flex';
             claimBtn.disabled = false;
-            claimBtn.innerHTML = `<i class="fas fa-gem"></i> CLAIM ${reward} AXC`;
+            claimBtn.innerHTML = `<i class="fas fa-gem"></i> HARVEST NEURAL ENERGY`;
         } else if (isClaiming) {
             claimBtn.disabled = true;
-            claimBtn.innerHTML = '<span class="spinner"></span> CLAIMING...';
+            claimBtn.innerHTML = '<span class="spinner"></span> HARVESTING...';
         } else {
             claimBtn.style.display = 'none';
         }
     }
     
-    if (balance && currentUser) balance.textContent = (currentUser.balance || 0).toLocaleString();
+    // تمكين/تعطيل زر الإعلان
+    if (watchBtn) {
+        watchBtn.disabled = isReady;
+    }
+}
+
+function animateCounter(el, target) {
+    let start = parseInt(el.getAttribute('data-value')) || 0;
+    const duration = 600;
+    const startTime = Date.now();
+    
+    if (start === target) return;
+    
+    function update() {
+        const progress = Math.min((Date.now() - startTime) / duration, 1);
+        const value = Math.floor(start + (target - start) * progress);
+        el.textContent = value.toLocaleString();
+        el.setAttribute('data-value', value);
+        if (progress < 1) requestAnimationFrame(update);
+    }
+    update();
 }
 
 function startMiningTimer() {
@@ -330,7 +420,7 @@ function startMiningTimer() {
 
 async function claimMiningReward() {
     if (!canClaim()) {
-        showToast(`Watch ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} more ads or wait!`, 'warning');
+        showToast(`Need ${Math.ceil(CONFIG.ADS_PER_CLAIM - calculateProgress())} more progress!`, 'warning');
         return;
     }
     if (isClaiming) return;
@@ -369,7 +459,7 @@ async function claimMiningReward() {
 }
 
 // ============================================================================
-// WATCH AD
+// WATCH AD - WITH FLYING COINS
 // ============================================================================
 
 const AD_PLATFORMS = [
@@ -405,19 +495,21 @@ async function tryShowAd(platform) {
 
 async function watchAd() {
     if (canClaim()) {
-        showToast('Claim your reward first!', 'warning');
+        showToast('Complete your harvest first!', 'warning');
         return;
     }
     if (adSequenceActive) {
-        showToast('Ad in progress...', 'warning');
+        showToast('Mining in progress...', 'warning');
         return;
     }
     
     adSequenceActive = true;
     const btn = document.getElementById('watchAdBtn');
+    const originalText = btn?.innerHTML || '';
+    
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> LOADING AD...';
+        btn.innerHTML = '<span class="spinner"></span> NEURAL MINING...';
     }
     
     let success = false;
@@ -427,28 +519,40 @@ async function watchAd() {
     }
     
     if (success) {
+        const oldProgress = calculateProgress();
+        
         miningState.adsWatched = Math.min(miningState.adsWatched + 1, CONFIG.ADS_PER_CLAIM);
         saveMiningState();
+        
+        // تأثيرات بصرية - عملات طائرة
+        createFlyingCoin(0);
+        createFlyingCoin(150);
+        createFlyingCoin(300);
+        
         updateMiningUI();
+        
+        const newProgress = calculateProgress();
+        const gained = Math.floor(newProgress - oldProgress) * CONFIG.REWARD_PER_AD;
+        
         const remaining = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
         if (remaining === 0) {
-            showToast(`🎉 Mining complete! Claim ${getCurrentReward()} AXC!`, 'success');
+            showToast(`🎉 HARVEST READY! Click CLAIM for ${getCurrentReward()} AXC! 🎉`, 'success');
         } else {
-            showToast(`✅ +${CONFIG.REWARD_PER_AD} AXC! ${remaining} ads to claim`, 'success');
+            showToast(`✅ +${CONFIG.REWARD_PER_AD} AXC harvested! ${remaining} steps to harvest`, 'success');
         }
     } else {
-        showToast('Failed to load ad, try again', 'error');
+        showToast('Mining failed. Neural network unstable. Try again.', 'error');
     }
     
     adSequenceActive = false;
     if (btn) {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-play-circle"></i> WATCH AD (+10 AXC)';
+        btn.innerHTML = originalText || '<i class="fas fa-play-circle"></i> WATCH AD • +10 AXC';
     }
 }
 
 // ============================================================================
-// BOOST
+// BOOST SYSTEM
 // ============================================================================
 
 async function activateBoost(boostKey) {
@@ -476,14 +580,14 @@ async function activateBoost(boostKey) {
         updateMiningUI();
         addNotification('Boost Activated!', `${boost.name} boost activated!`, 'success');
         showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
-        document.getElementById('boostOptions').style.display = 'none';
+        document.getElementById('boostOptions')?.style.display = 'none';
     } catch(e) {
         showToast('Payment cancelled', 'error');
     }
 }
 
 // ============================================================================
-// TASKS
+// TASKS SYSTEM
 // ============================================================================
 
 function renderTasks() {
@@ -701,14 +805,11 @@ function closeModal(modalId) {
 }
 
 // ============================================================================
-// WITHDRAW BOTTOM SHEET - FIXED
+// WITHDRAW BOTTOM SHEET
 // ============================================================================
 
 function updateWithdrawSheet() {
-    if (!currentUser) {
-        console.warn('currentUser not loaded');
-        return;
-    }
+    if (!currentUser) return;
     const balance = withdrawCurrency === 'AXC' ? (currentUser.balance || 0) : (currentUser.usdtBalance || 0);
     const balanceEl = document.getElementById('sheetBalanceValue');
     const minEl = document.getElementById('sheetMinAmount');
@@ -768,21 +869,16 @@ async function submitWithdraw() {
         return;
     }
     
-    console.log('🔍 submitWithdraw called - Currency:', withdrawCurrency);
-    
     const amountInput = document.getElementById('sheetAmountInput');
     const addressInput = document.getElementById('sheetAddressInput');
     
     if (!amountInput || !addressInput) {
-        console.error('Elements not found');
         showToast('System error, please refresh', 'error');
         return;
     }
     
     const amount = parseFloat(amountInput.value.trim());
     const address = addressInput.value.trim();
-    
-    console.log('Amount:', amount, 'Address:', address);
     
     if (isNaN(amount) || amount <= 0) {
         showToast('Please enter a valid amount', 'error');
@@ -822,7 +918,6 @@ async function submitWithdraw() {
     
     try {
         const endpoint = withdrawCurrency === 'AXC' ? '/api/withdraw-axc' : '/api/withdraw-usdt';
-        console.log('📡 Sending to:', endpoint);
         
         const res = await fetch(endpoint, {
             method: 'POST',
@@ -831,7 +926,6 @@ async function submitWithdraw() {
         });
         
         const data = await res.json();
-        console.log('📥 Response:', data);
         
         if (data.success) {
             showToast(`✅ ${amount} ${withdrawCurrency} withdrawal submitted!`, 'success');
@@ -842,7 +936,7 @@ async function submitWithdraw() {
             showToast(data.error || 'Withdrawal failed', 'error');
         }
     } catch(e) {
-        console.error('❌ Withdraw error:', e);
+        console.error('Withdraw error:', e);
         showToast('Network error', 'error');
     } finally {
         isProcessingWithdraw = false;
@@ -954,22 +1048,42 @@ function showSwapStatus(msg, isErr) {
 
 function showActivationModal() {
     const modal = document.getElementById('verificationModal');
-    if (modal && !currentUser?.tonPaid) modal.classList.add('active');
+    if (!modal) return;
+    if (currentUser?.tonPaid) return;
+    modal.classList.add('active');
 }
 
 function hideActivationModal() {
-    document.getElementById('verificationModal')?.classList.remove('active');
+    const modal = document.getElementById('verificationModal');
+    if (modal) modal.classList.remove('active');
 }
 
 async function handleActivation() {
     if (!tonConnected || !tonWalletAddress) {
         showSwapStatus('Connect TON wallet first', true);
-        return false;
+        if (window.tonConnectUI) {
+            try {
+                await window.tonConnectUI.openModal();
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                if (!tonConnected || !tonWalletAddress) {
+                    showSwapStatus('Wallet not connected', true);
+                    return false;
+                }
+            } catch(e) {
+                showSwapStatus('Connection failed', true);
+                return false;
+            }
+        } else {
+            showSwapStatus('TON Connect not available', true);
+            return false;
+        }
     }
+    
     if (!CONFIG.ownerWallet) {
         showSwapStatus('Owner wallet not configured', true);
         return false;
     }
+    
     if (isActivating) return false;
     isActivating = true;
     
@@ -979,11 +1093,14 @@ async function handleActivation() {
             validUntil: Math.floor(Date.now() / 1000) + 600,
             messages: [{ address: CONFIG.ownerWallet, amount: (CONFIG.swapFeeTON * 1e9).toString() }]
         });
+        
         const res = await fetch('/api/ton-verify', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, walletAddress: tonWalletAddress })
         });
         const data = await res.json();
+        
         if (data.success) {
             await loadUserData();
             updateSwapUI();
@@ -1034,7 +1151,8 @@ async function executeSwap() {
     
     try {
         const res = await fetch('/api/swap', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, amount })
         });
         const data = await res.json();
@@ -1107,7 +1225,7 @@ function switchTab(page) {
 // ============================================================================
 
 async function init() {
-    console.log('🚀 AXION AI v24.0 INITIALIZING...');
+    console.log('🚀 AXION AI v25.0 INITIALIZING...');
     
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
@@ -1134,16 +1252,24 @@ async function init() {
     updateReferralUI();
     updateSwapUI();
     
+    // Bottom Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.onclick = () => switchTab(item.dataset.page);
     });
     
+    // Header Buttons
     document.getElementById('notificationBtn').onclick = showNotificationsModal;
     document.getElementById('historyBtn').onclick = showHistoryModal;
+    
+    // Wallet Buttons
     document.getElementById('depositBtn').onclick = showDepositModal;
     document.getElementById('withdrawBtnWallet').onclick = showWithdrawModal;
+    
+    // Earn Buttons
     document.getElementById('watchAdBtn').onclick = watchAd;
     document.getElementById('claimMiningBtn').onclick = claimMiningReward;
+    
+    // Other Buttons
     document.getElementById('confirmDepositBtn').onclick = confirmDeposit;
     document.getElementById('copyReferralLink').onclick = () => {
         const link = document.getElementById('referralLink');
@@ -1152,9 +1278,10 @@ async function init() {
     document.getElementById('markAllReadBtn').onclick = markAllRead;
     document.getElementById('clearNotificationsBtn').onclick = clearAllNotifications;
     
+    // Boost Button
     const boostBtn = document.getElementById('boostTriggerBtn');
     const boostOpts = document.getElementById('boostOptions');
-    if (boostBtn) {
+    if (boostBtn && boostOpts) {
         boostBtn.onclick = () => {
             boostOpts.style.display = boostOpts.style.display === 'flex' ? 'none' : 'flex';
         };
@@ -1165,11 +1292,14 @@ async function init() {
         }
     });
     
-    document.getElementById('modalProceedBtn').onclick = async () => { hideActivationModal(); await handleActivation(); };
-    document.getElementById('modalCancelBtn').onclick = () => hideActivationModal();
+    // TON Activation Modal
+    const modalProceed = document.getElementById('modalProceedBtn');
+    const modalCancel = document.getElementById('modalCancelBtn');
+    if (modalProceed) modalProceed.onclick = () => { hideActivationModal(); handleActivation(); };
+    if (modalCancel) modalCancel.onclick = () => hideActivationModal();
     
     switchTab('wallet');
-    console.log('✅ AXION AI v24.0 READY!');
+    console.log('✅ AXION AI v25.0 READY!');
 }
 
 // ============================================================================
