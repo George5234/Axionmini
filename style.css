@@ -1,6 +1,7 @@
 /* ============================================================================
-   AXION AI - LEGENDARY STYLES v26.0 (COMPLETE)
+   AXION AI - PROFESSIONAL EDITION v26.0
    Neural Theme | Glassmorphism | Premium Effects | Smooth Animations
+   Complete Mining System with Advanced Progress Bar
    ============================================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -2099,9 +2100,10 @@ body {
 }
 
 /* ============================================================================
-   EARN PAGE - PROFESSIONAL MINING SYSTEM (ENHANCED)
+   EARN PAGE - PROFESSIONAL MINING SYSTEM
    ============================================================================ */
 
+/* Mining Container */
 .mining-rig {
     padding: 16px;
 }
@@ -2567,7 +2569,60 @@ body {
     transform: scale(0.98);
 }
 
-/* Boost Options Styling (Already defined above) */
+/* Boost Options Styling */
+.boost-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--ai-border);
+}
+
+.boost-option {
+    background: var(--ai-green-soft);
+    border: 1px solid var(--ai-border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.boost-option:hover {
+    border-color: var(--ai-gold);
+    transform: translateX(6px);
+    background: var(--ai-gold-dim);
+}
+
+.boost-icon {
+    font-size: 20px;
+    margin-right: 10px;
+}
+
+.boost-details {
+    flex: 1;
+}
+
+.boost-name {
+    font-weight: 700;
+    font-size: 14px;
+    display: block;
+    color: var(--ai-text);
+}
+
+.boost-reward {
+    font-size: 11px;
+    color: var(--ai-text-muted);
+}
+
+.boost-price {
+    font-weight: 700;
+    color: var(--ai-gold);
+    font-size: 14px;
+}
 
 /* Floating Coins Animation */
 .floating-coins {
@@ -2658,180 +2713,4 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--ai-green);
-}
-
-/* ============================================================================
-   QUICK FIX FOR EARN PAGE - ADD THIS TO THE END OF YOUR CSS FILE
-   ============================================================================ */
-
-/* Ensure earn page displays correctly */
-#earnPage .mining-rig {
-    padding: 16px;
-}
-
-/* Make sure progress bar fill works */
-.mining-progress-fill {
-    transition: width 0.5s ease-out;
-}
-
-/* Make sure timer updates properly */
-.timer-value {
-    font-family: 'Orbitron', monospace;
-}
-
-/* Make sure claim button appears when ready */
-.claim-mining-btn {
-    transition: all 0.3s ease;
-}
-
-/* Fix any display issues */
-.page.hidden {
-    display: none !important;
-}
-
-.page.active {
-    display: block !important;
-}
-
-/* ============================================================================
-   FIX FOR THE NEW EARN PAGE HTML
-   ============================================================================ */
-
-/* Stats Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
-}
-
-.stat-card {
-    background: var(--ai-card);
-    border: 1px solid var(--ai-border);
-    border-radius: var(--radius-lg);
-    padding: 12px 10px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: var(--transition);
-}
-.stat-card:hover {
-    border-color: var(--ai-green);
-    transform: translateY(-2px);
-}
-
-/* Mining Cards */
-.mining-card {
-    background: var(--ai-card);
-    border: 1px solid var(--ai-border);
-    border-radius: var(--radius-2xl);
-    padding: 20px;
-    margin-bottom: 20px;
-}
-.card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--ai-border);
-}
-.badge {
-    font-size: 9px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    background: var(--ai-green-dim);
-    color: var(--ai-green);
-}
-.badge.active {
-    background: rgba(241, 196, 15, 0.2);
-    color: var(--ai-gold);
-}
-
-/* Progress Bars */
-.progress-fill {
-    width: 0%;
-    height: 100%;
-    border-radius: 60px;
-    transition: width 0.5s ease;
-}
-.progress-fill.auto-fill {
-    background: linear-gradient(90deg, #39ff14, #00ff88);
-    box-shadow: 0 0 10px #39ff14;
-}
-.progress-fill.ads-fill {
-    background: linear-gradient(90deg, #f1c40f, #f39c12);
-    box-shadow: 0 0 8px #f1c40f;
-}
-
-/* Buttons */
-.claim-btn, .watch-btn {
-    width: 100%;
-    border: none;
-    border-radius: 60px;
-    padding: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-.claim-btn {
-    background: linear-gradient(135deg, #f1c40f, #f39c12);
-    color: #000;
-}
-.watch-btn {
-    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-    color: white;
-}
-
-/* Ads Stats */
-.ads-stats-row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-}
-.ads-stat-item {
-    flex: 1;
-    text-align: center;
-    background: rgba(0,0,0,0.3);
-    border-radius: 16px;
-    padding: 12px;
-}
-.ads-stat-value {
-    font-size: 22px;
-    font-weight: bold;
-    font-family: monospace;
-    color: #f1c40f;
-}
-
-/* Header */
-.earn-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-.boost-btn {
-    background: linear-gradient(135deg, #7c3aed, #a855f7);
-    border: none;
-    border-radius: 40px;
-    padding: 8px 18px;
-    color: white;
-    cursor: pointer;
-}
-
-/* Timer */
-.timer-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 12px;
-    color: #7a9e7a;
-}
-.timer-text {
-    color: #00ff88;
-    font-family: monospace;
 }
