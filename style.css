@@ -2659,3 +2659,36 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--ai-green);
 }
+
+/* ============================================================================
+   QUICK FIX FOR EARN PAGE - ADD THIS TO THE END OF YOUR CSS FILE
+   ============================================================================ */
+
+/* Ensure earn page displays correctly */
+#earnPage .mining-rig {
+    padding: 16px;
+}
+
+/* Make sure progress bar fill works */
+.mining-progress-fill {
+    transition: width 0.5s ease-out;
+}
+
+/* Make sure timer updates properly */
+.timer-value {
+    font-family: 'Orbitron', monospace;
+}
+
+/* Make sure claim button appears when ready */
+.claim-mining-btn {
+    transition: all 0.3s ease;
+}
+
+/* Fix any display issues */
+.page.hidden {
+    display: none !important;
+}
+
+.page.active {
+    display: block !important;
+}
