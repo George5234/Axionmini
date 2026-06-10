@@ -104,38 +104,38 @@
             </div>
         </div>
 
-        <!-- ==================== EARN PAGE - LEGENDARY MINING SYSTEM ==================== -->
+        <!-- ==================== EARN PAGE - PROFESSIONAL MINING SYSTEM ==================== -->
         <div id="earnPage" class="page hidden">
-            <div class="earn-container">
-                
-                <!-- Header -->
-                <div class="earn-header">
-                    <div class="earn-title">
+            <div class="mining-rig">
+
+                <!-- Mining Header -->
+                <div class="mining-header">
+                    <div class="mining-title">
                         <i class="fas fa-microchip"></i>
                         <h2>NEURAL MINING RIG</h2>
                     </div>
-                    <button class="boost-btn" id="boostTriggerBtn">
+                    <button class="boost-master-btn" id="boostTriggerBtn">
                         <i class="fas fa-bolt"></i> ACTIVATE BOOST
                     </button>
                 </div>
 
-                <!-- Stats Cards -->
-                <div class="stats-grid">
-                    <div class="stat-card">
+                <!-- Stats Grid -->
+                <div class="mining-stats-grid">
+                    <div class="mining-stat-card">
                         <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
                         <div class="stat-info">
                             <span class="stat-label">MINING RATE</span>
                             <span class="stat-value" id="miningRateValue">10 AXC</span>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="mining-stat-card">
                         <div class="stat-icon"><i class="fas fa-bolt"></i></div>
                         <div class="stat-info">
                             <span class="stat-label">POWER</span>
                             <span class="stat-value" id="miningPowerValue">STANDARD</span>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="mining-stat-card">
                         <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
                         <div class="stat-info">
                             <span class="stat-label">TOTAL MINED</span>
@@ -144,96 +144,79 @@
                     </div>
                 </div>
 
-                <!-- ===== AUTO MINING SYSTEM ===== -->
-                <div class="mining-card auto-card">
-                    <div class="card-header">
-                        <i class="fas fa-microchip"></i>
-                        <h3>AUTO NEURAL MINING</h3>
-                        <span class="badge passive">PASSIVE</span>
+                <!-- ===== PROFESSIONAL PROGRESS BAR ===== -->
+                <div class="progress-legendary">
+                    <div class="progress-header">
+                        <span class="progress-title"><i class="fas fa-eye"></i> ADS WATCHED</span>
+                        <span class="progress-counter" id="adsWatchedCounter">0 / 40</span>
                     </div>
-                    
-                    <div class="progress-section">
-                        <div class="progress-label-group">
-                            <span class="progress-label"><i class="fas fa-charging-station"></i> MINING PROGRESS</span>
-                            <span class="progress-percent" id="autoProgressPercent">0%</span>
-                        </div>
-                        <div class="progress-bar-wrapper">
-                            <div class="progress-fill auto-fill" id="autoProgressFill"></div>
-                        </div>
-                        <div class="timer-row">
-                            <i class="fas fa-hourglass-half"></i>
-                            <span class="timer-text" id="autoTimerText">2h 30m 0s</span>
-                            <span class="timer-label">until full</span>
+                    <div class="progress-bar-legendary">
+                        <div class="progress-fill-legendary" id="progressFillLegendary">
+                            <div class="progress-glow-effect"></div>
+                            <div class="progress-shimmer-effect"></div>
                         </div>
                     </div>
-                    
-                    <div class="reward-section">
-                        <div class="reward-info">
-                            <span class="reward-label">READY TO HARVEST</span>
-                            <span class="reward-amount gold" id="autoRewardAmount">400 AXC</span>
-                        </div>
-                        <button class="claim-btn auto-claim" id="autoClaimBtn" style="display: none;">
-                            <i class="fas fa-leaf"></i> CLAIM REWARD
-                        </button>
-                        <div class="claim-note" id="autoClaimNote">⏳ Keep mining... fill the bar to 100%</div>
+                    <div class="progress-stats">
+                        <span class="progress-percent" id="progressPercent">0%</span>
+                        <span class="progress-remaining" id="progressRemaining">40 ads left</span>
                     </div>
                 </div>
 
-                <!-- ===== ADS MINING SYSTEM ===== -->
-                <div class="mining-card ads-card">
-                    <div class="card-header">
+                <!-- Timer Section -->
+                <div class="timer-legendary" id="timerSection">
+                    <div class="timer-icon">
+                        <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <div class="timer-details">
+                        <span class="timer-label">AUTO-REFILL IN</span>
+                        <span class="timer-value" id="timerValueLegendary">2h 30m 0s</span>
+                    </div>
+                </div>
+
+                <!-- Ready Section (يظهر عند اكتمال التقدم) -->
+                <div class="ready-legendary" id="readySection" style="display: none;">
+                    <div class="ready-content">
+                        <i class="fas fa-gem"></i>
+                        <span>READY TO HARVEST!</span>
+                    </div>
+                </div>
+
+                <!-- Harvested Energy Display -->
+                <div class="harvested-legendary">
+                    <div class="harvested-label">
+                        <i class="fas fa-charging-station"></i> HARVESTED ENERGY
+                    </div>
+                    <div class="harvested-amount" id="harvestedAmount">0</div>
+                    <div class="harvested-target">/ <span id="harvestTargetValue">400</span> AXC</div>
+                </div>
+
+                <!-- Reward Preview -->
+                <div class="reward-legendary">
+                    <div class="reward-label">
+                        <i class="fas fa-gift"></i> HARVEST REWARD
+                    </div>
+                    <div class="reward-amount" id="rewardAmountValue">400 AXC</div>
+                    <div class="reward-note">+ Boost multiplier applied</div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mining-actions-legendary">
+                    <button class="watch-ad-btn-legendary" id="watchAdBtn">
                         <i class="fas fa-play-circle"></i>
-                        <h3>ADS MINING</h3>
-                        <span class="badge active">ACTIVE</span>
-                    </div>
-                    
-                    <div class="ads-stats-row">
-                        <div class="ads-stat-item">
-                            <span class="ads-stat-label">WATCHED</span>
-                            <span class="ads-stat-value" id="adsWatchedCount">0</span>
-                        </div>
-                        <div class="ads-stat-item">
-                            <span class="ads-stat-label">REMAINING</span>
-                            <span class="ads-stat-value" id="adsRemainingCount">40</span>
-                        </div>
-                        <div class="ads-stat-item">
-                            <span class="ads-stat-label">EARNED</span>
-                            <span class="ads-stat-value" id="adsEarnedAmount">0</span>
-                            <span class="ads-stat-unit">AXC</span>
-                        </div>
-                    </div>
-                    
-                    <div class="progress-section">
-                        <div class="progress-bar-wrapper">
-                            <div class="progress-fill ads-fill" id="adsProgressFill"></div>
-                        </div>
-                        <div class="progress-counter">
-                            <span class="current" id="adsProgressCurrent">0</span>
-                            <span class="max">/ 40 ads</span>
-                        </div>
-                    </div>
-                    
-                    <div class="reward-section">
-                        <div class="reward-info">
-                            <span class="reward-label">TOTAL REWARD</span>
-                            <span class="reward-amount" id="adsRewardAmount">0 / 400 AXC</span>
-                        </div>
-                        <button class="watch-btn" id="watchAdBtnNew">
-                            <i class="fas fa-play-circle"></i> WATCH AD
-                            <span class="ad-bonus">+10 AXC</span>
-                        </button>
-                        <button class="claim-btn ads-claim" id="adsClaimBtn" style="display: none;">
-                            <i class="fas fa-gem"></i> CLAIM 400 AXC
-                        </button>
-                        <div class="claim-note" id="adsClaimNote">📺 Watch 40 ads to claim 400 AXC</div>
-                    </div>
+                        <span>WATCH AD</span>
+                        <small>+10 AXC</small>
+                    </button>
+                    <button class="harvest-btn-legendary" id="claimMiningBtn" style="display: none;">
+                        <i class="fas fa-leaf"></i>
+                        <span>HARVEST ALL</span>
+                    </button>
                 </div>
 
-                <!-- Boost Options Panel -->
-                <div class="boost-panel" id="boostOptions" style="display: none;">
+                <!-- Boost Options -->
+                <div class="boost-options" id="boostOptions" style="display: none;">
                     <div class="boost-option" data-boost="bronze" onclick="window.activateBoost('bronze')">
                         <div class="boost-icon">⚡</div>
-                        <div class="boost-detail">
+                        <div class="boost-details">
                             <span class="boost-name">BRONZE</span>
                             <span class="boost-reward">800 AXC / claim</span>
                         </div>
@@ -241,7 +224,7 @@
                     </div>
                     <div class="boost-option" data-boost="silver" onclick="window.activateBoost('silver')">
                         <div class="boost-icon">⚡⚡</div>
-                        <div class="boost-detail">
+                        <div class="boost-details">
                             <span class="boost-name">SILVER</span>
                             <span class="boost-reward">1250 AXC / claim</span>
                         </div>
@@ -249,7 +232,7 @@
                     </div>
                     <div class="boost-option" data-boost="gold" onclick="window.activateBoost('gold')">
                         <div class="boost-icon">⚡⚡⚡</div>
-                        <div class="boost-detail">
+                        <div class="boost-details">
                             <span class="boost-name">GOLD</span>
                             <span class="boost-reward">2500 AXC / claim</span>
                         </div>
@@ -257,11 +240,11 @@
                     </div>
                 </div>
 
-                <!-- Floating Coins -->
+                <!-- Floating Coins Container -->
                 <div class="floating-coins" id="floatingCoins"></div>
 
                 <!-- Tasks Section -->
-                <div class="neural-card tasks-card">
+                <div class="neural-card" style="margin-top: 20px;">
                     <div class="section-header">
                         <h3><i class="fas fa-list-check"></i> DAILY TASKS</h3>
                     </div>
@@ -269,7 +252,7 @@
                 </div>
 
                 <!-- Referral Section -->
-                <div class="neural-card referral-card">
+                <div class="neural-card">
                     <div class="section-header">
                         <h3><i class="fas fa-users"></i> REFERRAL SYSTEM</h3>
                     </div>
@@ -283,7 +266,7 @@
                             <span class="stat-value" id="referralEarned">0 AXC</span>
                         </div>
                     </div>
-                    <div class="referral-link-box">
+                    <div class="referral-link-container">
                         <input type="text" id="referralLink" class="referral-link" readonly>
                         <button class="copy-btn" id="copyReferralLink"><i class="fas fa-copy"></i></button>
                     </div>
@@ -295,7 +278,7 @@
         <div id="swapPage" class="page hidden">
             <div class="swap-container">
                 <div class="swap-card">
-                    <div class="swap-header">
+                    <div class="swap-header-modern">
                         <span class="swap-title">Swap</span>
                         <button class="swap-settings"><i class="fas fa-sliders-h"></i></button>
                     </div>
@@ -320,14 +303,14 @@
                         </div>
                         <div class="swap-box-body">
                             <input type="number" id="swapFrom" placeholder="0" value="0" oninput="window.onSwapFromInput()">
-                            <div class="token-select">
+                            <div class="token-select-modern">
                                 <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/38901.png" alt="AXC" width="24" height="24">
                                 <span>AXC</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="swap-arrow">
+                    <div class="swap-arrow-modern">
                         <i class="fas fa-arrow-down"></i>
                     </div>
 
@@ -338,14 +321,14 @@
                         </div>
                         <div class="swap-box-body">
                             <input type="text" id="swapTo" placeholder="0.00" readonly>
-                            <div class="token-select">
+                            <div class="token-select-modern">
                                 <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT" width="24" height="24">
                                 <span>USDT</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="swap-rate">
+                    <div class="swap-rate-info">
                         <span>1 AXC = <span id="axcPrice">0.01</span> USDT</span>
                         <span class="rate-fee">Fee: 0 AXC</span>
                     </div>
@@ -464,7 +447,9 @@
         <div class="bottom-sheet-content">
             <div class="bottom-sheet-header">
                 <h3>💸 Withdraw Funds</h3>
-                <button class="close-sheet-btn" onclick="window.closeWithdrawSheet()"><i class="fas fa-times"></i></button>
+                <button class="close-sheet-btn" onclick="window.closeWithdrawSheet()">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="sheet-currency-toggle">
                 <button class="currency-option active" data-currency="AXC" onclick="window.setWithdrawCurrency('AXC')">
