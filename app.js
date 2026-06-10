@@ -499,6 +499,9 @@ async function activateBoost(boostKey) {
 
 // ==================== TASKS SYSTEM ====================
 
+// إضافة متغير لحفظ حالة تنفيذ المهام لكل مستخدم
+let taskProcessing = {};
+
 function renderTasks() {
     const container = document.getElementById('tasksContainer');
     if (!container) return;
@@ -518,7 +521,6 @@ function renderTasks() {
         const updatedTasks = CONFIG.tasks.map(newTask => {
             const existingTask = tasks.find(t => t.id === newTask.id);
             if (existingTask) {
-                // الحفاظ على حالة الإكمال، ولكن تحديث الاسم والرابط والمكافأة
                 return {
                     ...newTask,
                     completed: existingTask.completed || false
@@ -538,7 +540,7 @@ function renderTasks() {
                 <div class="task-reward">+${task.reward} AXC</div>
             </div>
             ${!task.completed ? 
-                `<button class="task-btn" onclick="window.completeTask(${task.id})">COMPLETE</button>` :
+                `<button class="task-btn" id="taskBtn_${task.id}" onclick="window.completeTask(${task.id})">COMPLETE</button>` :
                 '<span class="task-completed-badge">✓ COMPLETED</span>'
             }
         </div>
@@ -548,27 +550,68 @@ function renderTasks() {
 async function completeTask(taskId) {
     if (!userId) return;
     
+    // منع التنفيذ المتكرر لنفس المهمة
+    if (taskProcessing[`${userId}_${taskId}`]) {
+        showToast('Task is already in progress!', 'warning');
+        return;
+    }
+    
     // جلب المهام من localStorage
     let tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || '[]');
     const task = tasks.find(t => t.id === taskId);
     
-    // التحقق: إذا كانت المهمة مكتملة بالفعل، منع التنفيذ
+    // التحقق: إذا كانت المهمة مكتملة بالفعل
     if (!task || task.completed) {
         showToast('Task already completed!', 'warning');
         return;
     }
     
-    if (task.url) window.open(task.url, '_blank');
+    // قفل المهمة لمنع الضغط المتكرر
+    taskProcessing[`${userId}_${taskId}`] = true;
     
-    showToast(`Complete ${task.name} to earn +${task.reward} AXC`, 'info');
+    // تعطيل الزر فوراً
+    const taskBtn = document.getElementById(`taskBtn_${taskId}`);
+    if (taskBtn) {
+        taskBtn.disabled = true;
+        taskBtn.innerHTML = '⏳ WAITING...';
+        taskBtn.style.opacity = '0.6';
+    }
+    
+    // فتح رابط المهمة
+    if (task.url) {
+        window.open(task.url, '_blank');
+    }
+    
+    showToast(`Please complete: ${task.name}. You will get +${task.reward} AXC after 15 seconds`, 'info');
+    
+    // عداد تنازلي 15 ثانية
+    let countdown = 15;
+    if (taskBtn) {
+        const interval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                taskBtn.innerHTML = `⏳ ${countdown}s...`;
+            } else {
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
     
     setTimeout(async () => {
         // التحقق مرة أخرى قبل الصرف
         const freshTasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || '[]');
         const freshTask = freshTasks.find(t => t.id === taskId);
         
+        // إلغاء القفل
+        delete taskProcessing[`${userId}_${taskId}`];
+        
         if (freshTask.completed) {
             showToast('Task already completed!', 'warning');
+            if (taskBtn) {
+                taskBtn.disabled = false;
+                taskBtn.innerHTML = 'COMPLETE';
+                taskBtn.style.opacity = '1';
+            }
             return;
         }
         
@@ -583,14 +626,25 @@ async function completeTask(taskId) {
                 body: JSON.stringify({ userId, amount: task.reward, currency: 'AXC' })
             });
             const data = await res.json();
+            
             if (data.success) {
                 await loadUserData();
-                renderTasks();
+                renderTasks(); // إعادة عرض المهام (سيختفي الزر)
                 addNotification('Task Completed!', `You earned ${task.reward} AXC!`, 'success');
                 showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
+                showConfetti();
+            } else {
+                showToast('Error claiming reward', 'error');
+                // إذا فشلت، نرجع حالة المهمة
+                freshTask.completed = false;
+                localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(freshTasks));
+                renderTasks();
             }
         } catch(e) {
-            showToast('Error claiming reward', 'error');
+            showToast('Network error', 'error');
+            freshTask.completed = false;
+            localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(freshTasks));
+            renderTasks();
         }
     }, 15000);
 }
