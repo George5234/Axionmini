@@ -104,7 +104,7 @@
             </div>
         </div>
 
-        <!-- ==================== EARN PAGE - LEGENDARY NEURAL RIG ==================== -->
+        <!-- ==================== EARN PAGE - LEGENDARY HORIZONTAL PROGRESS ==================== -->
         <div id="earnPage" class="page hidden">
             <div class="mining-rig">
 
@@ -118,20 +118,34 @@
                     </button>
                 </div>
 
-                <div class="mining-core">
-                    <div class="progress-wrapper">
-                        <div class="progress-bar-vertical">
-                            <div class="progress-fill" id="miningProgressFill"></div>
-                            <div class="progress-glow"></div>
+                <!-- ===== LEGENDARY HORIZONTAL PROGRESS BAR ===== -->
+                <div class="mining-progress-area">
+                    <div class="mining-stats-horizontal">
+                        <div class="stat-card-horizontal">
+                            <span class="stat-label">MINING RATE</span>
+                            <span class="stat-value" id="miningRate">10 AXC / ad</span>
                         </div>
-                        <div class="floating-coins" id="floatingCoins"></div>
+                        <div class="stat-card-horizontal">
+                            <span class="stat-label">POWER</span>
+                            <span class="stat-value" id="miningPower">STANDARD</span>
+                        </div>
                     </div>
 
-                    <div class="mining-counter-panel">
-                        <div class="counter-label">HARVESTED ENERGY</div>
-                        <div class="big-counter" id="minedCounter">0</div>
-                        <div class="counter-target">/ 4000 AXC</div>
-                        <div class="progress-info" id="progressText">0 / 40 Progress</div>
+                    <div class="mining-progress-container">
+                        <div class="mining-progress-bar">
+                            <div class="mining-progress-fill" id="miningProgressFill"></div>
+                            <div class="progress-shimmer"></div>
+                        </div>
+                        <div class="mining-progress-stats">
+                            <span class="progress-value" id="miningProgressValue">0</span>
+                            <span class="progress-max">/ 40</span>
+                        </div>
+                    </div>
+
+                    <div class="mining-harvest-panel">
+                        <div class="harvest-label">HARVESTED ENERGY</div>
+                        <div class="harvest-amount" id="minedCounter">0</div>
+                        <div class="harvest-target">/ <span id="harvestTarget">400</span> AXC</div>
                     </div>
                 </div>
 
@@ -152,21 +166,21 @@
                     </button>
                 </div>
 
-                <!-- Boost Options (Hidden by default) -->
+                <!-- Boost Options -->
                 <div class="boost-options" id="boostOptions" style="display: none;">
                     <div class="boost-option" data-boost="bronze" onclick="window.activateBoost('bronze')">
                         <div class="boost-info">
                             <span class="boost-price">⚡ 2.5 TON</span>
                             <span class="boost-rate">800 AXC / claim</span>
                         </div>
-                        <span class="boost-duration">3 days</span>
+                        <span class="boost-duration">30 days</span>
                     </div>
                     <div class="boost-option" data-boost="silver" onclick="window.activateBoost('silver')">
                         <div class="boost-info">
                             <span class="boost-price">⚡ 5 TON</span>
                             <span class="boost-rate">1250 AXC / claim</span>
                         </div>
-                        <span class="boost-duration">7 days</span>
+                        <span class="boost-duration">30 days</span>
                     </div>
                     <div class="boost-option" data-boost="gold" onclick="window.activateBoost('gold')">
                         <div class="boost-info">
@@ -176,6 +190,9 @@
                         <span class="boost-duration">30 days</span>
                     </div>
                 </div>
+
+                <!-- Floating Coins Container -->
+                <div class="floating-coins" id="floatingCoins"></div>
 
                 <!-- Tasks Section -->
                 <div class="neural-card" style="margin-top: 20px;">
