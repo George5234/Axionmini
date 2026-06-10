@@ -38,7 +38,7 @@
 
     <div class="app-container">
         
-        <!-- ==================== HEADER ==================== -->
+        <!-- ==================== HEADER (بدون جرس) ==================== -->
         <div class="ai-header">
             <div class="logo-ring">
                 <i class="fas fa-brain"></i>
@@ -48,12 +48,7 @@
             <div class="tagline">
                 <i class="fas fa-microchip"></i> AI-Powered • Instant • Low Fee
             </div>
-            <div class="header-actions">
-                <button class="header-notification-btn" id="notificationBtn">
-                    <i class="fas fa-bell"></i>
-                    <span class="notification-badge" id="notificationBadge">0</span>
-                </button>
-            </div>
+            <!-- تم إزالة header-actions بالكامل -->
         </div>
 
         <!-- ==================== WALLET PAGE ==================== -->
@@ -71,6 +66,7 @@
                         <span class="breakdown-value" id="walletUsdtBalance">$0.00</span>
                     </div>
                 </div>
+                <!-- action-buttons مع زر الإشعارات بدلاً من History -->
                 <div class="action-buttons">
                     <button class="action-btn" id="depositBtn">
                         <i class="fas fa-arrow-down"></i>
@@ -80,9 +76,10 @@
                         <i class="fas fa-arrow-up"></i>
                         <span>Withdraw</span>
                     </button>
-                    <button class="action-btn" id="historyBtn">
-                        <i class="fas fa-clock"></i>
-                        <span>History</span>
+                    <button class="action-btn" id="notificationBtn">
+                        <i class="fas fa-bell"></i>
+                        <span>Alerts</span>
+                        <span class="notification-badge" id="notificationBadge">0</span>
                     </button>
                 </div>
             </div>
@@ -119,7 +116,7 @@
                     </button>
                 </div>
 
-                <!-- Stats Grid (New DUAL CORE Stats) -->
+                <!-- Stats Grid -->
                 <div class="mining-stats-grid">
                     <div class="mining-stat-card">
                         <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
@@ -144,7 +141,7 @@
                     </div>
                 </div>
 
-                <!-- ===== DUAL MINING CORE - LEGENDARY (NEW) ===== -->
+                <!-- DUAL MINING CORE -->
                 <div class="mining-core neural-card">
                     <div class="core-header">
                         <i class="fas fa-microchip fa-2x"></i>
@@ -154,7 +151,7 @@
                         </div>
                     </div>
 
-                    <!-- Time Belt (Cooldown Cycle) -->
+                    <!-- Time Belt -->
                     <div class="progress-belt time-belt">
                         <div class="belt-label"><i class="fas fa-hourglass-half"></i> COOLDOWN CYCLE</div>
                         <div class="progress-container">
@@ -169,7 +166,7 @@
                         </div>
                     </div>
 
-                    <!-- Reward Belt (Ad Energy Bonus) -->
+                    <!-- Reward Belt -->
                     <div class="progress-belt reward-belt">
                         <div class="belt-label"><i class="fas fa-bolt"></i> AD ENERGY BONUS</div>
                         <div class="progress-container">
@@ -184,7 +181,6 @@
                         </div>
                     </div>
 
-                    <!-- Claim Button -->
                     <button class="harvest-btn-legendary" id="claimMiningBtn">
                         <i class="fas fa-leaf"></i>
                         <span>CLAIM REWARD</span>
@@ -200,9 +196,8 @@
                     </button>
                 </div>
 
-                <!-- ===== OLD ELEMENTS (KEPT FOR COMPATIBILITY - HIDDEN) ===== -->
+                <!-- العناصر القديمة (للتوافق - مخفية) -->
                 <div style="display: none;">
-                    <!-- Professional Progress Bar (Old) -->
                     <div class="progress-legendary">
                         <div class="progress-header">
                             <span class="progress-title"><i class="fas fa-eye"></i> ADS WATCHED</span>
@@ -219,40 +214,23 @@
                             <span class="progress-remaining" id="progressRemaining">40 ads left</span>
                         </div>
                     </div>
-
-                    <!-- Timer Section (Old) -->
                     <div class="timer-legendary" id="timerSection">
-                        <div class="timer-icon">
-                            <i class="fas fa-hourglass-half"></i>
-                        </div>
+                        <div class="timer-icon"><i class="fas fa-hourglass-half"></i></div>
                         <div class="timer-details">
                             <span class="timer-label">AUTO-REFILL IN</span>
                             <span class="timer-value" id="timerValueLegendary">2h 30m 0s</span>
                         </div>
                     </div>
-
-                    <!-- Ready Section (Old) -->
                     <div class="ready-legendary" id="readySection" style="display: none;">
-                        <div class="ready-content">
-                            <i class="fas fa-gem"></i>
-                            <span>READY TO HARVEST!</span>
-                        </div>
+                        <div class="ready-content"><i class="fas fa-gem"></i><span>READY TO HARVEST!</span></div>
                     </div>
-
-                    <!-- Harvested Energy Display (Old) -->
                     <div class="harvested-legendary">
-                        <div class="harvested-label">
-                            <i class="fas fa-charging-station"></i> HARVESTED ENERGY
-                        </div>
+                        <div class="harvested-label"><i class="fas fa-charging-station"></i> HARVESTED ENERGY</div>
                         <div class="harvested-amount" id="harvestedAmount">0</div>
                         <div class="harvested-target">/ <span id="harvestTargetValue">400</span> AXC</div>
                     </div>
-
-                    <!-- Reward Preview (Old) -->
                     <div class="reward-legendary">
-                        <div class="reward-label">
-                            <i class="fas fa-gift"></i> HARVEST REWARD
-                        </div>
+                        <div class="reward-label"><i class="fas fa-gift"></i> HARVEST REWARD</div>
                         <div class="reward-amount" id="rewardAmountValue">400 AXC</div>
                         <div class="reward-note">+ Boost multiplier applied</div>
                     </div>
@@ -286,7 +264,7 @@
                     </div>
                 </div>
 
-                <!-- Floating Coins Container -->
+                <!-- Floating Coins -->
                 <div class="floating-coins" id="floatingCoins"></div>
 
                 <!-- Tasks Section -->
@@ -439,41 +417,25 @@
             </div>
         </div>
 
-        <!-- History Modal -->
-        <div id="historyModal" class="modal">
-            <div class="modal-content history-modal">
-                <div class="modal-header">
-                    <h3>📜 Transaction History</h3>
-                    <button class="close-btn" onclick="window.closeModal('historyModal')"><i class="fas fa-times"></i></button>
-                </div>
-                <div class="modal-body">
-                    <div class="history-tabs">
-                        <button class="history-tab active" data-filter="all">All</button>
-                        <button class="history-tab" data-filter="deposit">Deposits</button>
-                        <button class="history-tab" data-filter="withdraw">Withdrawals</button>
-                        <button class="history-tab" data-filter="swap">Swaps</button>
-                        <button class="history-tab" data-filter="earn">Earn</button>
-                    </div>
-                    <div id="historyList" class="history-list">
-                        <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notifications Modal -->
+        <!-- Notifications Modal (يوحد جميع الإشعارات والطلبات) -->
         <div id="notificationsModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3><i class="fas fa-bell"></i> Notifications</h3>
+                    <h3><i class="fas fa-bell"></i> NOTIFICATIONS & HISTORY</h3>
                     <button class="close-btn" onclick="window.closeNotificationsModal()"><i class="fas fa-times"></i></button>
                 </div>
                 <div class="modal-body">
                     <div class="notification-actions">
-                        <button class="notif-action-btn" onclick="window.markAllRead()"><i class="fas fa-check-double"></i> Mark all read</button>
-                        <button class="notif-action-btn danger" onclick="window.clearAllNotifications()"><i class="fas fa-trash-alt"></i> Clear all</button>
+                        <button class="notif-action-btn" onclick="window.markAllRead()">
+                            <i class="fas fa-check-double"></i> Mark all read
+                        </button>
+                        <button class="notif-action-btn danger" onclick="window.clearAllNotifications()">
+                            <i class="fas fa-trash-alt"></i> Clear all
+                        </button>
                     </div>
-                    <div id="notificationsList" class="notifications-list"></div>
+                    <div id="notificationsList" class="notifications-list">
+                        <div class="empty-state">📭 No notifications yet</div>
+                    </div>
                 </div>
             </div>
         </div>
