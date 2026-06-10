@@ -1,5 +1,5 @@
 /* ============================================================================
-   AXION AI - LEGENDARY STYLES v22.0
+   AXION AI - LEGENDARY STYLES v25.0
    Neural Theme | Glassmorphism | Premium Effects | Smooth Animations
    ============================================================================ */
 
@@ -161,20 +161,16 @@ body {
 }
 
 /* ============================================================================
-   PAGE SYSTEM - FIXED
+   PAGE SYSTEM
    ============================================================================ */
-
-/* إخفاء جميع الصفحات افتراضياً */
 .page {
     display: none !important;
 }
 
-/* إظهار الصفحة النشطة فقط */
 .page.active {
     display: block !important;
 }
 
-/* تأكيد إخفاء الصفحات الأخرى */
 #walletPage, #earnPage, #swapPage, #axionPage {
     display: none;
 }
@@ -184,7 +180,7 @@ body {
 }
 
 /* ============================================================================
-   HEADER - LEGENDARY
+   HEADER
    ============================================================================ */
 .ai-header {
     text-align: center;
@@ -192,7 +188,6 @@ body {
     position: relative;
 }
 
-/* حاوية أزرار الهيدر (الجرس) - في أقصى اليمين أعلى الشاشة */
 .header-actions {
     position: absolute;
     top: 24px;
@@ -202,7 +197,6 @@ body {
     z-index: 100;
 }
 
-/* زر الإشعارات (الجرس) */
 .header-notification-btn {
     background: rgba(57, 255, 20, 0.08);
     border: 1px solid rgba(57, 255, 20, 0.2);
@@ -227,7 +221,6 @@ body {
     box-shadow: var(--glow-green);
 }
 
-/* عدد الإشعارات غير المقروءة */
 .notification-badge {
     position: absolute;
     top: -5px;
@@ -365,7 +358,7 @@ body {
 }
 
 /* ============================================================================
-   NEURAL CARDS - PREMIUM
+   NEURAL CARDS
    ============================================================================ */
 .neural-card {
     background: var(--ai-card);
@@ -413,7 +406,7 @@ body {
 }
 
 /* ============================================================================
-   BALANCE CARD - PREMIUM
+   BALANCE CARD
    ============================================================================ */
 .balance-card {
     text-align: center;
@@ -470,7 +463,7 @@ body {
 }
 
 /* ============================================================================
-   ACTION BUTTONS - PREMIUM
+   ACTION BUTTONS
    ============================================================================ */
 .action-buttons {
     display: flex;
@@ -576,7 +569,7 @@ body {
 }
 
 /* ============================================================================
-   ASSETS & CRYPTO LISTS - ENHANCED
+   ASSETS & CRYPTO LISTS
    ============================================================================ */
 .assets-list, .top-crypto-list {
     margin: 0 16px;
@@ -649,295 +642,7 @@ body {
 .crypto-change.negative { color: var(--ai-danger); }
 
 /* ============================================================================
-   MINING CARD - LEGENDARY
-   ============================================================================ */
-.mining-card {
-    position: relative;
-    background: linear-gradient(145deg, var(--ai-card), var(--ai-dark-2));
-}
-
-.mining-stats {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-}
-
-.stat-card {
-    flex: 1;
-    background: var(--ai-green-soft);
-    border: 1px solid var(--ai-border);
-    border-radius: var(--radius-md);
-    padding: 14px 8px;
-    text-align: center;
-    transition: var(--transition);
-    cursor: pointer;
-}
-
-.stat-card:hover {
-    border-color: var(--ai-green);
-    transform: translateY(-2px);
-    background: var(--ai-green-dim);
-}
-
-.stat-label {
-    font-size: 9px;
-    color: var(--ai-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-}
-
-.stat-value {
-    font-size: 20px;
-    font-weight: 700;
-    font-family: 'Orbitron', monospace;
-    color: var(--ai-green);
-    margin-top: 6px;
-    display: block;
-}
-
-.boost-trigger-btn {
-    background: var(--ai-gold-dim);
-    border: 1px solid var(--ai-gold);
-    border-radius: 50%;
-    width: 42px;
-    height: 42px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: var(--transition);
-    color: var(--ai-gold);
-    font-size: 18px;
-}
-
-.boost-trigger-btn:hover {
-    transform: scale(1.08);
-    box-shadow: var(--glow-gold);
-    background: rgba(241, 196, 15, 0.2);
-}
-
-.mining-timer-card {
-    text-align: center;
-    margin: 20px 0;
-}
-
-.mining-timer-display {
-    font-family: 'Orbitron', monospace;
-    font-size: 42px;
-    font-weight: 800;
-    color: var(--ai-green);
-    text-shadow: var(--glow-green);
-    margin: 16px 0;
-    letter-spacing: 2px;
-}
-
-.mining-progress-bar {
-    height: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-    margin: 20px 0;
-}
-
-.mining-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--ai-green), var(--ai-accent), var(--ai-blue));
-    border-radius: var(--radius-full);
-    transition: width 0.5s ease-out;
-    position: relative;
-    overflow: hidden;
-}
-
-.mining-progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-.mining-next-reward {
-    font-size: 12px;
-    color: var(--ai-text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-/* CLAIM BUTTON - PREMIUM */
-.claim-mining-btn {
-    width: 100%;
-    background: linear-gradient(145deg, var(--ai-green), #1a7a2a);
-    border: none;
-    border-radius: var(--radius-lg);
-    padding: 16px;
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 800;
-    font-size: 15px;
-    letter-spacing: 2px;
-    color: #000;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 16px;
-    position: relative;
-    overflow: hidden;
-    animation: claimPulse 1.5s infinite;
-}
-
-@keyframes claimPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.4); }
-    50% { box-shadow: 0 0 0 12px rgba(57, 255, 20, 0); }
-}
-
-.claim-mining-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.5s;
-}
-
-.claim-mining-btn:hover::before {
-    left: 100%;
-}
-
-.claim-mining-btn:active {
-    transform: scale(0.98);
-}
-
-/* ============================================================================
-   BOOST OPTIONS
-   ============================================================================ */
-.boost-options {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid var(--ai-border);
-}
-
-.boost-option {
-    background: var(--ai-green-soft);
-    border: 1px solid var(--ai-border);
-    border-radius: var(--radius-md);
-    padding: 14px 16px;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.boost-option:hover {
-    border-color: var(--ai-gold);
-    transform: translateX(6px);
-    background: var(--ai-gold-dim);
-}
-
-.boost-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.boost-price {
-    font-weight: 700;
-    color: var(--ai-gold);
-    font-size: 14px;
-}
-
-.boost-rate {
-    font-size: 12px;
-    color: var(--ai-text-dim);
-}
-
-.boost-duration {
-    font-size: 11px;
-    color: var(--ai-text-muted);
-    background: rgba(57, 255, 20, 0.1);
-    padding: 4px 10px;
-    border-radius: var(--radius-full);
-}
-
-/* ============================================================================
-   WATCH AD BUTTON - PREMIUM
-   ============================================================================ */
-.watch-ad-btn {
-    width: 100%;
-    background: linear-gradient(145deg, #8e44ad, #6c3483);
-    border: none;
-    border-radius: var(--radius-lg);
-    padding: 18px;
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 1.5px;
-    color: white;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    position: relative;
-    overflow: hidden;
-}
-
-.watch-ad-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-}
-
-.watch-ad-btn:hover::before {
-    left: 100%;
-}
-
-.watch-ad-btn:active {
-    transform: scale(0.98);
-}
-
-.watch-ad-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.ads-counter {
-    text-align: center;
-    font-size: 12px;
-    color: var(--ai-text-muted);
-    margin-top: 14px;
-    padding: 10px;
-    background: var(--ai-green-soft);
-    border-radius: var(--radius-full);
-    font-weight: 500;
-}
-
-/* ============================================================================
-   TASKS - ENHANCED
+   TASKS & REFERRAL
    ============================================================================ */
 .tasks-container {
     display: flex;
@@ -1008,13 +713,6 @@ body {
     font-size: 14px;
 }
 
-/* ============================================================================
-   REFERRAL SECTION - ENHANCED
-   ============================================================================ */
-.referral-card {
-    margin-top: 4px;
-}
-
 .referral-stats {
     display: flex;
     gap: 12px;
@@ -1065,7 +763,62 @@ body {
 }
 
 /* ============================================================================
-   SWAP PAGE - UNISWAP STYLE PREMIUM
+   BOOST OPTIONS
+   ============================================================================ */
+.boost-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--ai-border);
+}
+
+.boost-option {
+    background: var(--ai-green-soft);
+    border: 1px solid var(--ai-border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.boost-option:hover {
+    border-color: var(--ai-gold);
+    transform: translateX(6px);
+    background: var(--ai-gold-dim);
+}
+
+.boost-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.boost-price {
+    font-weight: 700;
+    color: var(--ai-gold);
+    font-size: 14px;
+}
+
+.boost-rate {
+    font-size: 12px;
+    color: var(--ai-text-dim);
+}
+
+.boost-duration {
+    font-size: 11px;
+    color: var(--ai-text-muted);
+    background: rgba(57, 255, 20, 0.1);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+}
+
+/* ============================================================================
+   SWAP PAGE
    ============================================================================ */
 .swap-container {
     padding: 0 16px;
@@ -1269,26 +1022,6 @@ body {
     margin: 20px 0;
 }
 
-.rate-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--ai-text-muted);
-}
-
-.rate-item strong {
-    color: var(--ai-green);
-    font-family: 'Orbitron', monospace;
-    font-size: 14px;
-}
-
-.rate-divider {
-    width: 1px;
-    height: 24px;
-    background: var(--ai-border);
-}
-
 .swap-button {
     width: 100%;
     border: none;
@@ -1364,7 +1097,7 @@ body {
 }
 
 /* ============================================================================
-   AXION AI PAGE - LEGENDARY
+   AXION AI PAGE
    ============================================================================ */
 .axion-hero {
     text-align: center;
@@ -1487,7 +1220,7 @@ body {
 }
 
 /* ============================================================================
-   BOTTOM NAVIGATION - PREMIUM
+   BOTTOM NAVIGATION
    ============================================================================ */
 .bottom-nav {
     position: fixed;
@@ -1540,7 +1273,7 @@ body {
 }
 
 /* ============================================================================
-   MODALS - PREMIUM
+   MODALS
    ============================================================================ */
 .modal {
     position: fixed;
@@ -1659,7 +1392,6 @@ body {
     transform: scale(0.98);
 }
 
-/* History Modal */
 .history-modal {
     max-width: 420px;
 }
@@ -1983,7 +1715,7 @@ body {
 }
 
 /* ============================================================================
-   BOTTOM SHEET (WITHDRAW) - PREMIUM
+   BOTTOM SHEET (WITHDRAW)
    ============================================================================ */
 .bottom-sheet {
     position: fixed;
@@ -2266,7 +1998,7 @@ body {
 }
 
 /* ============================================================================
-   TOAST - PREMIUM (VISIBLE OVER EVERYTHING)
+   TOAST - VISIBLE OVER EVERYTHING
    ============================================================================ */
 .toast {
     position: fixed;
@@ -2367,54 +2099,7 @@ body {
 }
 
 /* ============================================================================
-   RESPONSIVE - ENHANCED
-   ============================================================================ */
-@media (max-width: 450px) {
-    .balance-amount { font-size: 36px; }
-    .ai-header h1 { font-size: 26px; letter-spacing: 3px; }
-    .logo-ring { width: 65px; height: 65px; }
-    .logo-ring i { font-size: 28px; }
-    .mining-timer-display { font-size: 32px; }
-    .swap-box-body input { font-size: 24px; }
-    .sheet-currency-toggle { gap: 8px; }
-    .currency-option { padding: 10px; font-size: 12px; }
-    .stat-value { font-size: 16px; }
-    .action-btn i { font-size: 18px; }
-    .action-btn span { font-size: 10px; }
-    .axion-title { font-size: 28px; }
-}
-
-@media (max-width: 380px) {
-    .action-buttons { gap: 8px; }
-    .action-btn { padding: 10px; }
-    .balance-amount { font-size: 30px; }
-    .mining-timer-display { font-size: 28px; }
-    .section-header h3 { font-size: 12px; }
-    .swap-title { font-size: 16px; }
-}
-
-/* ============================================================================
-   SCROLLBAR STYLING
-   ============================================================================ */
-::-webkit-scrollbar {
-    width: 4px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--ai-dark-2);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--ai-green-dim);
-    border-radius: var(--radius-full);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--ai-green);
-}
-
-/* ============================================================================
-   LEGENDARY EARN PAGE - NEURAL MINING RIG
+   LEGENDARY EARN PAGE - HORIZONTAL PROGRESS (NEW SECTION)
    ============================================================================ */
 
 .mining-rig {
@@ -2467,97 +2152,143 @@ body {
     box-shadow: 0 0 25px rgba(139, 0, 255, 0.8);
 }
 
-.mining-core {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.mining-progress-area {
+    background: rgba(57, 255, 20, 0.03);
+    border-radius: 28px;
+    padding: 20px;
     margin: 10px 0 20px;
+    border: 1px solid rgba(57, 255, 20, 0.1);
 }
 
-.progress-wrapper {
-    position: relative;
-    height: 280px;
-    width: 100%;
+.mining-stats-horizontal {
     display: flex;
-    justify-content: center;
+    gap: 12px;
     margin-bottom: 20px;
 }
 
-.progress-bar-vertical {
-    width: 48px;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 40px;
+.stat-card-horizontal {
+    flex: 1;
+    background: rgba(57, 255, 20, 0.05);
+    border: 1px solid rgba(57, 255, 20, 0.15);
+    border-radius: 20px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-card-horizontal .stat-label {
+    font-size: 10px;
+    color: var(--ai-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.stat-card-horizontal .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'Orbitron', monospace;
+    color: var(--ai-green);
+    margin-top: 6px;
+    display: block;
+}
+
+.mining-progress-container {
+    margin: 20px 0;
+}
+
+.mining-progress-bar {
+    width: 100%;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 60px;
     overflow: hidden;
     position: relative;
-    box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
+    box-shadow: 
+        0 0 0 1px rgba(57, 255, 20, 0.3),
+        inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-.progress-fill {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    background: linear-gradient(to top, #00ff88, #39ff14, #7cff6b);
-    transition: height 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
-    box-shadow: 0 0 25px #39ff14;
+.mining-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        #00ff88 0%, 
+        #39ff14 30%, 
+        #aaff00 60%,
+        #ffdd00 100%);
+    transition: width 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 
+        0 0 15px #39ff14,
+        inset 0 0 5px rgba(255, 255, 255, 0.5);
+    border-radius: 60px;
+    position: relative;
 }
 
-.progress-glow {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 60%;
-    background: linear-gradient(transparent, rgba(57, 255, 20, 0.6));
-    filter: blur(8px);
-    opacity: 0.7;
-    pointer-events: none;
-}
-
-.floating-coins {
+.progress-shimmer {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.25), 
+        transparent);
+    animation: shimmer 2s infinite;
     pointer-events: none;
+    border-radius: 60px;
 }
 
-.flying-coin {
-    position: absolute;
-    color: var(--ai-green);
-    font-weight: bold;
-    font-size: 1.1rem;
-    text-shadow: 0 0 12px var(--ai-green);
-    animation: flyUp 2.5s forwards;
-    z-index: 10;
-    white-space: nowrap;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 4px 12px;
-    border-radius: 30px;
-    border: 1px solid var(--ai-green);
-    backdrop-filter: blur(4px);
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
 }
 
-@keyframes flyUp {
-    0% { transform: translateY(0) scale(0.6); opacity: 1; }
-    50% { transform: translateY(-150px) scale(1); opacity: 1; }
-    100% { transform: translateY(-280px) scale(0.8); opacity: 0; }
+.mining-progress-fill.complete {
+    animation: pulseComplete 0.8s ease-in-out;
+    box-shadow: 0 0 30px #39ff14;
 }
 
-.mining-counter-panel {
+@keyframes pulseComplete {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(1.5); box-shadow: 0 0 50px #39ff14; }
+    100% { filter: brightness(1); }
+}
+
+.mining-progress-stats {
     text-align: center;
-    margin: 15px 0;
+    margin-top: 12px;
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
 }
 
-.counter-label {
+.progress-value {
+    color: #39ff14;
+    font-weight: 700;
+    text-shadow: 0 0 10px #39ff14;
+}
+
+.progress-max {
+    color: #7a9e7a;
+}
+
+.mining-harvest-panel {
+    text-align: center;
+    margin-top: 20px;
+    padding: 15px;
+    background: linear-gradient(145deg, rgba(57, 255, 20, 0.05), rgba(57, 255, 20, 0.02));
+    border-radius: 24px;
+    border: 1px solid rgba(57, 255, 20, 0.15);
+}
+
+.harvest-label {
     font-size: 11px;
     color: var(--ai-text-muted);
     letter-spacing: 2px;
     margin-bottom: 8px;
 }
 
-.big-counter {
-    font-size: 3.5rem;
+.harvest-amount {
+    font-size: 3rem;
     font-weight: 900;
     color: var(--ai-green);
     text-shadow: 0 0 25px var(--ai-green);
@@ -2565,16 +2296,10 @@ body {
     line-height: 1;
 }
 
-.counter-target {
+.harvest-target {
     font-size: 13px;
     color: var(--ai-text-muted);
     margin-top: 6px;
-}
-
-.progress-info {
-    font-size: 12px;
-    color: var(--ai-text-muted);
-    margin-top: 10px;
 }
 
 .mining-timer-box {
@@ -2615,38 +2340,6 @@ body {
     margin-top: 10px;
 }
 
-/* تحديث زر CLAIM لصفحة Earn الجديدة */
-.claim-mining-btn {
-    width: 100%;
-    background: linear-gradient(45deg, #ffd700, #ffaa00);
-    border: none;
-    border-radius: 60px;
-    padding: 18px;
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 800;
-    font-size: 16px;
-    letter-spacing: 2px;
-    color: #000;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    box-shadow: 0 0 20px #ffd700;
-    animation: pulseGlow 1.5s infinite;
-}
-
-@keyframes pulseGlow {
-    0%, 100% { box-shadow: 0 0 15px #ffd700; }
-    50% { box-shadow: 0 0 35px #ffd700; }
-}
-
-.claim-mining-btn:active {
-    transform: scale(0.98);
-}
-
-/* تحديث زر WATCH AD */
 .watch-ad-btn {
     width: 100%;
     background: linear-gradient(145deg, #8e44ad, #6c3483);
@@ -2692,28 +2385,115 @@ body {
     cursor: wait;
 }
 
-/* تحسين للشاشات الصغيرة */
+.claim-mining-btn {
+    width: 100%;
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    border: none;
+    border-radius: 60px;
+    padding: 18px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: #000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    box-shadow: 0 0 20px #ffd700;
+    animation: pulseGlow 1.5s infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 15px #ffd700; }
+    50% { box-shadow: 0 0 35px #ffd700; }
+}
+
+.claim-mining-btn:active {
+    transform: scale(0.98);
+}
+
+.floating-coins {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.flying-coin {
+    position: absolute;
+    color: var(--ai-green);
+    font-weight: bold;
+    font-size: 1rem;
+    text-shadow: 0 0 12px var(--ai-green);
+    animation: flyUp 2.5s forwards;
+    z-index: 10;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 4px 10px;
+    border-radius: 30px;
+    border: 1px solid var(--ai-green);
+    backdrop-filter: blur(4px);
+}
+
+@keyframes flyUp {
+    0% { transform: translateY(0) scale(0.6); opacity: 1; }
+    50% { transform: translateY(-150px) scale(1); opacity: 1; }
+    100% { transform: translateY(-280px) scale(0.8); opacity: 0; }
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
 @media (max-width: 450px) {
-    .big-counter {
-        font-size: 2.5rem;
-    }
-    .progress-bar-vertical {
-        width: 38px;
-    }
-    .mining-title h2 {
-        font-size: 1.1rem;
-    }
-    .boost-master-btn {
-        padding: 8px 14px;
-        font-size: 10px;
-    }
+    .balance-amount { font-size: 36px; }
+    .ai-header h1 { font-size: 26px; letter-spacing: 3px; }
+    .logo-ring { width: 65px; height: 65px; }
+    .logo-ring i { font-size: 28px; }
+    .swap-box-body input { font-size: 24px; }
+    .sheet-currency-toggle { gap: 8px; }
+    .currency-option { padding: 10px; font-size: 12px; }
+    .stat-value { font-size: 16px; }
+    .action-btn i { font-size: 18px; }
+    .action-btn span { font-size: 10px; }
+    .axion-title { font-size: 28px; }
+    .harvest-amount { font-size: 2.5rem; }
+    .mining-progress-bar { height: 28px; }
+    .mining-title h2 { font-size: 1.1rem; }
+    .boost-master-btn { padding: 8px 14px; font-size: 10px; }
 }
 
 @media (max-width: 380px) {
-    .big-counter {
-        font-size: 2rem;
-    }
-    .timer-value {
-        font-size: 1.2rem;
-    }
+    .action-buttons { gap: 8px; }
+    .action-btn { padding: 10px; }
+    .balance-amount { font-size: 30px; }
+    .section-header h3 { font-size: 12px; }
+    .swap-title { font-size: 16px; }
+    .harvest-amount { font-size: 2rem; }
+    .timer-value { font-size: 1.2rem; }
+    .mining-progress-bar { height: 24px; }
+}
+
+/* ============================================================================
+   SCROLLBAR STYLING
+   ============================================================================ */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--ai-dark-2);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--ai-green-dim);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--ai-green);
 }
