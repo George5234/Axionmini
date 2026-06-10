@@ -2933,17 +2933,3 @@ body {
     border-color: var(--ai-green);
     background: var(--ai-green-dim);
 }
-
-/* جعل خيارات BOOST تظهر بشكل منسدل أسفل الزر */
-.mining-header {
-    position: relative;
-}
-
-#boostOptions {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 8px;
-    min-width: 200px;
-    z-index: 100;
-}
