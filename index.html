@@ -115,92 +115,104 @@
                         <h2>NEURAL MINING RIG</h2>
                     </div>
                     <button class="boost-master-btn" id="boostTriggerBtn">
-                        <i class="fas fa-bolt"></i> BOOST
+                        <i class="fas fa-bolt"></i> ACTIVATE BOOST
                     </button>
                 </div>
 
-                <!-- Stats Cards -->
-                <div class="mining-stats">
-                    <div class="stat-card">
-                        <span class="stat-label">MINING RATE</span>
-                        <span class="stat-value" id="miningRateValue">10 AXC</span>
+                <!-- Stats Grid -->
+                <div class="mining-stats-grid">
+                    <div class="mining-stat-card">
+                        <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">MINING RATE</span>
+                            <span class="stat-value" id="miningRateValue">10 AXC</span>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <span class="stat-label">POWER</span>
-                        <span class="stat-value" id="miningPowerValue">STANDARD</span>
+                    <div class="mining-stat-card">
+                        <div class="stat-icon"><i class="fas fa-bolt"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">POWER</span>
+                            <span class="stat-value" id="miningPowerValue">STANDARD</span>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <span class="stat-label">TOTAL MINED</span>
-                        <span class="stat-value" id="totalMinedValue">0 AXC</span>
-                    </div>
-                </div>
-
-                <!-- ===== PROFESSIONAL PROGRESS BAR ===== -->
-                <div class="mining-progress-section">
-                    <div class="progress-info">
-                        <span class="progress-label">
-                            <i class="fas fa-eye"></i> ADS WATCHED
-                        </span>
-                        <span class="progress-counter" id="adsCounter">0 / 40</span>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar-fill" id="progressFill">
-                            <div class="progress-glow"></div>
+                    <div class="mining-stat-card">
+                        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">TOTAL MINED</span>
+                            <span class="stat-value" id="totalMinedDisplay">0 AXC</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Timer Section -->
-                <div class="mining-timer-section" id="timerSection">
-                    <div class="timer-icon">
-                        <i class="fas fa-hourglass-half"></i>
+                <!-- ===== PROFESSIONAL PROGRESS BAR ===== -->
+                <div class="progress-legendary">
+                    <div class="progress-header">
+                        <span class="progress-title"><i class="fas fa-eye"></i> ADS WATCHED</span>
+                        <span class="progress-counter" id="adsWatchedCounter">0 / 40</span>
                     </div>
-                    <div class="timer-content">
-                        <span class="timer-label">AUTO-REFILL IN</span>
-                        <span class="timer-value" id="timerValue">2h 30m 0s</span>
+                    <div class="progress-bar-legendary">
+                        <div class="progress-fill-legendary" id="progressFillLegendary">
+                            <div class="progress-glow-effect"></div>
+                            <div class="progress-shimmer-effect"></div>
+                        </div>
+                    </div>
+                    <div class="progress-stats">
+                        <span class="progress-percent" id="progressPercent">0%</span>
+                        <span class="progress-remaining" id="progressRemaining">40 ads left</span>
                     </div>
                 </div>
 
-                <!-- Ready Section (يظهر عندما يكتمل التقدم) -->
-                <div class="mining-ready-section" id="readySection" style="display: none;">
-                    <div class="ready-animation">
+                <!-- Timer Section -->
+                <div class="timer-legendary" id="timerSection">
+                    <div class="timer-icon">
+                        <i class="fas fa-hourglass-half"></i>
+                    </div>
+                    <div class="timer-details">
+                        <span class="timer-label">AUTO-REFILL IN</span>
+                        <span class="timer-value" id="timerValueLegendary">2h 30m 0s</span>
+                    </div>
+                </div>
+
+                <!-- Ready Section (يظهر عند اكتمال التقدم) -->
+                <div class="ready-legendary" id="readySection" style="display: none;">
+                    <div class="ready-content">
                         <i class="fas fa-gem"></i>
                         <span>READY TO HARVEST!</span>
                     </div>
                 </div>
 
                 <!-- Harvested Energy Display -->
-                <div class="harvested-display">
+                <div class="harvested-legendary">
                     <div class="harvested-label">
                         <i class="fas fa-charging-station"></i> HARVESTED ENERGY
                     </div>
                     <div class="harvested-amount" id="harvestedAmount">0</div>
-                    <div class="harvested-max">/ <span id="harvestTarget">400</span> AXC</div>
+                    <div class="harvested-target">/ <span id="harvestTargetValue">400</span> AXC</div>
                 </div>
 
                 <!-- Reward Preview -->
-                <div class="reward-preview">
+                <div class="reward-legendary">
                     <div class="reward-label">
                         <i class="fas fa-gift"></i> HARVEST REWARD
                     </div>
-                    <div class="reward-amount" id="rewardAmount">400 AXC</div>
+                    <div class="reward-amount" id="rewardAmountValue">400 AXC</div>
                     <div class="reward-note">+ Boost multiplier applied</div>
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="mining-actions">
-                    <button class="watch-ad-btn" id="watchAdBtn">
+                <div class="mining-actions-legendary">
+                    <button class="watch-ad-btn-legendary" id="watchAdBtn">
                         <i class="fas fa-play-circle"></i>
                         <span>WATCH AD</span>
                         <small>+10 AXC</small>
                     </button>
-                    <button class="harvest-btn" id="harvestBtn" style="display: none;">
+                    <button class="harvest-btn-legendary" id="claimMiningBtn" style="display: none;">
                         <i class="fas fa-leaf"></i>
                         <span>HARVEST ALL</span>
                     </button>
                 </div>
 
-                <!-- Boost Options (Hidden by default) -->
+                <!-- Boost Options -->
                 <div class="boost-options" id="boostOptions" style="display: none;">
                     <div class="boost-option" data-boost="bronze" onclick="window.activateBoost('bronze')">
                         <div class="boost-icon">⚡</div>
