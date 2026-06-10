@@ -15,7 +15,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
-    <!-- Ad Platforms -->
+    <!-- Ad Platforms (6 Networks) -->
     <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
     <script src="https://richinfo.co/richpartners/telegram/js/tg-ob.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='11082910' data-sdk='show_11082910'></script>
@@ -32,12 +32,13 @@
 <body>
     <canvas id="confetti-canvas"></canvas>
     
+    <!-- Neural Background -->
     <div class="neural-bg" id="neuralBg"></div>
     <div class="scanline"></div>
 
     <div class="app-container">
         
-        <!-- ==================== HEADER =================== -->
+        <!-- ==================== HEADER ==================== -->
         <div class="ai-header">
             <div class="logo-ring">
                 <i class="fas fa-brain"></i>
@@ -121,7 +122,7 @@
                     <div class="progress-wrapper">
                         <div class="progress-bar-vertical">
                             <div class="progress-fill" id="miningProgressFill"></div>
-                            <div class="progress-glow" id="miningGlow"></div>
+                            <div class="progress-glow"></div>
                         </div>
                         <div class="floating-coins" id="floatingCoins"></div>
                     </div>
@@ -173,6 +174,35 @@
                             <span class="boost-rate">2500 AXC / claim</span>
                         </div>
                         <span class="boost-duration">30 days</span>
+                    </div>
+                </div>
+
+                <!-- Tasks Section -->
+                <div class="neural-card" style="margin-top: 20px;">
+                    <div class="section-header">
+                        <h3><i class="fas fa-list-check"></i> DAILY TASKS</h3>
+                    </div>
+                    <div id="tasksContainer" class="tasks-container"></div>
+                </div>
+
+                <!-- Referral Section -->
+                <div class="neural-card">
+                    <div class="section-header">
+                        <h3><i class="fas fa-users"></i> REFERRAL SYSTEM</h3>
+                    </div>
+                    <div class="referral-stats">
+                        <div class="stat-card">
+                            <span class="stat-label">TOTAL REFERRALS</span>
+                            <span class="stat-value" id="referralCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">EARNED</span>
+                            <span class="stat-value" id="referralEarned">0 AXC</span>
+                        </div>
+                    </div>
+                    <div class="referral-link-container">
+                        <input type="text" id="referralLink" class="referral-link" readonly>
+                        <button class="copy-btn" id="copyReferralLink"><i class="fas fa-copy"></i></button>
                     </div>
                 </div>
             </div>
@@ -273,6 +303,7 @@
 
         <!-- ==================== MODALS ==================== -->
         
+        <!-- Deposit Modal -->
         <div id="depositModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -296,6 +327,7 @@
             </div>
         </div>
 
+        <!-- History Modal -->
         <div id="historyModal" class="modal">
             <div class="modal-content history-modal">
                 <div class="modal-header">
@@ -317,6 +349,7 @@
             </div>
         </div>
 
+        <!-- Notifications Modal -->
         <div id="notificationsModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -333,6 +366,7 @@
             </div>
         </div>
 
+        <!-- Toast -->
         <div id="toast" class="toast hidden">
             <div class="toast-content">
                 <i class="fas fa-info-circle"></i>
@@ -419,16 +453,19 @@
 
     <script src="app.js"></script>
     
+    <!-- Neural Background Generator -->
     <script>
         const neuralBg = document.getElementById('neuralBg');
-        for (let i = 0; i < 35; i++) {
-            const node = document.createElement('div');
-            node.className = 'neural-node';
-            node.style.left = Math.random() * 100 + '%';
-            node.style.top = Math.random() * 100 + '%';
-            node.style.animationDelay = Math.random() * 4 + 's';
-            node.style.animationDuration = (3 + Math.random() * 4) + 's';
-            neuralBg.appendChild(node);
+        if (neuralBg) {
+            for (let i = 0; i < 35; i++) {
+                const node = document.createElement('div');
+                node.className = 'neural-node';
+                node.style.left = Math.random() * 100 + '%';
+                node.style.top = Math.random() * 100 + '%';
+                node.style.animationDelay = Math.random() * 4 + 's';
+                node.style.animationDuration = (3 + Math.random() * 4) + 's';
+                neuralBg.appendChild(node);
+            }
         }
     </script>
 </body>
