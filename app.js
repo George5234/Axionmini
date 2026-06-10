@@ -1,6 +1,5 @@
 // ============================================================================
-// AXION AI - LEGENDARY EDITION v25.0 (FULLY OPTIMIZED)
-// ============================================================================
+// AXION AI - PROFESSIONAL EDITION v25.0 (COMPLETE)
 // جميع الحقوق محفوظة © 2024 Axion AI
 // ============================================================================
 
@@ -113,10 +112,12 @@ function formatTimeLeft(ms) {
 }
 
 function saveMiningState() {
+    if (!userId) return;
     localStorage.setItem(`axion_mining_${userId}`, JSON.stringify(miningState));
 }
 
 function loadMiningState() {
+    if (!userId) return;
     const saved = localStorage.getItem(`axion_mining_${userId}`);
     if (saved) {
         try { miningState = { ...miningState, ...JSON.parse(saved) }; } catch(e) {}
@@ -129,10 +130,12 @@ function loadMiningState() {
 }
 
 function getLastClaimTime() {
+    if (!userId) return 0;
     return parseInt(localStorage.getItem(`lastMiningClaim_${userId}`) || '0');
 }
 
 function setLastClaimTime() {
+    if (!userId) return;
     localStorage.setItem(`lastMiningClaim_${userId}`, Date.now().toString());
 }
 
@@ -143,21 +146,9 @@ function getCurrentReward() {
     return CONFIG.REWARD_PER_CLAIM;
 }
 
-function calculateProgress() {
-    const lastClaim = getLastClaimTime();
-    const now = Date.now();
-    const elapsed = now - lastClaim;
-    
-    if (elapsed >= CONFIG.COOLDOWN_MS) {
-        return CONFIG.ADS_PER_CLAIM;
-    }
-    
-    const timeProgress = (elapsed / CONFIG.COOLDOWN_MS) * CONFIG.ADS_PER_CLAIM;
-    return Math.min(CONFIG.ADS_PER_CLAIM, timeProgress + miningState.adsWatched);
-}
-
+// ✅ المنطق الأساسي البسيط - مضمون العمل
 function canClaim() {
-    return calculateProgress() >= CONFIG.ADS_PER_CLAIM;
+    return miningState.adsWatched >= CONFIG.ADS_PER_CLAIM;
 }
 
 function checkAutoFill() {
@@ -166,7 +157,9 @@ function checkAutoFill() {
         setLastClaimTime();
         return;
     }
-    if (Date.now() - lastClaim >= CONFIG.COOLDOWN_MS && !canClaim()) {
+    if (Date.now() - lastClaim >= CONFIG.COOLDOWN_MS && miningState.adsWatched < CONFIG.ADS_PER_CLAIM) {
+        miningState.adsWatched = CONFIG.ADS_PER_CLAIM;
+        saveMiningState();
         updateMiningUI();
         showToast('🎉 Mining completed automatically! Claim your reward!', 'success');
     }
@@ -177,10 +170,12 @@ function checkAutoFill() {
 // ============================================================================
 
 function saveNotifications() {
+    if (!userId) return;
     localStorage.setItem(`axion_notifications_${userId}`, JSON.stringify(notifications));
 }
 
 function loadNotifications() {
+    if (!userId) return;
     const saved = localStorage.getItem(`axion_notifications_${userId}`);
     if (saved) {
         try {
@@ -229,13 +224,23 @@ function renderNotificationsList() {
         <div class="notification-item ${!n.read ? 'unread' : ''}" onclick="window.markNotificationRead('${n.id}')">
             <div class="notification-icon ${n.type}"><i class="fas ${n.type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i></div>
             <div class="notification-content">
-                <div class="notification-title">${n.title}</div>
-                <div class="notification-message">${n.message}</div>
+                <div class="notification-title">${escapeHtml(n.title)}</div>
+                <div class="notification-message">${escapeHtml(n.message)}</div>
                 <div class="notification-time">${new Date(n.timestamp).toLocaleString()}</div>
             </div>
             ${!n.read ? '<div class="notification-unread-dot"></div>' : ''}
         </div>
     `).join('');
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
 }
 
 function showNotificationsModal() {
@@ -275,6 +280,137 @@ function clearAllNotifications() {
 }
 
 // ============================================================================
+// MINING UI - HYBRID (يدعم الواجهة القديمة والجديدة معاً)
+// ============================================================================
+
+function updateMiningUI() {
+    // التأكد من وجود userId قبل التحديث
+    if (!userId) return;
+    
+    const progressPercent = Math.min(100, (miningState.adsWatched / CONFIG.ADS_PER_CLAIM) * 100);
+    const isReady = canClaim();
+    const reward = getCurrentReward();
+    const remainingTime = getLastClaimTime() ? Math.max(0, CONFIG.COOLDOWN_MS - (Date.now() - getLastClaimTime())) : 0;
+    const harvestedAXC = miningState.adsWatched * CONFIG.REWARD_PER_AD;
+    
+    // ===== العناصر الجديدة (صفحة Earn المطورة) =====
+    const verticalFill = document.getElementById('miningProgressFill');
+    const minedCounter = document.getElementById('minedCounter');
+    const progressText = document.getElementById('progressText');
+    const timerEl = document.getElementById('miningTimer');
+    const claimBtnNew = document.getElementById('claimMiningBtn');
+    const watchAdBtn = document.getElementById('watchAdBtn');
+    
+    // تحديث العمود الرأسي
+    if (verticalFill) verticalFill.style.height = `${progressPercent}%`;
+    
+    // تحديث العداد الكبير
+    if (minedCounter) {
+        minedCounter.textContent = harvestedAXC.toLocaleString();
+        minedCounter.setAttribute('data-value', harvestedAXC);
+    }
+    
+    // تحديث نص التقدم
+    if (progressText) {
+        const adsLeft = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
+        if (isReady) {
+            progressText.innerHTML = `✅ Ready to harvest! Click the button below.`;
+        } else if (remainingTime > 0 && remainingTime < CONFIG.COOLDOWN_MS) {
+            progressText.innerHTML = `⏳ Auto-harvest in ${formatTimeLeft(remainingTime)}`;
+        } else {
+            progressText.innerHTML = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM} Progress | ${adsLeft} ads left`;
+        }
+    }
+    
+    // تحديث المؤقت
+    if (timerEl) {
+        if (isReady) {
+            timerEl.textContent = 'READY!';
+            timerEl.style.color = '#39ff14';
+            timerEl.style.textShadow = '0 0 10px #39ff14';
+        } else if (remainingTime > 0) {
+            timerEl.textContent = formatTimeLeft(remainingTime);
+            if (remainingTime < 30 * 60 * 1000) {
+                timerEl.style.color = '#ff5555';
+                timerEl.style.textShadow = '0 0 10px #ff5555';
+            } else {
+                timerEl.style.color = '#a0ffc0';
+                timerEl.style.textShadow = 'none';
+            }
+        } else {
+            timerEl.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+            timerEl.style.color = '#a0ffc0';
+        }
+    }
+    
+    // تحديث زر CLAIM
+    if (claimBtnNew) {
+        if (isReady && !isClaiming) {
+            claimBtnNew.style.display = 'flex';
+            claimBtnNew.disabled = false;
+            claimBtnNew.innerHTML = `<i class="fas fa-gem"></i> HARVEST ${reward.toLocaleString()} AXC`;
+        } else if (isClaiming) {
+            claimBtnNew.style.display = 'flex';
+            claimBtnNew.disabled = true;
+            claimBtnNew.innerHTML = '<span class="spinner"></span> HARVESTING...';
+        } else {
+            claimBtnNew.style.display = 'none';
+        }
+    }
+    
+    // تحديث زر WATCH AD (تعطيل إذا كان harvesting جاهز)
+    if (watchAdBtn) {
+        if (isReady) {
+            watchAdBtn.disabled = true;
+            watchAdBtn.style.opacity = '0.5';
+        } else {
+            watchAdBtn.disabled = false;
+            watchAdBtn.style.opacity = '1';
+        }
+    }
+    
+    // ===== العناصر القديمة (للتوافق مع الإصدارات السابقة) =====
+    const progressFill = document.getElementById('miningProgress');
+    const timer = document.getElementById('miningTimerOld');
+    const info = document.getElementById('nextReward');
+    const rate = document.getElementById('miningRate');
+    const power = document.getElementById('miningPower');
+    const balance = document.getElementById('miningAxcBalance');
+    const counter = document.getElementById('adsCounter');
+    
+    if (progressFill) progressFill.style.width = `${progressPercent}%`;
+    
+    if (timer) {
+        if (isReady) timer.textContent = 'READY!';
+        else if (remainingTime > 0) timer.textContent = formatTimeLeft(remainingTime);
+        else timer.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    }
+    
+    if (info) {
+        if (isReady) info.innerHTML = `🎉 CLAIM ${reward.toLocaleString()} AXC READY!`;
+        else if (remainingTime > 0) info.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
+        else info.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim`;
+    }
+    
+    if (counter) counter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
+    if (rate) rate.textContent = `${reward.toLocaleString()} AXC`;
+    if (power) power.textContent = miningState.boostType ? CONFIG.BOOSTS[miningState.boostType].name : 'STANDARD';
+    if (balance && currentUser) balance.textContent = (currentUser.balance || 0).toLocaleString();
+}
+
+function startMiningTimer() {
+    if (miningTimer) clearInterval(miningTimer);
+    miningTimer = setInterval(() => {
+        try {
+            checkAutoFill();
+            updateMiningUI();
+        } catch(e) {
+            console.error('Timer error:', e);
+        }
+    }, 1000);
+}
+
+// ============================================================================
 // FLYING COIN EFFECT
 // ============================================================================
 
@@ -285,7 +421,7 @@ function createFlyingCoin(delay = 0) {
         
         const coin = document.createElement('div');
         coin.className = 'flying-coin';
-        coin.innerHTML = `✦ +10 AXC ✦`;
+        coin.innerHTML = `✦ +${CONFIG.REWARD_PER_AD} AXC ✦`;
         coin.style.left = (30 + Math.random() * 40) + '%';
         coin.style.top = (40 + Math.random() * 30) + '%';
         container.appendChild(coin);
@@ -295,123 +431,17 @@ function createFlyingCoin(delay = 0) {
 }
 
 // ============================================================================
-// MINING UI - LEGENDARY VERSION
-// ============================================================================
-
-function updateMiningUI() {
-    const totalProgress = calculateProgress();
-    const progressPercent = (totalProgress / CONFIG.ADS_PER_CLAIM) * 100;
-    const harvestedAXC = totalProgress * CONFIG.REWARD_PER_AD;
-    const isReady = canClaim();
-    const reward = getCurrentReward();
-    const remainingTime = getLastClaimTime() ? Math.max(0, CONFIG.COOLDOWN_MS - (Date.now() - getLastClaimTime())) : 0;
-    
-    // عناصر صفحة Earn الجديدة
-    const verticalFill = document.getElementById('miningProgressFill');
-    const minedCounter = document.getElementById('minedCounter');
-    const progressText = document.getElementById('progressText');
-    const timerEl = document.getElementById('miningTimer');
-    const claimBtn = document.getElementById('claimMiningBtn');
-    
-    // عناصر التوافق القديم
-    const horizontalFill = document.getElementById('miningProgress');
-    const oldTimer = document.getElementById('miningTimer');
-    const oldInfo = document.getElementById('nextReward');
-    const oldRate = document.getElementById('miningRate');
-    const oldPower = document.getElementById('miningPower');
-    const oldBalance = document.getElementById('miningAxcBalance');
-    const oldCounter = document.getElementById('adsCounter');
-    
-    // تحديث العمود الرأسي
-    if (verticalFill) verticalFill.style.height = `${progressPercent}%`;
-    
-    // تحديث العداد الكبير
-    if (minedCounter) {
-        animateCounter(minedCounter, harvestedAXC);
-    }
-    
-    // تحديث النص المساعد
-    if (progressText) {
-        const adsNeeded = Math.max(0, CONFIG.ADS_PER_CLAIM - miningState.adsWatched);
-        progressText.innerHTML = `${Math.floor(totalProgress)} / ${CONFIG.ADS_PER_CLAIM} Progress | ${adsNeeded} ads left`;
-    }
-    
-    // تحديث المؤقت مع تغيير اللون
-    if (timerEl) {
-        timerEl.textContent = formatTimeLeft(remainingTime);
-        if (remainingTime < 30 * 60 * 1000 && remainingTime > 0) {
-            timerEl.style.color = '#ff5555';
-            timerEl.style.textShadow = '0 0 15px #ff5555';
-        } else {
-            timerEl.style.color = '#a0ffc0';
-            timerEl.style.textShadow = 'none';
-        }
-    }
-    
-    // تحديث العناصر القديمة للتوافق
-    if (horizontalFill) horizontalFill.style.width = `${Math.min(100, progressPercent)}%`;
-    if (oldTimer) {
-        if (isReady) oldTimer.textContent = 'READY!';
-        else if (remainingTime > 0) oldTimer.textContent = formatTimeLeft(remainingTime);
-        else oldTimer.textContent = `${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
-    }
-    if (oldInfo) {
-        if (isReady) oldInfo.innerHTML = `🎉 CLAIM ${reward} AXC READY!`;
-        else if (remainingTime > 0) oldInfo.innerHTML = `⏳ Auto-fill in ${formatTimeLeft(remainingTime)}`;
-        else oldInfo.innerHTML = `📺 ${CONFIG.ADS_PER_CLAIM - miningState.adsWatched} ads to claim`;
-    }
-    if (oldCounter) oldCounter.textContent = `📊 Progress: ${miningState.adsWatched} / ${CONFIG.ADS_PER_CLAIM}`;
-    if (oldRate) oldRate.textContent = `${reward} AXC`;
-    if (oldPower) oldPower.textContent = miningState.boostType ? CONFIG.BOOSTS[miningState.boostType].name : 'STANDARD';
-    if (oldBalance && currentUser) oldBalance.textContent = (currentUser.balance || 0).toLocaleString();
-    
-    // زر CLAIM
-    if (claimBtn) {
-        if (isReady && !isClaiming) {
-            claimBtn.style.display = 'flex';
-            claimBtn.disabled = false;
-            claimBtn.innerHTML = `<i class="fas fa-gem"></i> HARVEST NEURAL ENERGY`;
-        } else if (isClaiming) {
-            claimBtn.disabled = true;
-            claimBtn.innerHTML = '<span class="spinner"></span> HARVESTING...';
-        } else {
-            claimBtn.style.display = 'none';
-        }
-    }
-}
-
-function animateCounter(el, target) {
-    let start = parseInt(el.getAttribute('data-value')) || 0;
-    const duration = 600;
-    const startTime = Date.now();
-    
-    if (start === target) return;
-    
-    function update() {
-        const progress = Math.min((Date.now() - startTime) / duration, 1);
-        const value = Math.floor(start + (target - start) * progress);
-        el.textContent = value.toLocaleString();
-        el.setAttribute('data-value', value);
-        if (progress < 1) requestAnimationFrame(update);
-    }
-    update();
-}
-
-function startMiningTimer() {
-    if (miningTimer) clearInterval(miningTimer);
-    miningTimer = setInterval(() => {
-        checkAutoFill();
-        updateMiningUI();
-    }, 1000);
-}
-
-// ============================================================================
 // CLAIM REWARD
 // ============================================================================
 
 async function claimMiningReward() {
     if (!canClaim()) {
-        showToast(`Need ${Math.ceil(CONFIG.ADS_PER_CLAIM - calculateProgress())} more progress!`, 'warning');
+        const remaining = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
+        if (remaining > 0) {
+            showToast(`Watch ${remaining} more ad${remaining > 1 ? 's' : ''} to harvest!`, 'warning');
+        } else {
+            showToast('Please wait for auto-harvest or watch more ads', 'warning');
+        }
         return;
     }
     if (isClaiming) return;
@@ -435,13 +465,14 @@ async function claimMiningReward() {
             setLastClaimTime();
             await loadUserData();
             updateMiningUI();
-            addNotification('Mining Reward!', `You claimed ${reward} AXC!`, 'success');
-            showToast(`🎉 +${reward} AXC CLAIMED!`, 'success');
+            addNotification('Mining Reward!', `You harvested ${reward.toLocaleString()} AXC!`, 'success');
+            showToast(`🎉 +${reward.toLocaleString()} AXC HARVESTED!`, 'success');
             showConfetti();
         } else {
-            showToast('Claim failed, try again', 'error');
+            showToast('Harvest failed, try again', 'error');
         }
     } catch(e) {
+        console.error('Claim error:', e);
         showToast('Network error', 'error');
     } finally {
         isClaiming = false;
@@ -486,21 +517,21 @@ async function tryShowAd(platform) {
 
 async function watchAd() {
     if (canClaim()) {
-        showToast('Complete your harvest first!', 'warning');
+        showToast('Harvest your reward first!', 'warning');
         return;
     }
     if (adSequenceActive) {
-        showToast('Mining in progress...', 'warning');
+        showToast('Ad in progress...', 'warning');
         return;
     }
     
     adSequenceActive = true;
     const btn = document.getElementById('watchAdBtn');
-    const originalText = btn?.innerHTML || '';
+    const originalText = btn ? btn.innerHTML : '';
     
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> NEURAL MINING...';
+        btn.innerHTML = '<span class="spinner"></span> LOADING AD...';
     }
     
     let success = false;
@@ -510,12 +541,11 @@ async function watchAd() {
     }
     
     if (success) {
-        const oldProgress = calculateProgress();
-        
+        const oldProgress = miningState.adsWatched;
         miningState.adsWatched = Math.min(miningState.adsWatched + 1, CONFIG.ADS_PER_CLAIM);
         saveMiningState();
         
-        // تأثيرات بصرية - عملات طائرة متعددة
+        // تأثير العملات الطائرة
         createFlyingCoin(0);
         createFlyingCoin(150);
         createFlyingCoin(300);
@@ -524,12 +554,12 @@ async function watchAd() {
         
         const remaining = CONFIG.ADS_PER_CLAIM - miningState.adsWatched;
         if (remaining === 0) {
-            showToast(`🎉 HARVEST READY! Click CLAIM for ${getCurrentReward()} AXC! 🎉`, 'success');
+            showToast(`🎉 HARVEST READY! Click HARVEST for ${getCurrentReward().toLocaleString()} AXC! 🎉`, 'success');
         } else {
-            showToast(`✅ +10 AXC harvested! ${remaining} steps to harvest`, 'success');
+            showToast(`✅ +${CONFIG.REWARD_PER_AD} AXC harvested! ${remaining} step${remaining > 1 ? 's' : ''} remaining`, 'success');
         }
     } else {
-        showToast('Mining failed. Neural network unstable. Try again.', 'error');
+        showToast('Ad failed to load. Please try again.', 'error');
     }
     
     adSequenceActive = false;
@@ -548,6 +578,16 @@ async function activateBoost(boostKey) {
     if (!boost) return;
     if (!tonConnected || !tonWalletAddress) {
         showToast('Connect TON wallet first', 'warning');
+        if (window.tonConnectUI) {
+            try {
+                await window.tonConnectUI.openModal();
+                setTimeout(() => {
+                    if (!tonConnected || !tonWalletAddress) {
+                        showToast('Please connect wallet first', 'warning');
+                    }
+                }, 3000);
+            } catch(e) {}
+        }
         return;
     }
     if (!CONFIG.ownerWallet) {
@@ -566,11 +606,13 @@ async function activateBoost(boostKey) {
         miningState.boostExpiry = Date.now() + (boost.duration * 24 * 60 * 60 * 1000);
         saveMiningState();
         updateMiningUI();
-        addNotification('Boost Activated!', `${boost.name} boost activated!`, 'success');
+        addNotification('Boost Activated!', `${boost.name} boost activated for ${boost.duration} days!`, 'success');
         showToast(`✅ ${boost.name} BOOST ACTIVATED!`, 'success');
-        document.getElementById('boostOptions')?.style.display = 'none';
+        
+        const boostOptions = document.getElementById('boostOptions');
+        if (boostOptions) boostOptions.style.display = 'none';
     } catch(e) {
-        showToast('Payment cancelled', 'error');
+        showToast('Payment cancelled or failed', 'error');
     }
 }
 
@@ -581,11 +623,13 @@ async function activateBoost(boostKey) {
 function renderTasks() {
     const container = document.getElementById('tasksContainer');
     if (!container) return;
+    if (!userId) return;
+    
     const tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
     container.innerHTML = tasks.map(task => `
         <div class="task-item ${task.completed ? 'completed' : ''}">
             <div class="task-info">
-                <div class="task-name">${task.name}</div>
+                <div class="task-name">${escapeHtml(task.name)}</div>
                 <div class="task-reward">+${task.reward} AXC</div>
             </div>
             ${!task.completed ? 
@@ -597,34 +641,40 @@ function renderTasks() {
 }
 
 async function completeTask(taskId) {
+    if (!userId) return;
+    
     const tasks = JSON.parse(localStorage.getItem(`axion_tasks_${userId}`) || JSON.stringify(CONFIG.tasks));
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.completed) return;
     if (task.url) window.open(task.url, '_blank');
     
-    showToast(`Task: ${task.name}. +${task.reward} AXC in 15 seconds...`, 'info');
+    showToast(`Complete ${task.name} to earn +${task.reward} AXC`, 'info');
     
     setTimeout(async () => {
         task.completed = true;
         localStorage.setItem(`axion_tasks_${userId}`, JSON.stringify(tasks));
         
-        const res = await fetch('/api/add-balance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, amount: task.reward, currency: 'AXC' })
-        });
-        const data = await res.json();
-        if (data.success) {
-            await loadUserData();
-            renderTasks();
-            addNotification('Task Completed!', `You earned ${task.reward} AXC!`, 'success');
-            showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
+        try {
+            const res = await fetch('/api/add-balance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, amount: task.reward, currency: 'AXC' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                await loadUserData();
+                renderTasks();
+                addNotification('Task Completed!', `You earned ${task.reward} AXC!`, 'success');
+                showToast(`✅ +${task.reward} AXC ADDED!`, 'success');
+            }
+        } catch(e) {
+            showToast('Error claiming reward', 'error');
         }
     }, 15000);
 }
 
 // ============================================================================
-// API & USER DATA (WITH TIMEOUT & CACHE)
+// API & USER DATA
 // ============================================================================
 
 async function loadConfig() {
@@ -640,7 +690,8 @@ async function loadConfig() {
             CONFIG.minSwap = data.config.minSwap || 100;
             CONFIG.maxSwap = data.config.maxSwap || 100000;
         }
-        document.getElementById('axcPrice').textContent = CONFIG.axcPrice;
+        const priceEl = document.getElementById('axcPrice');
+        if (priceEl) priceEl.textContent = CONFIG.axcPrice;
     } catch(e) { console.error('Config error:', e); }
 }
 
@@ -648,8 +699,10 @@ async function initFirebase() {
     try {
         const res = await fetch('/api/config');
         const config = await res.json();
-        if (firebase.apps.length === 0) firebase.initializeApp(config.firebaseConfig);
-        db = firebase.firestore();
+        if (window.firebase && window.firebase.apps && window.firebase.apps.length === 0) {
+            window.firebase.initializeApp(config.firebaseConfig);
+            db = window.firebase.firestore();
+        }
     } catch(e) { console.error('Firebase error:', e); }
 }
 
@@ -706,15 +759,6 @@ async function fetchLivePrices() {
         if (cached) {
             livePrices = JSON.parse(cached);
             renderTopCryptos();
-            showToast('Using cached prices', 'info');
-        } else {
-            livePrices = {
-                BTC: { price: 68500, change: 2.4 },
-                ETH: { price: 3200, change: 1.2 },
-                BNB: { price: 580, change: -0.8 },
-                TON: { price: 5.5, change: -0.5 }
-            };
-            renderTopCryptos();
         }
     }
 }
@@ -742,46 +786,65 @@ function updateWalletUI() {
 
 function renderAssets() {
     const container = document.getElementById('assetsList');
-    if (!container) {
-        console.warn('assetsList container not found');
-        return;
-    }
+    if (!container) return;
     if (!currentUser) {
         container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
         return;
     }
     container.innerHTML = `
         <div class="asset-item">
-            <div class="asset-left"><img src="${CMC_ICONS.AXC}" class="asset-icon-img"><div class="asset-info"><h4>Axion Coin</h4><p>AXC</p></div></div>
-            <div class="asset-right"><div class="asset-balance">${(currentUser.balance || 0).toLocaleString()} AXC</div><div class="asset-value">$${formatNumber((currentUser.balance || 0) * CONFIG.axcPrice)}</div></div>
+            <div class="asset-left">
+                <img src="${CMC_ICONS.AXC}" class="asset-icon-img" onerror="this.src='https://placehold.co/40x40/0a180a/39ff14?text=AXC'">
+                <div class="asset-info">
+                    <h4>Axion Coin</h4>
+                    <p>AXC</p>
+                </div>
+            </div>
+            <div class="asset-right">
+                <div class="asset-balance">${(currentUser.balance || 0).toLocaleString()} AXC</div>
+                <div class="asset-value">$${formatNumber((currentUser.balance || 0) * CONFIG.axcPrice)}</div>
+            </div>
         </div>
         <div class="asset-item">
-            <div class="asset-left"><img src="${CMC_ICONS.USDT}" class="asset-icon-img"><div class="asset-info"><h4>Tether</h4><p>USDT</p></div></div>
-            <div class="asset-right"><div class="asset-balance">${(currentUser.usdtBalance || 0).toFixed(2)} USDT</div><div class="asset-value">$${formatNumber(currentUser.usdtBalance || 0)}</div></div>
+            <div class="asset-left">
+                <img src="${CMC_ICONS.USDT}" class="asset-icon-img" onerror="this.src='https://placehold.co/40x40/0a180a/39ff14?text=USDT'">
+                <div class="asset-info">
+                    <h4>Tether</h4>
+                    <p>USDT</p>
+                </div>
+            </div>
+            <div class="asset-right">
+                <div class="asset-balance">${(currentUser.usdtBalance || 0).toFixed(2)} USDT</div>
+                <div class="asset-value">$${formatNumber(currentUser.usdtBalance || 0)}</div>
+            </div>
         </div>
     `;
 }
 
 function renderTopCryptos() {
     const container = document.getElementById('topCryptoList');
-    if (!container) {
-        console.warn('topCryptoList container not found');
-        return;
-    }
-    if (!livePrices || Object.keys(livePrices).length === 0) {
-        container.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading prices...</div>';
-        return;
-    }
+    if (!container) return;
+    
     const cryptos = [
         { symbol: 'BTC', name: 'Bitcoin', icon: CMC_ICONS.BTC, price: livePrices.BTC?.price || 68500, change: livePrices.BTC?.change || 0 },
         { symbol: 'ETH', name: 'Ethereum', icon: CMC_ICONS.ETH, price: livePrices.ETH?.price || 3200, change: livePrices.ETH?.change || 0 },
         { symbol: 'BNB', name: 'BNB', icon: CMC_ICONS.BNB, price: livePrices.BNB?.price || 580, change: livePrices.BNB?.change || 0 },
         { symbol: 'TON', name: 'Toncoin', icon: CMC_ICONS.TON, price: livePrices.TON?.price || 5.5, change: livePrices.TON?.change || 0 }
     ];
+    
     container.innerHTML = cryptos.map(c => `
         <div class="crypto-item">
-            <div class="crypto-left"><img src="${c.icon}" class="crypto-icon-img"><div class="crypto-info"><h4>${c.name}</h4><p>${c.symbol}</p></div></div>
-            <div class="crypto-right"><div class="crypto-price">$${c.price.toLocaleString()}</div><div class="crypto-change ${c.change >= 0 ? 'positive' : 'negative'}">${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)}%</div></div>
+            <div class="crypto-left">
+                <img src="${c.icon}" class="crypto-icon-img" onerror="this.src='https://placehold.co/40x40/0a180a/39ff14?text=${c.symbol}'">
+                <div class="crypto-info">
+                    <h4>${c.name}</h4>
+                    <p>${c.symbol}</p>
+                </div>
+            </div>
+            <div class="crypto-right">
+                <div class="crypto-price">$${c.price.toLocaleString()}</div>
+                <div class="crypto-change ${c.change >= 0 ? 'positive' : 'negative'}">${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)}%</div>
+            </div>
         </div>
     `).join('');
 }
@@ -805,7 +868,8 @@ function updateReferralUI() {
 // ============================================================================
 
 function showDepositModal() {
-    document.getElementById('depositModal')?.classList.add('show');
+    const modal = document.getElementById('depositModal');
+    if (modal) modal.classList.add('show');
 }
 
 function copyDepositAddress() {
@@ -820,8 +884,8 @@ async function confirmDeposit() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, userName: currentUser?.userName || 'Axion User', currency: 'AXC' })
         });
-        addNotification('Deposit Request', 'Admin notified.', 'info');
-        showToast('Admin notified! AXC will be added within 15 minutes.', 'success');
+        addNotification('Deposit Request', 'Admin notified. AXC will be added within 15 minutes.', 'info');
+        showToast('Admin notified!', 'success');
     } catch(e) {}
     closeModal('depositModal');
 }
@@ -835,6 +899,8 @@ function showHistoryModal() {
 function renderHistory() {
     const container = document.getElementById('historyList');
     if (!container) return;
+    if (!userId) return;
+    
     const tx = JSON.parse(localStorage.getItem(`axion_transactions_${userId}`) || '[]');
     if (tx.length === 0) {
         container.innerHTML = '<div class="empty-state">No transactions yet</div>';
@@ -842,15 +908,16 @@ function renderHistory() {
     }
     container.innerHTML = tx.slice(0, 50).map(t => `
         <div class="history-item">
-            <div class="history-type ${t.type}">${t.type.toUpperCase()}</div>
-            <div class="history-amount">${t.amount} ${t.currency}</div>
+            <div class="history-type ${t.type}">${(t.type || 'unknown').toUpperCase()}</div>
+            <div class="history-amount">${t.amount} ${t.currency || ''}</div>
             <div class="history-date">${new Date(t.timestamp).toLocaleString()}</div>
         </div>
     `).join('');
 }
 
 function closeModal(modalId) {
-    document.getElementById(modalId)?.classList.remove('show');
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('show');
 }
 
 // ============================================================================
@@ -943,18 +1010,9 @@ async function submitWithdraw() {
     const max = withdrawCurrency === 'AXC' ? 50000 : 1000;
     const balance = withdrawCurrency === 'AXC' ? (currentUser?.balance || 0) : (currentUser?.usdtBalance || 0);
     
-    if (amount < min) {
-        showToast(`Minimum ${min} ${withdrawCurrency}`, 'error');
-        return;
-    }
-    if (amount > max) {
-        showToast(`Maximum ${max} ${withdrawCurrency}`, 'error');
-        return;
-    }
-    if (amount > balance) {
-        showToast(`Insufficient ${withdrawCurrency} balance`, 'error');
-        return;
-    }
+    if (amount < min) { showToast(`Minimum ${min} ${withdrawCurrency}`, 'error'); return; }
+    if (amount > max) { showToast(`Maximum ${max} ${withdrawCurrency}`, 'error'); return; }
+    if (amount > balance) { showToast(`Insufficient ${withdrawCurrency} balance`, 'error'); return; }
     
     const btn = document.querySelector('.sheet-submit-btn');
     const originalText = btn ? btn.innerHTML : '';
@@ -1054,15 +1112,14 @@ function initTonConnect() {
             buttonRootId: 'ton-connect'
         });
         window.tonConnectUI.onStatusChange(wallet => {
+            const statusEl = document.getElementById('walletStatus');
             if (wallet) {
                 tonConnected = true;
                 tonWalletAddress = wallet.account.address;
-                const statusEl = document.getElementById('walletStatus');
                 if (statusEl) statusEl.innerHTML = `${tonWalletAddress.slice(0, 6)}...${tonWalletAddress.slice(-6)}`;
             } else {
                 tonConnected = false;
                 tonWalletAddress = null;
-                const statusEl = document.getElementById('walletStatus');
                 if (statusEl) statusEl.innerHTML = 'Not connected';
             }
         });
@@ -1099,9 +1156,7 @@ function showSwapStatus(msg, isErr) {
 
 function showActivationModal() {
     const modal = document.getElementById('verificationModal');
-    if (!modal) return;
-    if (currentUser?.tonPaid) return;
-    modal.classList.add('active');
+    if (modal && !currentUser?.tonPaid) modal.classList.add('active');
 }
 
 function hideActivationModal() {
@@ -1115,26 +1170,21 @@ async function handleActivation() {
         if (window.tonConnectUI) {
             try {
                 await window.tonConnectUI.openModal();
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                if (!tonConnected || !tonWalletAddress) {
-                    showSwapStatus('Wallet not connected', true);
-                    return false;
-                }
+                setTimeout(() => {
+                    if (!tonConnected || !tonWalletAddress) {
+                        showSwapStatus('Wallet not connected', true);
+                    }
+                }, 3000);
             } catch(e) {
                 showSwapStatus('Connection failed', true);
-                return false;
             }
-        } else {
-            showSwapStatus('TON Connect not available', true);
-            return false;
         }
+        return false;
     }
-    
     if (!CONFIG.ownerWallet) {
         showSwapStatus('Owner wallet not configured', true);
         return false;
     }
-    
     if (isActivating) return false;
     isActivating = true;
     
@@ -1155,7 +1205,7 @@ async function handleActivation() {
         if (data.success) {
             await loadUserData();
             updateSwapUI();
-            addNotification('Swap Activated!', 'You can now swap!', 'success');
+            addNotification('Swap Activated!', 'You can now swap AXC to USDT!', 'success');
             showSwapStatus('Swap unlocked!', false);
             showConfetti();
             return true;
@@ -1189,9 +1239,9 @@ async function executeSwap() {
     }
     const amount = parseFloat(document.getElementById('swapFrom')?.value || '0');
     if (isSwapping) return;
-    if (amount < CONFIG.minSwap) { showSwapStatus(`Min ${CONFIG.minSwap} AXC`, true); return; }
-    if (amount > CONFIG.maxSwap) { showSwapStatus(`Max ${CONFIG.maxSwap} AXC`, true); return; }
-    if (amount > (currentUser?.balance || 0)) { showSwapStatus('Insufficient balance', true); return; }
+    if (amount < CONFIG.minSwap) { showSwapStatus(`Minimum swap is ${CONFIG.minSwap} AXC`, true); return; }
+    if (amount > CONFIG.maxSwap) { showSwapStatus(`Maximum swap is ${CONFIG.maxSwap} AXC`, true); return; }
+    if (amount > (currentUser?.balance || 0)) { showSwapStatus('Insufficient AXC balance', true); return; }
     
     isSwapping = true;
     const btn = document.getElementById('swapBtn');
@@ -1213,7 +1263,7 @@ async function executeSwap() {
             const swapTo = document.getElementById('swapTo');
             if (swapFrom) swapFrom.value = '';
             if (swapTo) swapTo.value = '';
-            addNotification('Swap Completed!', `Swapped ${amount} AXC to ${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
+            addNotification('Swap Completed!', `Swapped ${amount.toLocaleString()} AXC to ${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, 'success');
             showSwapStatus(`✅ Swapped ${amount.toLocaleString()} AXC → $${(amount * CONFIG.axcPrice).toFixed(2)} USDT`, false);
             showConfetti();
         } else {
@@ -1240,10 +1290,10 @@ function renderAxionPage() {
     if (!container) return;
     container.innerHTML = `
         <div class="axion-hero"><div class="axion-icon">🧠</div><h1 class="axion-title">AXION AI</h1><p class="axion-subtitle">NEURAL INTELLIGENCE PROTOCOL</p></div>
-        <div class="axion-card"><div class="axion-card-title">⚡ THE FUTURE OF DEFI & AI</div><p class="axion-card-text">Axion Coin (AXC) is a next-generation decentralized trading and liquidity token...</p></div>
+        <div class="axion-card"><div class="axion-card-title">⚡ THE FUTURE OF DEFI & AI</div><p class="axion-card-text">Axion Coin (AXC) is a next-generation decentralized trading and liquidity token powered by artificial intelligence. Our neural network analyzes market conditions to optimize yields and reduce risks.</p></div>
         <div class="axion-card"><div class="axion-card-title">🎯 KEY FEATURES</div><div class="axion-features"><div class="axion-feature">🤖 AI TRADING INTELLIGENCE</div><div class="axion-feature">💧 DECENTRALIZED LIQUIDITY</div><div class="axion-feature">🗳️ COMMUNITY GOVERNANCE</div><div class="axion-feature">💰 STAKING REWARDS</div></div></div>
-        <div class="axion-card"><div class="axion-card-title">📊 TOKENOMICS</div><div class="axion-stat"><span>NETWORK:</span><span>BNB SMART CHAIN (BEP-20)</span></div><div class="axion-stat"><span>TOTAL SUPPLY:</span><span>500,000,000 AXC</span></div><div class="axion-stat"><span>LAUNCH PRICE:</span><span>$0.003</span></div></div>
-        <div class="axion-card"><div class="axion-card-title">🔮 OPEN-SOURCE AI MODEL</div><p class="axion-card-text">NO BOUNDARIES. NO RED LINES.</p><div class="axion-badge">COMING SOON</div></div>
+        <div class="axion-card"><div class="axion-card-title">📊 TOKENOMICS</div><div class="axion-stat"><span class="axion-stat-label">NETWORK:</span><span class="axion-stat-value">BNB SMART CHAIN (BEP-20)</span></div><div class="axion-stat"><span class="axion-stat-label">TOTAL SUPPLY:</span><span class="axion-stat-value">500,000,000 AXC</span></div><div class="axion-stat"><span class="axion-stat-label">LAUNCH PRICE:</span><span class="axion-stat-value">$0.003</span></div><div class="axion-stat"><span class="axion-stat-label">CURRENT PRICE:</span><span class="axion-stat-value">$${CONFIG.axcPrice}</span></div></div>
+        <div class="axion-card"><div class="axion-card-title">🔮 OPEN-SOURCE AI MODEL</div><p class="axion-card-text">NO BOUNDARIES. NO RED LINES. Our AI model is fully transparent and community-driven.</p><div class="axion-badge">COMING SOON</div></div>
     `;
 }
 
@@ -1280,28 +1330,34 @@ function switchTab(page) {
 async function init() {
     console.log('🚀 AXION AI v25.0 INITIALIZING...');
     
+    // الحصول على userId من URL أو من Telegram WebApp
     const urlParams = new URLSearchParams(window.location.search);
     userId = urlParams.get('userId');
     if (!userId && tg?.initDataUnsafe?.user) userId = tg.initDataUnsafe.user.id.toString();
     if (!userId) {
+        console.error('No userId found');
         showToast('Please open from Telegram bot', 'error');
         return;
     }
     
+    console.log('📱 User ID:', userId);
     showToast('Loading your data...', 'info');
     
+    // تحميل جميع البيانات
     await loadConfig();
     await initFirebase();
     initTonConnect();
     await loadUserData();
     await fetchLivePrices();
     
+    // تحميل حالة التعدين والإشعارات
     loadMiningState();
     loadNotifications();
     updateMiningUI();
     startMiningTimer();
     checkAutoFill();
     
+    // عرض المهام وصفحة Axion
     renderTasks();
     renderAxionPage();
     updateReferralUI();
@@ -1371,6 +1427,7 @@ async function init() {
     if (modalProceed) modalProceed.onclick = () => { hideActivationModal(); handleActivation(); };
     if (modalCancel) modalCancel.onclick = () => hideActivationModal();
     
+    // بدء التشغيل
     switchTab('wallet');
     console.log('✅ AXION AI v25.0 READY!');
 }
