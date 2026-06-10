@@ -33,10 +33,10 @@ const CONFIG = {
         gold: { price: 10, reward: 2500, name: 'GOLD' }
     },
     tasks: [
-        { id: 1, name: 'Join Telegram Channel', url: 'https://t.me/AxionAiSignal', reward: 100, completed: false },
-        { id: 2, name: 'Follow on Twitter', url: 'https://twitter.com/AxionAI', reward: 100, completed: false },
-        { id: 3, name: 'Visit Website', url: 'https://axionai.io', reward: 100, completed: false },
-        { id: 4, name: 'Join Community', url: 'https://t.me/AxionAiCommunity', reward: 100, completed: false }
+        { id: 1, name: 'Join Telegram Channel', url: 'https://t.me/AxionAiSignal', reward: 10, completed: false },
+        { id: 2, name: 'Follow and RT axc post', url: 'https://x.com/Daily_AirdropX', reward: 10, completed: false },
+        { id: 3, name: 'Restart bot', url: 'https://t.me/AxionBep20Airdropbot?start', reward: 10, completed: false },
+        { id: 4, name: 'Join Community', url: 'https://t.me/AxionAiSignals', reward: 10, completed: false }
     ]
 };
 
