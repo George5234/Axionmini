@@ -1174,7 +1174,7 @@ function updateSwapUI() {
             swapBtn.innerHTML = '<i class="fas fa-exchange-alt"></i> CONFIRM SWAP';
             swapBtn.classList.add('active');
         } else {
-            swapBtn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (5 TON)';
+            swapBtn.innerHTML = '<i class="fas fa-lock"></i> Unlock Neural Swap (2 TON)';
             swapBtn.classList.remove('active');
         }
     }
