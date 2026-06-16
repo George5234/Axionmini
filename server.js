@@ -78,7 +78,7 @@ const APP_CONFIG = {
     maxWithdrawAXC: 50000,
     maxWithdrawUSDT: 1000,
     axcPrice: 0.01,
-    swapFeeTON: 5,
+    swapFeeTON: 2,
     minSwap: 100,
     maxSwap: 100000,
     maxNotifications: 50,
