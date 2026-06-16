@@ -18,7 +18,7 @@ if (tg) {
 
 const CONFIG = {
     axcPrice: 0.01,
-    swapFeeTON: 5,
+    swapFeeTON: 2,
     minSwap: 100,
     maxSwap: 100000,
     ownerWallet: null,
