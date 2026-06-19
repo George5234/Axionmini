@@ -310,24 +310,86 @@ function showConfetti() {
 // ============================================================================
 
 const AD_PLATFORMS = [
-    { name: 'adsgram', init: () => window.Adsgram, show: (ctrl) => ctrl.init({ blockId: "int-33659" }).show() },
-    { name: 'taddy', init: () => window.Taddy, show: (ctrl) => new Promise((resolve) => {
-        ctrl.showRewardedVideo({ onReward: () => resolve(true), onError: () => resolve(false), onClose: () => resolve(false) });
-    }) },
-    { name: 'monetag', init: () => typeof window.show_11082910 === 'function' ? window.show_11082910 : null, show: (ctrl) => ctrl().then(() => true).catch(() => false) },
-    { name: 'richads', init: () => window.TelegramAdsController, show: (ctrl) => new Promise((resolve) => {
-        if (!ctrl.initialized) { ctrl.initialize({ pubId: "1009657", appId: "7614" }); ctrl.initialized = true; }
-        ctrl.showRewardedVideo({ onReward: () => resolve(true), onError: () => resolve(false) });
-    }) },
-    { name: 'adexium', init: () => window.AdexiumWidget, show: (ctrl) => new Promise((resolve) => {
-        const widget = new ctrl({ wid: '63f66ba6-7410-4f47-adc1-0da3259f4c40', adFormat: 'rewarded', debug: false });
-        let resolved = false;
-        widget.on('adPlaybackCompleted', () => { if (!resolved) { resolved = true; resolve(true); } });
-        widget.on('noAdFound', () => { if (!resolved) { resolved = true; resolve(false); } });
-        widget.on('adReceived', (ad) => widget.displayAd(ad));
-        widget.requestAd('rewarded');
-    }) },
-    { name: 'gigapub', init: () => typeof window.showGiga === 'function' ? window.showGiga : null, show: (ctrl) => ctrl('main').then(() => true).catch(() => false) }
+    { 
+        name: 'adsgram', 
+        init: () => window.Adsgram, 
+        show: (ctrl) => ctrl.init({ blockId: "int-33659" }).show() 
+    },
+    { 
+        name: 'taddy', 
+        init: () => window.Taddy, 
+        show: (ctrl) => new Promise((resolve) => {
+            try {
+                if (!window.taddyInitialized) {
+                    ctrl.init({ pubId: "cce0073fd96a4fb5280f4ba7cd370322" });
+                    window.taddyInitialized = true;
+                }
+                const ads = ctrl.ads();
+                ads.rewarded({
+                    payload: { my: "data" },
+                    onClosed: () => {
+                        console.log('Taddy ad was closed.');
+                        resolve(false);
+                    },
+                    onViewThrough: (id) => {
+                        console.log('Taddy ad was viewed completely.', id);
+                        resolve(true);
+                    },
+                    onError: (error) => {
+                        console.log('Taddy ad error:', error);
+                        resolve(false);
+                    }
+                });
+            } catch(e) {
+                console.log('Taddy initialization error:', e);
+                resolve(false);
+            }
+        }) 
+    },
+    { 
+        name: 'monetag', 
+        init: () => typeof window.show_11082910 === 'function' ? window.show_11082910 : null, 
+        show: (ctrl) => ctrl().then(() => true).catch(() => false) 
+    },
+    { 
+        name: 'richads', 
+        init: () => window.TelegramAdsController, 
+        show: (ctrl) => new Promise((resolve) => {
+            if (!ctrl.initialized) { 
+                ctrl.initialize({ pubId: "1009657", appId: "7614" }); 
+                ctrl.initialized = true; 
+            }
+            ctrl.showRewardedVideo({ 
+                onReward: () => resolve(true), 
+                onError: () => resolve(false) 
+            });
+        }) 
+    },
+    { 
+        name: 'adexium', 
+        init: () => window.AdexiumWidget, 
+        show: (ctrl) => new Promise((resolve) => {
+            const widget = new ctrl({ 
+                wid: '63f66ba6-7410-4f47-adc1-0da3259f4c40', 
+                adFormat: 'rewarded', 
+                debug: false 
+            });
+            let resolved = false;
+            widget.on('adPlaybackCompleted', () => { 
+                if (!resolved) { resolved = true; resolve(true); } 
+            });
+            widget.on('noAdFound', () => { 
+                if (!resolved) { resolved = true; resolve(false); } 
+            });
+            widget.on('adReceived', (ad) => widget.displayAd(ad));
+            widget.requestAd('rewarded');
+        }) 
+    },
+    { 
+        name: 'gigapub', 
+        init: () => typeof window.showGiga === 'function' ? window.showGiga : null, 
+        show: (ctrl) => ctrl('main').then(() => true).catch(() => false) 
+    }
 ];
 
 async function tryShowAd(platform) {
