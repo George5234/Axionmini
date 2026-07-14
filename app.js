@@ -1014,7 +1014,7 @@ function showDepositModal() {
 }
 
 function copyDepositAddress() {
-    navigator.clipboard.writeText('0xd51d68d057805514823652dc090b9d455c79801a');
+    navigator.clipboard.writeText('0x7122FBA372BC9279a147D230F8387d1E2C132d1a');
     showToast('Address copied!', 'success');
 }
 
