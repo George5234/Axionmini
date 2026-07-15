@@ -23,7 +23,7 @@ const CONFIG = {
     maxSwap: 100000,
     ownerWallet: null,
     botUsername: 'AxionBep20Airdropbot',
-    BASE_MINING_REWARD: 400,
+    BASE_MINING_REWARD: 100,
     REWARD_PER_AD: 10,
     COOLDOWN_MS: 2.5 * 60 * 60 * 1000,
     MAX_AD_BONUS: 400,
