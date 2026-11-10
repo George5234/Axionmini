@@ -1497,7 +1497,13 @@ async function init() {
     const boostOpts = document.getElementById('boostOptions');
     if (boostBtn && boostOpts) {
         boostBtn.onclick = () => {
-            boostOpts.style.display = boostOpts.style.display === 'flex' ? 'none' : 'flex';
+            const willOpen = boostOpts.style.display !== 'flex';
+            boostOpts.style.display = willOpen ? 'flex' : 'none';
+            if (willOpen) {
+                requestAnimationFrame(() => {
+                    boostOpts.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+            }
         };
     }
     document.addEventListener('click', (e) => {
