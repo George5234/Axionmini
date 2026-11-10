@@ -199,7 +199,7 @@ function updateMiningUI() {
             claimBtn.innerHTML = `<i class="fas fa-leaf"></i><span>HARVEST ${totalReward.toLocaleString()} AXC</span>`;
             claimBtn.disabled = false;
         } else {
-            claimBtn.innerHTML = `<i class="fas fa-clock"></i><span>WAIT FOR CYCLE</span>`;
+            claimBtn.innerHTML = `<i class="fas fa-clock"></i><span>WAIT FOR CYCLE • ${totalReward.toLocaleString()} AXC</span>`;
             claimBtn.disabled = true;
         }
     }
